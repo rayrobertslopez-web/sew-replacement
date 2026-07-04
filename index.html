@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SEW Replace">
+<meta name="theme-color" content="#0f1115">
+<title>SEW Eurodrive Replacement Checker</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='38' fill='%230f1115'/%3E%3Crect x='34' y='60' width='112' height='60' rx='10' fill='%23f9b000'/%3E%3Ccircle cx='58' cy='90' r='9' fill='%230f1115'/%3E%3Ccircle cx='122' cy='90' r='9' fill='%230f1115'/%3E%3Crect x='74' y='84' width='32' height='12' rx='6' fill='%230f1115'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --txt:#eef1f6; --sub:#9aa4b2; --acc:#f9b000; --acc2:#ffcf4d;
+    --ok:#2ecc71; --warn:#f5a623; --bad:#ff5252; --blue:#4aa3ff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-bottom:env(safe-area-inset-bottom)}
+  header{padding:calc(env(safe-area-inset-top) + 16px) 16px 14px;background:linear-gradient(180deg,#12151b,#0f1115);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .m{width:38px;height:26px;border-radius:6px;background:var(--acc);position:relative;flex:none}
+  .brand .m:before,.brand .m:after{content:"";position:absolute;top:8px;width:8px;height:8px;border-radius:50%;background:#0f1115}
+  .brand .m:before{left:6px}.brand .m:after{right:6px}
+  h1{font-size:16px;margin:0;font-weight:800;letter-spacing:.2px}
+  .tag{font-size:11px;color:var(--sub);margin-top:1px}
+  .tabs{display:flex;gap:8px;margin-top:13px}
+  .tab{flex:1;padding:9px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--sub);font-weight:700;font-size:13px;text-align:center;cursor:pointer}
+  .tab.on{background:var(--acc);color:#1a1200;border-color:var(--acc)}
+  main{padding:14px 14px 40px;max-width:640px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .card h2{font-size:13px;margin:0 0 10px;font-weight:800;display:flex;align-items:center;gap:7px}
+  .card.cur h2 .d{color:var(--blue)} .card.rep h2 .d{color:var(--acc)}
+  label{display:block;font-size:11px;color:var(--sub);font-weight:700;margin:9px 0 3px;text-transform:uppercase;letter-spacing:.4px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+    color:var(--txt);padding:11px 10px;font-size:15px;font-family:inherit;outline:none}
+  input:focus,select:focus{border-color:var(--acc)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hint{font-size:10.5px;color:#6b7280;margin-top:2px}
+  .btn{width:100%;margin-top:16px;padding:15px;border:none;border-radius:12px;background:var(--acc);
+    color:#1a1200;font-weight:900;font-size:16px;cursor:pointer;letter-spacing:.3px}
+  .btn.sec{background:var(--panel2);color:var(--txt);border:1px solid var(--line);font-size:14px;margin-top:10px}
+  .verdict{margin-top:16px;border-radius:14px;padding:16px;border:1px solid var(--line);display:none}
+  .verdict.show{display:block}
+  .verdict .big{font-size:20px;font-weight:900;display:flex;align-items:center;gap:10px}
+  .verdict.ok{background:rgba(46,204,113,.10);border-color:rgba(46,204,113,.4)} .verdict.ok .big{color:var(--ok)}
+  .verdict.warn{background:rgba(245,166,35,.10);border-color:rgba(245,166,35,.4)} .verdict.warn .big{color:var(--warn)}
+  .verdict.bad{background:rgba(255,82,82,.10);border-color:rgba(255,82,82,.4)} .verdict.bad .big{color:var(--bad)}
+  .verdict .sum{font-size:13px;color:var(--sub);margin-top:6px;line-height:1.5}
+  .rows{margin-top:12px;border-top:1px solid var(--line)}
+  .fr{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .fr .ic{flex:none;width:20px;text-align:center;font-size:15px}
+  .fr .k{flex:none;width:112px;color:var(--sub);font-weight:700}
+  .fr .v{flex:1}
+  .fr .v b{color:var(--txt)} .fr .v .note{color:var(--sub);font-size:11.5px;display:block;margin-top:2px}
+  .fr.ok .ic{color:var(--ok)} .fr.warn .ic{color:var(--warn)} .fr.bad .ic{color:var(--bad)} .fr.na .ic{color:#556}
+  .decode{margin-top:12px;background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:11px;font-size:12.5px;display:none}
+  .decode.show{display:block}
+  .decode .t{font-weight:800;color:var(--acc2);margin-bottom:6px;font-size:12px}
+  .chip{display:inline-block;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px 8px;margin:3px 4px 0 0;font-size:11.5px}
+  .chip b{color:var(--acc2)}
+  .foot{color:#5b6472;font-size:11px;text-align:center;margin-top:22px;line-height:1.6}
+  .disc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:11.5px;color:var(--sub);margin-top:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="m"></div>
+    <div><h1>SEW&#8209;EURODRIVE Replacement</h1><div class="tag">Nameplate compatibility checker</div></div>
+  </div>
+  <div class="tabs">
+    <div class="tab on" id="tabCmp" onclick="setTab('cmp')">Compare two</div>
+    <div class="tab" id="tabDec" onclick="setTab('dec')">Decode one</div>
+  </div>
+</header>
+
+<main>
+  <!-- COMPARE MODE -->
+  <section id="viewCmp">
+    <div class="grid">
+      <div class="card cur">
+        <h2><span class="d">●</span> Current motor <span style="color:var(--sub);font-weight:600">(the old one)</span></h2>
+        <label>Model / part number</label>
+        <input id="c_model" placeholder="e.g. R57 DRN90L4" oninput="liveDecode('c')" autocapitalize="characters">
+        <div id="c_dec" class="decode"></div>
+        <div class="row2">
+          <div><label>Power kW</label><input id="c_kw" inputmode="decimal" placeholder="0.75"></div>
+          <div><label>Output RPM</label><input id="c_rpm" inputmode="decimal" placeholder="45"></div>
+        </div>
+        <div class="row2">
+          <div><label>Ratio i</label><input id="c_i" inputmode="decimal" placeholder="30.5"></div>
+          <div><label>Voltage V</label><input id="c_v" placeholder="230/460"></div>
+        </div>
+        <div class="row2">
+          <div><label>Freq Hz</label><input id="c_hz" inputmode="decimal" placeholder="60"></div>
+          <div><label>Brake V</label><input id="c_bv" placeholder="—"></div>
+        </div>
+      </div>
+      <div class="card rep">
+        <h2><span class="d">●</span> Replacement <span style="color:var(--sub);font-weight:600">(the new one)</span></h2>
+        <label>Model / part number</label>
+        <input id="r_model" placeholder="e.g. R57 DRN90L4" oninput="liveDecode('r')" autocapitalize="characters">
+        <div id="r_dec" class="decode"></div>
+        <div class="row2">
+          <div><label>Power kW</label><input id="r_kw" inputmode="decimal" placeholder="0.75"></div>
+          <div><label>Output RPM</label><input id="r_rpm" inputmode="decimal" placeholder="45"></div>
+        </div>
+        <div class="row2">
+          <div><label>Ratio i</label><input id="r_i" inputmode="decimal" placeholder="30.5"></div>
+          <div><label>Voltage V</label><input id="r_v" placeholder="230/460"></div>
+        </div>
+        <div class="row2">
+          <div><label>Freq Hz</label><input id="r_hz" inputmode="decimal" placeholder="60"></div>
+          <div><label>Brake V</label><input id="r_bv" placeholder="—"></div>
+        </div>
+      </div>
+    </div>
+    <button class="btn" onclick="compare()">Check if it replaces it</button>
+    <button class="btn sec" onclick="clearAll()">Clear</button>
+    <div id="verdict" class="verdict"></div>
+    <div class="disc">This tool compares what you type off the two nameplates and shows you, field by field, where they match or differ — so <b>you</b> make the call. It follows normal interchange rules (same gear type &amp; frame fit, output speed within tolerance, power ≥ original, matching voltage/Hz/brake). It is a helper, not an engineering sign-off.</div>
+  </section>
+
+  <!-- DECODE MODE -->
+  <section id="viewDec" style="display:none">
+    <div class="card">
+      <h2>Decode a SEW model number</h2>
+      <label>Model / part number</label>
+      <input id="d_model" placeholder="e.g. KA77 DRN100LM4 BE5" oninput="liveDecode('d')" autocapitalize="characters">
+      <div id="d_dec" class="decode show" style="margin-top:14px"></div>
+    </div>
+    <div class="disc">Reads the standard SEW nomenclature: <b>gear unit type + size</b>, <b>motor series</b>, <b>frame size + length</b>, <b>pole count</b>, and common option codes (brake, etc.). Unknown segments are shown as-is.</div>
+  </section>
+
+  <div class="foot">Works offline · add to Home Screen to use it like an app<br>Built for field motor swaps · v1</div>
+</main>
+
+<script>
+/* ---------- SEW nomenclature knowledge ---------- */
+const GEAR_TYPES = {
+  R:"Helical (inline / foot or flange)", RX:"Helical single-stage",
+  F:"Parallel-shaft helical", FA:"Parallel-shaft, hollow shaft", FH:"Parallel-shaft, hollow + shrink disc",
+  K:"Helical-bevel (right-angle)", KA:"Helical-bevel, hollow shaft", KH:"Helical-bevel, hollow + shrink disc",
+  S:"Helical-worm (right-angle)", SA:"Helical-worm, hollow shaft",
+  W:"Spiroplan (right-angle, light)", WA:"Spiroplan, hollow shaft"
+};
+const MOTOR_SERIES = {
+  DRN:"DRN — current IE3 premium-efficiency", DRE:"DRE — IE2 high-efficiency",
+  DRS:"DRS — IE1 standard (older)", DRP:"DRP — IE4 super-premium",
+  DR:"DR — DR.. generation", DT:"DT — older DT/DV generation", DV:"DV — older DT/DV generation",
+  DRU:"DRU — line-start PM", DRL:"DRL — permanent-magnet"
+};
+const OPTIONS = {
+  BE:"BE.. spring-loaded brake", BMG:"BMG brake", BM:"BM brake", B:"Brake",
+  HR:"Manual brake release (lockable)", HF:"Manual brake release (auto-return)",
+  MM:"MOVIMOT integrated inverter", RJ:"Terminal box position",
+  V:"Reinforced bearings", LN:"Low-noise fan", TF:"Thermistor (PTC)", TH:"Bimetal thermostat",
+  KY:"Encoder ready", AL:"Reduced backlash"
+};
+const LENGTHS = { S:"Short frame", M:"Medium frame", L:"Long frame", LM:"Long/medium frame", "":"" };
+
+function parseModel(raw){
+  const s=(raw||"").toUpperCase().replace(/[·•]/g," ").trim();
+  if(!s) return null;
+  const out={raw:s, gearType:null, gearSize:null, motorSeries:null, frameSize:null, frameLen:null, poles:null, opts:[], unknown:[]};
+  const tokens=s.split(/[\s\/\-]+/).filter(Boolean);
+  for(const tk of tokens){
+    // gear unit: letters + size digits, e.g. R47, KA77, S37, FA87
+    let m=tk.match(/^([RFKSW][AHX]?)(\d{1,3})$/);
+    if(m && !out.gearType){ out.gearType=m[1]; out.gearSize=m[2]; continue; }
+    // motor: series letters + frame digits + length letter(s) + poles, e.g. DRN90L4, DR90L4, DT100LM4
+    m=tk.match(/^(DR[NESPUL]?|DR|DT|DV)(\d{2,3})([A-Z]{0,2})(\d)?$/);
+    if(m && !out.motorSeries){
+      out.motorSeries=m[1]; out.frameSize=m[2]; out.frameLen=(m[3]||"").replace(/[^SML]/g,''); out.poles=m[4]||null; continue;
+    }
+    // option codes
+    let matchedOpt=null;
+    for(const k of Object.keys(OPTIONS)){ if(tk.startsWith(k)){ matchedOpt=k; break; } }
+    if(matchedOpt){ out.opts.push(tk); continue; }
+    out.unknown.push(tk);
+  }
+  out.recognised = !!(out.gearType || out.motorSeries);
+  return out;
+}
+function decodeHTML(p){
+  if(!p||!p.recognised) return '<span style="color:var(--sub)">Type a model to decode — e.g. <b style="color:var(--acc2)">R47 DRN80MK4</b></span>';
+  let h='<div class="t">Decoded</div>';
+  if(p.gearType){ h+=`<span class="chip">Gear: <b>${p.gearType}${p.gearSize}</b> — ${GEAR_TYPES[p.gearType]||GEAR_TYPES[p.gearType[0]]||"gear unit"}</span>`; }
+  if(p.motorSeries){
+    h+=`<span class="chip">Motor: <b>${p.motorSeries}${p.frameSize}${p.frameLen}</b> — ${MOTOR_SERIES[p.motorSeries]||MOTOR_SERIES[p.motorSeries.slice(0,2)]||"motor"}</span>`;
+    if(p.frameLen) h+=`<span class="chip">Frame: <b>${p.frameSize}${p.frameLen}</b> ${LENGTHS[p.frameLen]||""}</span>`;
+    if(p.poles) h+=`<span class="chip">Poles: <b>${p.poles}</b> (~${({2:3450,4:1725,6:1150,8:850})[p.poles]||"?"} rpm motor)</span>`;
+  }
+  for(const o of p.opts){
+    const k=Object.keys(OPTIONS).find(k=>o.startsWith(k));
+    h+=`<span class="chip">Opt: <b>${o}</b> — ${OPTIONS[k]||"option"}</span>`;
+  }
+  for(const u of p.unknown){ h+=`<span class="chip">? <b>${u}</b></span>`; }
+  return h;
+}
+function liveDecode(pfx){
+  const el=document.getElementById(pfx+'_model'); const box=document.getElementById(pfx+'_dec');
+  const p=parseModel(el.value);
+  if(pfx==='d'){ box.innerHTML=decodeHTML(p); box.classList.add('show'); return; }
+  if(p&&p.recognised){ box.innerHTML=decodeHTML(p); box.classList.add('show'); } else { box.classList.remove('show'); }
+}
+
+/* ---------- comparison logic ---------- */
+const num=v=>{ const n=parseFloat(String(v).replace(/[, ]/g,'')); return isNaN(n)?null:n; };
+const normV=v=>String(v||"").replace(/\s/g,'').replace(/v$/i,'').split(/[\/;]/).map(x=>x.trim()).filter(Boolean);
+function voltMatch(a,b){ const A=normV(a),B=normV(b); if(!A.length||!B.length)return null; return A.some(x=>B.includes(x)); }
+
+function compare(){
+  const g=id=>document.getElementById(id).value.trim();
+  const c={model:g('c_model'),kw:num(g('c_kw')),rpm:num(g('c_rpm')),i:num(g('c_i')),v:g('c_v'),hz:num(g('c_hz')),bv:g('c_bv')};
+  const r={model:g('r_model'),kw:num(g('r_kw')),rpm:num(g('r_rpm')),i:num(g('r_i')),v:g('r_v'),hz:num(g('r_hz')),bv:g('r_bv')};
+  const cp=parseModel(c.model), rp=parseModel(r.model);
+  const rows=[]; let bad=0, warn=0;
+  const push=(st,ic,k,v,note)=>{ rows.push({st,ic,k,v,note}); if(st==='bad')bad++; if(st==='warn')warn++; };
+
+  // Gear unit type + size (mechanical fit)
+  if(cp&&rp&&cp.gearType&&rp.gearType){
+    if(cp.gearType===rp.gearType && cp.gearSize===rp.gearSize)
+      push('ok','✓','Gear unit',`${cp.gearType}${cp.gearSize} = ${rp.gearType}${rp.gearSize}`,'Same type & size — bolts in the same way.');
+    else if(cp.gearType===rp.gearType)
+      push('warn','~','Gear unit',`${cp.gearType}${cp.gearSize} → ${rp.gearType}${rp.gearSize}`,'Same type, different size — check mounting/shaft before fitting.');
+    else
+      push('bad','✗','Gear unit',`${cp.gearType}${cp.gearSize} → ${rp.gearType}${rp.gearSize}`,'Different gear-unit type — mounting/orientation will not match.');
+  } else if((cp&&cp.gearType)||(rp&&rp.gearType)){
+    push('warn','~','Gear unit','one side only','Enter both models to check mechanical fit.');
+  }
+
+  // Output speed (the functional spec)
+  if(c.rpm!=null&&r.rpm!=null){
+    const d=Math.abs(c.rpm-r.rpm)/c.rpm*100;
+    if(d<=3) push('ok','✓','Output speed',`${c.rpm} ≈ ${r.rpm} rpm`,`Within ${d.toFixed(1)}% — same machine speed.`);
+    else if(d<=8) push('warn','~','Output speed',`${c.rpm} → ${r.rpm} rpm`,`${d.toFixed(1)}% off — small speed change; usually OK, verify the process.`);
+    else push('bad','✗','Output speed',`${c.rpm} → ${r.rpm} rpm`,`${d.toFixed(0)}% off — the machine would run a different speed.`);
+  } else if(c.i!=null&&r.i!=null){
+    const d=Math.abs(c.i-r.i)/c.i*100;
+    if(d<=3) push('ok','✓','Gear ratio i',`${c.i} ≈ ${r.i}`,`Within ${d.toFixed(1)}% — same output speed.`);
+    else if(d<=8) push('warn','~','Gear ratio i',`${c.i} → ${r.i}`,`${d.toFixed(1)}% off — slight speed change.`);
+    else push('bad','✗','Gear ratio i',`${c.i} → ${r.i}`,`${d.toFixed(0)}% off — output speed will differ.`);
+  } else push('na','·','Output speed','—','Enter RPM (or ratio i) on both to compare speed.');
+
+  // Power
+  if(c.kw!=null&&r.kw!=null){
+    if(r.kw>=c.kw-0.01){
+      const over=(r.kw-c.kw)/c.kw*100;
+      if(over>60) push('warn','~','Power',`${c.kw} → ${r.kw} kW`,`Replacement is much bigger (+${over.toFixed(0)}%) — fits electrically, check frame/current.`);
+      else push('ok','✓','Power',`${c.kw} → ${r.kw} kW`,'Equal or more power — good.');
+    } else push('bad','✗','Power',`${c.kw} → ${r.kw} kW`,'Replacement is weaker than the original — underpowered.');
+  } else push('na','·','Power','—','Enter kW on both.');
+
+  // Voltage
+  const vm=voltMatch(c.v,r.v);
+  if(vm===true) push('ok','✓','Voltage',`${c.v} = ${r.v}`,'Matches your supply.');
+  else if(vm===false) push('bad','✗','Voltage',`${c.v} → ${r.v}`,'Different voltage — will not run on the same supply (unless re-wired/dual-voltage).');
+  else push('na','·','Voltage','—','Enter voltage on both.');
+
+  // Frequency
+  if(c.hz!=null&&r.hz!=null){
+    if(c.hz===r.hz) push('ok','✓','Frequency',`${c.hz} Hz`,'Same.');
+    else push('bad','✗','Frequency',`${c.hz} → ${r.hz} Hz`,'Different frequency — speed & performance change.');
+  }
+
+  // Brake voltage
+  const cb=c.bv&&c.bv!=='—', rb=r.bv&&r.bv!=='—';
+  if(cb||rb){
+    if(cb&&rb){ if(voltMatch(c.bv,r.bv)) push('ok','✓','Brake',`${c.bv} = ${r.bv}`,'Brake voltage matches.');
+      else push('bad','✗','Brake',`${c.bv} → ${r.bv}`,'Brake coil voltage differs — brake will not release/hold correctly.'); }
+    else if(cb&&!rb) push('bad','✗','Brake',`${c.bv} → none`,'Original has a brake, replacement has none — it loses holding/stopping.');
+    else push('warn','~','Brake',`none → ${r.bv}`,'Replacement adds a brake — usually fine, confirm it is wired.');
+  }
+
+  // verdict
+  let cls,icon,title,sum;
+  const filled=[c.rpm,c.kw].some(x=>x!=null)||(cp&&cp.recognised);
+  if(!filled){ cls='warn';icon='ⓘ';title='Add a bit more';sum='Enter at least the model or the key specs (RPM, kW, voltage) on both motors, then check.'; }
+  else if(bad>0){ cls='bad';icon='✗';title='Not a drop-in replacement';sum=`${bad} field${bad>1?'s':''} won't match. See what's flagged red below — those must be resolved before this can replace the original.`; }
+  else if(warn>0){ cls='warn';icon='⚠';title='Replaces it — with checks';sum=`Everything critical lines up. ${warn} item${warn>1?'s':''} to eyeball (in amber) before fitting.`; }
+  else { cls='ok';icon='✓';title='Yes — this replaces it';sum='Every field you entered matches within tolerance. Good to swap.'; }
+
+  let html=`<div class="big">${icon} ${title}</div><div class="sum">${sum}</div><div class="rows">`;
+  for(const r0 of rows){
+    html+=`<div class="fr ${r0.st}"><div class="ic">${r0.ic}</div><div class="k">${r0.k}</div><div class="v"><b>${r0.v}</b>${r0.note?`<span class="note">${r0.note}</span>`:''}</div></div>`;
+  }
+  html+=`</div>`;
+  const V=document.getElementById('verdict'); V.className='verdict show '+cls; V.innerHTML=html;
+  V.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function clearAll(){ document.querySelectorAll('#viewCmp input').forEach(i=>i.value=''); document.querySelectorAll('#viewCmp .decode').forEach(d=>d.classList.remove('show')); const V=document.getElementById('verdict'); V.className='verdict'; V.innerHTML=''; }
+function setTab(t){
+  document.getElementById('viewCmp').style.display=t==='cmp'?'':'none';
+  document.getElementById('viewDec').style.display=t==='dec'?'':'none';
+  document.getElementById('tabCmp').classList.toggle('on',t==='cmp');
+  document.getElementById('tabDec').classList.toggle('on',t==='dec');
+}
+liveDecode('d');
+</script>
+</body>
+</html>
