@@ -355,18 +355,31 @@ async function ensureTess(){
   await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='ocr/tesseract.min.js'; s.onload=res; s.onerror=()=>rej(new Error('reader not loaded')); document.head.appendChild(s); });
 }
 function parseNameplate(raw){
-  const t=(raw||'').replace(/[|]/g,'I'); const U=t.toUpperCase();
+  let U=(raw||'').replace(/[|]/g,'1').replace(/[\r\n]+/g,' ').toUpperCase();
   const out={model:'',kw:'',rpm:'',i:'',v:'',hz:'',bv:''};
-  let m=U.match(/([RFKSW][A-Z]{0,2}\d{1,3}(?:\s+[RFKSW][A-Z]{0,2}\d{1,3})?\s+S?DF?[RTV][NESPUL]?\d{2,3}[SMLK]{0,2}\d?)/);
-  if(!m) m=U.match(/TYP[E]?\.?\s*[:\-]?\s*([A-Z0-9\/\s.-]{5,40})/);
-  if(!m) m=U.match(/\b(S?DF?[RTV][NESPUL]?\d{2,3}[SMLK]{0,2}\d?)\b/);
-  if(m) out.model=m[1].replace(/\s+/g,' ').trim();
-  m=t.match(/([\d.,]+)\s*KW/i); if(m) out.kw=m[1].replace(',','.');
-  m=t.match(/([\d]{2,4})\s*(?:1\s*\/\s*MIN|MIN\s*-?\s*1|R\s*\/\s*MIN|RPM|\/MIN)/i); if(m) out.rpm=m[1];
-  m=t.match(/\bI\s*[=:]\s*([\d.,]+)/i); if(m) out.i=m[1].replace(',','.');
-  m=t.match(/(\d{3}\s*\/\s*\d{3})\s*V/i)||t.match(/\b(\d{3})\s*V\b/); if(m) out.v=m[1].replace(/\s/g,'');
-  m=t.match(/\b(50|60)\s*HZ/i); if(m) out.hz=m[1];
-  m=t.match(/(?:BR|BMG|BM|BRAKE|BREMSE)[^\d]{0,14}(\d{2,3})\s*V/i); if(m) out.bv=m[1];
+  // fix common OCR digit-as-letter in motor frames: DRN9OL4 -> DRN90L4 (O->0, I->1, B->8, S->5 inside the size run)
+  const fixDig=s=>s.replace(/O/g,'0').replace(/(?<=\d)I/g,'1').replace(/I(?=\d)/g,'1');
+  const Mn=U.replace(/\b(S?DF?[RTV][NESPUL]?)([0-9OISB]{2,3}[SMLK]{0,2}[0-9OI]?)/g,(m,a,b)=>a+fixDig(b));
+  // MODEL — capture gear(s)+motor and STOP (don't swallow the rest of the line)
+  let m=Mn.match(/([RFKSW][A-Z]{0,2}\d{1,3})(?:\s+([RFKSW][A-Z]{0,2}\d{1,3}))?\s+(S?DF?[RTV][NESPUL]?\d{2,3}[SMLK]{0,2}\d?)/);
+  if(m) out.model=[m[1],m[2],m[3]].filter(Boolean).join(' ');
+  else { m=Mn.match(/(S?DF?[RTV][NESPUL]?\d{2,3}[SMLK]{0,2}\d?)/); if(m) out.model=m[1]; }
+  // helper: value near a label, EITHER order; skip a digit glued to a letter (e.g. the pole digit in ..L4)
+  const near=(lab,pat)=>{
+    pat=pat||'[0-9][0-9.,]*';
+    let mm=U.match(new RegExp(lab+'\\s*[:=]?\\s*('+pat+')')); if(mm) return mm[1];        // label then value
+    mm=U.match(new RegExp('(?:^|[^A-Z])('+pat+')\\s*'+lab)); if(mm) return mm[1];          // value then label
+    return '';
+  };
+  // kW — prefer a decimal value; single glued digits (pole no.) are excluded by the (?:^|[^A-Z]) guard
+  out.kw=(near('KW','[0-9]+[.,][0-9]+')||near('KW')).replace(',','.');
+  out.hz=near('HZ','50|60');
+  out.rpm=near('(?:1\\s*/\\s*MIN|MIN\\s*-?\\s*1|R\\s*/\\s*MIN|RPM|N2)','[0-9]{3,4}');
+  out.i=(near('I','[0-9]+[.,]?[0-9]*')||'').replace(',','.');
+  // voltage: 230/460 range anywhere, else a 3-digit near V
+  m=U.match(/(\d{3}\s*\/\s*\d{3})/); out.v = m?m[1].replace(/\s/g,'') : near('V','\\d{3}');
+  // brake coil voltage near a brake code
+  m=U.match(/(?:BMG|BM|BR|BE|BRAKE|BREMSE)[^0-9]{0,14}(\d{2,3})\s*V/); if(m) out.bv=m[1];
   return out;
 }
 function applyFields(pfx,f){
