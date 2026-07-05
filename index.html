@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="SEW Replace">
 <meta name="theme-color" content="#0f1115">
 <link rel="manifest" href="manifest.json">
+<script src="sew-data.js"></script>
 <title>SEW Eurodrive Replacement Checker</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='38' fill='%230f1115'/%3E%3Crect x='34' y='60' width='112' height='60' rx='10' fill='%23f9b000'/%3E%3Ccircle cx='58' cy='90' r='9' fill='%230f1115'/%3E%3Ccircle cx='122' cy='90' r='9' fill='%230f1115'/%3E%3Crect x='74' y='84' width='32' height='12' rx='6' fill='%230f1115'/%3E%3C/svg%3E">
 <style>
@@ -85,8 +86,9 @@
     <div><h1>SEW&#8209;EURODRIVE Replacement</h1><div class="tag">Nameplate compatibility checker</div></div>
   </div>
   <div class="tabs">
-    <div class="tab on" id="tabCmp" onclick="setTab('cmp')">Compare two</div>
-    <div class="tab" id="tabDec" onclick="setTab('dec')">Decode one</div>
+    <div class="tab on" id="tabCmp" onclick="setTab('cmp')">Compare</div>
+    <div class="tab" id="tabDec" onclick="setTab('dec')">Decode</div>
+    <div class="tab" id="tabRef" onclick="setTab('ref')">📚 Data</div>
   </div>
 </header>
 
@@ -154,6 +156,13 @@
       <div id="d_dec" class="decode show" style="margin-top:14px"></div>
     </div>
     <div class="disc">Reads the standard SEW nomenclature: <b>gear unit type + size</b>, <b>motor series</b>, <b>frame size + length</b>, <b>pole count</b>, and common option codes (brake, etc.). Unknown segments are shown as-is.</div>
+  </section>
+
+  <!-- REFERENCE MODE -->
+  <section id="viewRef" style="display:none">
+    <input id="ref_q" placeholder="🔎 Search all data (model, kW, code, term…)" oninput="renderReference()" style="margin-bottom:12px" autocapitalize="off">
+    <div id="ref_body"></div>
+    <div class="disc" style="margin-top:14px">Offline reference — SEW DRN 4-pole 60 Hz motor data (from SEW catalog 21284997 + US distributor nameplates), gear-unit ratios, full nomenclature, legacy→current cross-refs, brake data, and a nameplate glossary. Torque = 9550·kW/rpm. Values with caveats show a ⚠︎ note.</div>
   </section>
 
   <div class="disc" style="margin-top:18px">
@@ -249,6 +258,10 @@ function decodeHTML(p){
   }
   for(const o of p.opts){ h+=`<span class="chip">Opt: <b>${o.code}</b> — ${o.desc}</span>`; }
   for(const u of p.unknown){ h+=`<span class="chip">? <b>${u}</b></span>`; }
+  const spec=(typeof motorSpec==='function')&&motorSpec(p);
+  if(spec){ h+=`<div style="margin-top:9px;padding:8px 10px;background:rgba(74,163,255,.09);border:1px solid rgba(74,163,255,.28);border-radius:8px;font-size:12px;line-height:1.5"><b style="color:var(--blue)">📇 Catalog — DRN ${spec.frame}, ${spec.poles}-pole, 60 Hz:</b> ${spec.kW} kW${spec.hp?' / '+spec.hp+' HP':''}${spec.rpm60?' · ~'+spec.rpm60+' rpm':''}${spec.torqueNm?' · '+spec.torqueNm+' Nm':''}${spec.efficiencyClass?' · '+spec.efficiencyClass:''}</div>`; }
+  const xr=(typeof legacyXref==='function')&&legacyXref(p);
+  if(xr){ h+=`<div style="margin-top:6px;padding:8px 10px;background:rgba(46,204,113,.09);border:1px solid rgba(46,204,113,.28);border-radius:8px;font-size:12px;line-height:1.5"><b style="color:var(--ok)">↗ Current equivalent:</b> ${xr.legacy} → <b>${xr.current}</b>. Look for the DRN frame that matches your old motor's kW &amp; ratio.</div>`; }
   return h;
 }
 function liveDecode(pfx){
@@ -344,10 +357,54 @@ function compare(){
 }
 function clearAll(){ document.querySelectorAll('#viewCmp input').forEach(i=>i.value=''); document.querySelectorAll('#viewCmp .decode').forEach(d=>d.classList.remove('show')); const V=document.getElementById('verdict'); V.className='verdict'; V.innerHTML=''; }
 function setTab(t){
-  document.getElementById('viewCmp').style.display=t==='cmp'?'':'none';
-  document.getElementById('viewDec').style.display=t==='dec'?'':'none';
-  document.getElementById('tabCmp').classList.toggle('on',t==='cmp');
-  document.getElementById('tabDec').classList.toggle('on',t==='dec');
+  for(const v of ['Cmp','Dec','Ref']){ const low=v.toLowerCase();
+    document.getElementById('view'+v).style.display=(t===low)?'':'none';
+    document.getElementById('tab'+v).classList.toggle('on',t===low); }
+  if(t==='ref') renderReference();
+}
+/* ---------- embedded SEW data lookups ---------- */
+function motorSpec(p){
+  if(!p||!p.motor||!window.SEW_DATA) return null;
+  const fr=p.motor.size, len=p.motor.len||'', pl=p.motor.poles?+p.motor.poles:4, D=SEW_DATA.motor||[];
+  const cands=D.filter(r=>r.frame===fr&&r.poles===pl);
+  if(cands.length>1&&len){ // disambiguate 90S vs 90L etc. via the row note (holds DRN90L4…)
+    const byLen=cands.find(r=>new RegExp('DR[NESPUL]?'+fr+len,'i').test(r.note||''));
+    if(byLen) return byLen;
+  }
+  return cands[0]||D.find(r=>r.frame===fr)||null;
+}
+function legacyXref(p){
+  if(!p||!window.SEW_DATA) return null;
+  const m=(p.motor&&p.motor.prefix)||''; const X=SEW_DATA.crossRef||[];
+  if(/^S?DF?[TV]/.test(m)) return X.find(x=>/DT|DV/.test(x.legacy)&&x.kind==='motor generation')||X.find(x=>/DT|DV/.test(x.legacy));
+  if(/^DRS/.test(m)) return X.find(x=>/DRS/.test(x.legacy));
+  return null;
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function renderReference(){
+  const D=window.SEW_DATA; const box=document.getElementById('ref_body'); if(!D||!box) return;
+  const q=(document.getElementById('ref_q').value||'').toLowerCase().trim();
+  const hit=o=>!q||JSON.stringify(o).toLowerCase().includes(q);
+  const noteIco=n=>n?` <span title="${esc(n)}" style="color:var(--warn);cursor:help">⚠︎</span>`:'';
+  let h='';
+  const sec=(title,rows,cols,map)=>{ const R=rows.filter(hit); if(!R.length) return;
+    h+=`<div class="card" style="margin-bottom:12px;padding:12px"><div style="font-weight:800;color:var(--acc2);font-size:13px;margin-bottom:8px">${title} <span style="color:var(--sub);font-weight:600">(${R.length})</span></div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><tr>${cols.map(c=>`<th style="text-align:left;color:var(--sub);padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap">${c}</th>`).join('')}</tr>`;
+    for(const r of R){ h+=`<tr>${map(r).map(v=>`<td style="padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top">${v}</td>`).join('')}</tr>`; }
+    h+=`</table></div></div>`; };
+  sec('DRN motors — 4-pole, 60 Hz', D.motor, ['Frame','kW','HP','RPM','Torque Nm','Class',''],
+    r=>[`<b>${r.frame}</b>`, r.kW, r.hp||'—', r.rpm60||'—', r.torqueNm||'—', r.efficiencyClass||'—', noteIco(r.note)]);
+  sec('Legacy → current replacements', D.crossRef, ['Legacy','→ Current','Type',''],
+    r=>[esc(r.legacy), `<b style="color:var(--ok)">${esc(r.current)}</b>`, esc(r.kind||''), noteIco(r.note)]);
+  sec('Gear-unit ratios & torque', D.ratios, ['Series','Size','i min','i max','Max Nm',''],
+    r=>[r.series, r.sizeRange||'', r.ratioMin||'—', r.ratioMax||'—', r.maxOutputTorqueNm||'—', noteIco(r.note)]);
+  sec('Brakes', D.brakes, ['Brake','Fits','Torque Nm','Voltages',''],
+    r=>[`<b>${esc(r.brake)}</b>`, esc(r.motorFrames||''), esc(r.brakeTorqueNm||''), esc((r.voltages||'').slice(0,40)), noteIco(r.note)]);
+  sec('Gear-unit types', D.gearTypes, ['Code','Meaning'], r=>[`<b>${esc(r.code)}</b>`, esc(r.meaning)]);
+  sec('Motor prefixes', D.motorPrefixes, ['Code','Meaning'], r=>[`<b>${esc(r.code)}</b>`, esc(r.meaning)]);
+  sec('Option codes', D.options, ['Code','Meaning'], r=>[`<b>${esc(r.code)}</b>`, esc(r.meaning)]);
+  sec('Nameplate glossary', D.glossary, ['Field','Symbol','Meaning'],
+    r=>[`<b>${esc(r.label)}</b>`, esc(r.symbol||''), esc(r.meaning)+(r.example?`<br><span style="color:var(--sub)">e.g. ${esc(r.example)}</span>`:'')]);
+  box.innerHTML=h||'<div style="color:var(--sub);text-align:center;padding:20px">No matches.</div>';
 }
 /* ---------- camera OCR (offline, Tesseract.js bundled in /ocr) ---------- */
 async function ensureTess(){

@@ -1,5 +1,5 @@
-const CACHE='sew-v1';
-const CORE=['./','./index.html','./manifest.json','./icon.svg','./ocr/tesseract.min.js'];
+const CACHE='sew-v2';
+const CORE=['./','./index.html','./manifest.json','./icon.svg','./ocr/tesseract.min.js','./sew-data.js'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()).catch(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{
