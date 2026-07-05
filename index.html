@@ -139,6 +139,19 @@
     <div class="disc">Reads the standard SEW nomenclature: <b>gear unit type + size</b>, <b>motor series</b>, <b>frame size + length</b>, <b>pole count</b>, and common option codes (brake, etc.). Unknown segments are shown as-is.</div>
   </section>
 
+  <div class="disc" style="margin-top:18px">
+    <div style="font-weight:800;color:var(--acc2);margin-bottom:6px">Reference / sources</div>
+    <b>Interchange logic</b> = standard motor-replacement practice (matching output speed within tolerance, power ≥ original, same voltage/Hz/brake, mechanical fit) — general engineering, not SEW-specific.<br>
+    <b>SEW model decoding</b> follows SEW-EURODRIVE's published nomenclature:
+    <div style="margin-top:7px;line-height:1.9">
+      • <a style="color:var(--blue)" href="https://media.sew-eurodrive.com/sew_us/media/sew_eurodrive/training_resources/online_training/dtdv_gearmotor_nomenclature.pdf" target="_blank">SEW Gearmotor Nomenclature (official training)</a><br>
+      • <a style="color:var(--blue)" href="https://blog.seweurodrive.com/hubfs/9TRP0600_SEW%20Nomenclature%20Poster_07022024-12x18_web.pdf" target="_blank">SEW Nomenclature Poster (2024)</a><br>
+      • <a style="color:var(--blue)" href="https://www.seweurodrive.com/products/gear-units/gear-units.html" target="_blank">SEW Gear Units (R/F/K/S/W)</a><br>
+      • <a style="color:var(--blue)" href="https://www.seweurodriveindia.com/products/motors/ac_motors/ac_motors_dr_and_dt56_1_speed/ac_motors_dr_and_dt56_1_speed.html" target="_blank">SEW DR.. AC Motors (DRN/DRE/DRS/DRP)</a><br>
+      • <a style="color:var(--blue)" href="https://hvhindustrial.com/pdfs/SEW-Eurodrive-Gear-Units-Manual.pdf" target="_blank">SEW R.. Gear Unit Assembly &amp; Operating Instructions</a>
+    </div>
+    <div style="margin-top:8px;color:#6b7280">Not affiliated with or endorsed by SEW-EURODRIVE. For your own manuals (specific replacement model recommendations), send them and I'll build them in.</div>
+  </div>
   <div class="foot">Works offline · add to Home Screen to use it like an app<br>Built for field motor swaps · v1</div>
 </main>
 
@@ -164,7 +177,7 @@ const OPTIONS = {
   V:"Reinforced bearings", LN:"Low-noise fan", TF:"Thermistor (PTC)", TH:"Bimetal thermostat",
   KY:"Encoder ready", AL:"Reduced backlash"
 };
-const LENGTHS = { S:"Short frame", M:"Medium frame", L:"Long frame", LM:"Long/medium frame", "":"" };
+const LENGTHS = { S:"Short frame", M:"Medium frame", L:"Long frame", K:"Compact frame", LM:"Long/medium frame", MK:"Medium/compact frame", "":"" };
 
 function parseModel(raw){
   const s=(raw||"").toUpperCase().replace(/[·•]/g," ").trim();
@@ -178,7 +191,7 @@ function parseModel(raw){
     // motor: series letters + frame digits + length letter(s) + poles, e.g. DRN90L4, DR90L4, DT100LM4
     m=tk.match(/^(DR[NESPUL]?|DR|DT|DV)(\d{2,3})([A-Z]{0,2})(\d)?$/);
     if(m && !out.motorSeries){
-      out.motorSeries=m[1]; out.frameSize=m[2]; out.frameLen=(m[3]||"").replace(/[^SML]/g,''); out.poles=m[4]||null; continue;
+      out.motorSeries=m[1]; out.frameSize=m[2]; out.frameLen=(m[3]||"").replace(/[^SMLK]/g,''); out.poles=m[4]||null; continue;
     }
     // option codes
     let matchedOpt=null;
@@ -196,7 +209,7 @@ function decodeHTML(p){
   if(p.motorSeries){
     h+=`<span class="chip">Motor: <b>${p.motorSeries}${p.frameSize}${p.frameLen}</b> — ${MOTOR_SERIES[p.motorSeries]||MOTOR_SERIES[p.motorSeries.slice(0,2)]||"motor"}</span>`;
     if(p.frameLen) h+=`<span class="chip">Frame: <b>${p.frameSize}${p.frameLen}</b> ${LENGTHS[p.frameLen]||""}</span>`;
-    if(p.poles) h+=`<span class="chip">Poles: <b>${p.poles}</b> (~${({2:3450,4:1725,6:1150,8:850})[p.poles]||"?"} rpm motor)</span>`;
+    if(p.poles) h+=`<span class="chip">Poles: <b>${p.poles}</b> (~${({2:3450,4:1725,6:1150,8:850})[p.poles]||"?"} rpm @60Hz)</span>`;
   }
   for(const o of p.opts){
     const k=Object.keys(OPTIONS).find(k=>o.startsWith(k));
