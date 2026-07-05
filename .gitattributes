@@ -1,0 +1,4 @@
+ocr/** binary
+*.gz binary
+*.wasm binary
+*.png binary
