@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Roba el Brainrot</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1c7c3c;
+    font-family: Arial, Helvetica, sans-serif; touch-action: none;
+    -webkit-user-select: none; user-select: none; }
+  #game { position: fixed; inset: 0; display: block; }
+  .hud { position: fixed; z-index: 10; color: #fff; pointer-events: none;
+    text-shadow: 0 2px 3px rgba(0,0,0,.65); font-weight: 900; }
+  #money { top: 10px; left: 10px; font-size: 22px; }
+  #income { top: 38px; left: 10px; font-size: 14px; color: #b5ffb5; }
+  #owned { top: 10px; right: 10px; font-size: 18px; text-align: right; }
+  #toast { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+    z-index: 12; background: rgba(0,0,0,.75); color: #fff; padding: 10px 18px;
+    border-radius: 999px; font-size: 16px; font-weight: 700; display: none;
+    max-width: 86vw; text-align: center; }
+  #start { position: fixed; inset: 0; z-index: 20; background: rgba(4,26,12,.9);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; text-align: center; padding: 20px; }
+  #start h1 { font-size: clamp(34px, 9vw, 64px); margin: 0 0 6px; color: #ffd700;
+    text-shadow: 0 4px 0 #7a5b00, 0 8px 18px rgba(0,0,0,.6); letter-spacing: 1px; }
+  #start p { font-size: 16px; line-height: 1.7; margin: 6px 0; max-width: 420px; }
+  #play { margin-top: 18px; font-size: 24px; font-weight: 900; padding: 14px 52px;
+    border: 0; border-radius: 999px; background: #ffd700; color: #123; cursor: pointer;
+    box-shadow: 0 6px 0 #a88600; }
+  #play:active { transform: translateY(4px); box-shadow: 0 2px 0 #a88600; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="hud" id="money">💰 $0</div>
+<div class="hud" id="income">📈 +$0/s</div>
+<div class="hud" id="owned">🧠 0/12</div>
+<div id="toast"></div>
+<div id="start">
+  <h1>ROBA EL BRAINROT</h1>
+  <p>🛒 Walk onto the conveyor belt to <b>buy</b> brainrots<br>
+     🥷 Walk into other bases to <b>steal</b> theirs<br>
+     👮 Run home before the guard catches you!<br>
+     💰 Every brainrot in your base makes money</p>
+  <p>🕹️ Move: touch &amp; drag anywhere (or WASD / arrows)</p>
+  <p>⚽ Tap the soccer ball up top for today's <b>WORLD CUP</b> games!</p>
+  <button id="play">PLAY</button>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ---------- characters ---------- */
+var EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';
+var TIERS = {
+  common:    { color: '#c9c9c9', label: 'Common' },
+  rare:      { color: '#4fc3f7', label: 'Rare' },
+  epic:      { color: '#ba68c8', label: 'Epic' },
+  legendary: { color: '#ffb300', label: 'Legendary' },
+  mythic:    { color: '#ff5252', label: 'Mythic' },
+  god:       { color: '#fff176', label: 'Brainrot God' },
+  secret:    { color: '#69f0ae', label: 'Secret' }
+};
+var CHARS = [
+  { id: 'noobini',    name: 'Noobini Pizzanini',        emoji: '🍕', tier: 'common',    price: 25,     rate: 1 },
+  { id: 'timcheese',  name: 'Tim Cheese',               emoji: '🧀', tier: 'common',    price: 40,     rate: 1.5 },
+  { id: 'pipikiwi',   name: 'Pipi Kiwi',                emoji: '🥝', tier: 'common',    price: 60,     rate: 2 },
+  { id: 'frigo',      name: 'Frigo Camelo',             emoji: '🐫', tier: 'rare',      price: 150,    rate: 5 },
+  { id: 'boneca',     name: 'Boneca Ambalabu',          emoji: '🐸', tier: 'rare',      price: 250,    rate: 7 },
+  { id: 'chimpanzini',name: 'Chimpanzini Bananini',     emoji: '🍌', tier: 'rare',      price: 400,    rate: 10 },
+  { id: 'brrbrr',     name: 'Brr Brr Patapim',          emoji: '🌳', tier: 'epic',      price: 700,    rate: 20 },
+  { id: 'lirili',     name: 'Lirili Larila',            emoji: '🐘', tier: 'epic',      price: 1000,   rate: 28 },
+  { id: 'cappuccino', name: 'Cappuccino Assassino',     emoji: '☕', tier: 'epic',      price: 1500,   rate: 40 },
+  { id: 'ballerina',  name: 'Ballerina Cappuccina',     emoji: '🩰', tier: 'legendary', price: 3500,   rate: 85 },
+  { id: 'tungtung',   name: 'Tung Tung Tung Sahur',     emoji: '🥁', tier: 'legendary', price: 6000,   rate: 130 },
+  { id: 'tralalero',  name: 'Tralalero Tralala',        emoji: '🦈', tier: 'legendary', price: 8000,   rate: 160 },
+  { id: 'bombardiro', name: 'Bombardiro Crocodilo',     emoji: '🐊', tier: 'mythic',    price: 18000,  rate: 380 },
+  { id: 'vaca',       name: 'La Vaca Saturno Saturnita',emoji: '🪐', tier: 'mythic',    price: 35000,  rate: 650 },
+  { id: 'tralalita',  name: 'Tralalita Tralala',        emoji: '🐋', tier: 'god',       price: 90000,  rate: 1600 },
+  { id: 'dragonfrut', name: 'Torrtuginni Dragonfrutini',emoji: '🐢', tier: 'god',       price: 150000, rate: 2400 },
+  { id: 'garama',     name: 'Garama and Madundung',     emoji: '🌀', tier: 'secret',    price: 500000, rate: 8000 }
+];
+var TIER_ODDS = [
+  ['common', 42], ['rare', 27], ['epic', 16], ['legendary', 9],
+  ['mythic', 4], ['god', 1.6], ['secret', 0.4]
+];
+function randomChar() {
+  var roll = Math.random() * 100, acc = 0, tier = 'common';
+  for (var i = 0; i < TIER_ODDS.length; i++) {
+    acc += TIER_ODDS[i][1];
+    if (roll <= acc) { tier = TIER_ODDS[i][0]; break; }
+  }
+  var pool = CHARS.filter(function (c) { return c.tier === tier; });
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function charById(id) {
+  for (var i = 0; i < CHARS.length; i++) if (CHARS[i].id === id) return CHARS[i];
+  return null;
+}
+
+/* ---------- world ---------- */
+var WORLD = { w: 2400, h: 1700 };
+var MAX_PADS = 12;
+var myBase = { x: 900, y: 1330, w: 600, h: 300, name: 'YOUR BASE', mine: true };
+var npcBases = [
+  { x: 150,  y: 140, w: 520, h: 270, name: "Jose's Base",  color: '#3949ab' },
+  { x: 1730, y: 140, w: 520, h: 270, name: "Mia's Base",   color: '#d81b60' },
+  { x: 120,  y: 690, w: 480, h: 260, name: "Leo's Base",   color: '#f4511e' },
+  { x: 1800, y: 690, w: 480, h: 260, name: "Zara's Base",  color: '#00897b' },
+  { x: 940,  y: 110, w: 520, h: 270, name: "Rex's Base",   color: '#6d4c41' }
+];
+var conveyor = { x1: 260, y: 1060, x2: 2140, h: 84, speed: 55, items: [], spawnT: 0 };
+
+function basePads(base, count) {
+  var pads = [], cols = base.mine ? 6 : 4, rows = Math.ceil(count / cols);
+  for (var i = 0; i < count; i++) {
+    var cx = base.x + base.w * (((i % cols) + 0.5) / cols);
+    var cy = base.y + 60 + Math.floor(i / cols) * ((base.h - 80) / Math.max(rows, 2));
+    pads.push({ x: cx, y: cy + 40, item: null });
+  }
+  return pads;
+}
+myBase.pads = basePads(myBase, MAX_PADS);
+npcBases.forEach(function (b) {
+  b.pads = basePads(b, 8);
+  b.restockT = 0;
+  var startCount = 3;
+  for (var i = 0; i < startCount; i++) b.pads[i].item = randomChar();
+  b.guard = { x: b.x + b.w / 2, y: b.y + b.h / 2, tx: 0, ty: 0, wanderT: 0, chasing: false };
+});
+
+var player = {
+  x: myBase.x + myBase.w / 2, y: myBase.y - 60,
+  speed: 245, carrying: null, carryFrom: null, stunT: 0, safeT: 0
+};
+var state = { money: 50, started: false };
+var floaters = []; // {x,y,text,color,t}
+var toastT = 0;
+
+/* ---------- save / load ---------- */
+var SAVE_KEY = 'roba-el-brainrot-save';
+function save() {
+  try {
+    var owned = myBase.pads.map(function (p) { return p.item ? p.item.id : null; });
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, owned: owned }));
+  } catch (e) {}
+}
+function load() {
+  try {
+    var d = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if (!d) return;
+    state.money = d.money || 50;
+    (d.owned || []).forEach(function (id, i) {
+      if (id && i < myBase.pads.length) myBase.pads[i].item = charById(id);
+    });
+  } catch (e) {}
+}
+load();
+
+/* ---------- audio ---------- */
+var actx = null;
+function beep(freq, dur, type, vol) {
+  if (!actx) return;
+  var o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'square'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol || 0.08, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(); o.stop(actx.currentTime + dur);
+}
+function sfxBuy()    { beep(660, .12); beep(990, .18); }
+function sfxSteal()  { beep(440, .1, 'sawtooth'); beep(550, .12, 'sawtooth'); }
+function sfxSecure() { beep(660, .1); beep(880, .12); beep(1320, .2); }
+function sfxCaught() { beep(140, .35, 'sawtooth', .12); }
+function sfxDenied() { beep(200, .15, 'square', .06); }
+
+/* ---------- helpers ---------- */
+function fmt(n) {
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(n < 1e7 ? 1 : 0) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(n < 1e4 ? 1 : 0) + 'K';
+  return '$' + Math.floor(n);
+}
+function dist(ax, ay, bx, by) { var dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy); }
+function inRect(px, py, r, pad) {
+  pad = pad || 0;
+  return px > r.x - pad && px < r.x + r.w + pad && py > r.y - pad && py < r.y + r.h + pad;
+}
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.style.display = 'block'; toastT = 2.4;
+}
+function floater(x, y, text, color) {
+  floaters.push({ x: x, y: y, text: text, color: color || '#fff', t: 1.4 });
+}
+function ownedCount() {
+  return myBase.pads.filter(function (p) { return p.item; }).length;
+}
+function incomePerSec() {
+  return myBase.pads.reduce(function (s, p) { return s + (p.item ? p.item.rate : 0); }, 0);
+}
+function freePad() {
+  for (var i = 0; i < myBase.pads.length; i++) if (!myBase.pads[i].item) return myBase.pads[i];
+  return null;
+}
+
+/* ---------- input ---------- */
+var keys = {}, joy = { active: false, ox: 0, oy: 0, dx: 0, dy: 0 };
+addEventListener('keydown', function (e) { keys[e.key.toLowerCase()] = true; });
+addEventListener('keyup',   function (e) { keys[e.key.toLowerCase()] = false; });
+var cv = document.getElementById('game');
+function touchPos(t) { return { x: t.clientX, y: t.clientY }; }
+cv.addEventListener('touchstart', function (e) {
+  e.preventDefault();
+  var p = touchPos(e.changedTouches[0]);
+  joy.active = true; joy.ox = p.x; joy.oy = p.y; joy.dx = 0; joy.dy = 0;
+}, { passive: false });
+cv.addEventListener('touchmove', function (e) {
+  e.preventDefault();
+  if (!joy.active) return;
+  var p = touchPos(e.changedTouches[0]);
+  var dx = p.x - joy.ox, dy = p.y - joy.oy;
+  var d = Math.sqrt(dx * dx + dy * dy) || 1, max = 60;
+  var k = Math.min(d, max) / max;
+  joy.dx = (dx / d) * k; joy.dy = (dy / d) * k;
+}, { passive: false });
+cv.addEventListener('touchend', function (e) {
+  e.preventDefault();
+  joy.active = false; joy.dx = 0; joy.dy = 0;
+}, { passive: false });
+
+/* ---------- update ---------- */
+var incomeAcc = 0, buyCooldown = 0;
+
+function update(dt) {
+  // money income
+  incomeAcc += dt;
+  if (incomeAcc >= 1) {
+    incomeAcc -= 1;
+    var inc = incomePerSec();
+    if (inc > 0) {
+      state.money += inc;
+      floater(myBase.x + myBase.w / 2, myBase.y - 10, '+' + fmt(inc), '#b5ffb5');
+    }
+  }
+
+  // player movement
+  if (player.stunT > 0) player.stunT -= dt;
+  else {
+    var mx = 0, my = 0;
+    if (keys['w'] || keys['arrowup']) my -= 1;
+    if (keys['s'] || keys['arrowdown']) my += 1;
+    if (keys['a'] || keys['arrowleft']) mx -= 1;
+    if (keys['d'] || keys['arrowright']) mx += 1;
+    var kd = Math.sqrt(mx * mx + my * my);
+    if (kd > 0) { mx /= kd; my /= kd; }
+    mx += joy.dx; my += joy.dy;
+    var slow = player.carrying ? 0.95 : 1;
+    player.x += mx * player.speed * slow * dt;
+    player.y += my * player.speed * slow * dt;
+    player.x = Math.max(30, Math.min(WORLD.w - 30, player.x));
+    player.y = Math.max(30, Math.min(WORLD.h - 30, player.y));
+  }
+  if (player.safeT > 0) player.safeT -= dt;
+  if (buyCooldown > 0) buyCooldown -= dt;
+
+  // conveyor spawn & move
+  conveyor.spawnT -= dt;
+  if (conveyor.spawnT <= 0 && conveyor.items.length < 6) {
+    conveyor.spawnT = 6 + Math.random() * 4;
+    conveyor.items.push({ x: conveyor.x1, ch: randomChar() });
+  }
+  for (var i = conveyor.items.length - 1; i >= 0; i--) {
+    var it = conveyor.items[i];
+    it.x += conveyor.speed * dt;
+    if (it.x > conveyor.x2) { conveyor.items.splice(i, 1); continue; }
+    // buy on touch
+    if (buyCooldown <= 0 && dist(player.x, player.y, it.x, conveyor.y + conveyor.h / 2) < 44) {
+      if (state.money >= it.ch.price) {
+        var pad = freePad();
+        if (!pad) { toast('🧠 Base full! (12 max)'); sfxDenied(); buyCooldown = 1.2; }
+        else {
+          state.money -= it.ch.price;
+          pad.item = it.ch;
+          conveyor.items.splice(i, 1);
+          toast('🛒 Bought ' + it.ch.name + '!');
+          floater(player.x, player.y - 50, '-' + fmt(it.ch.price), '#ffd1d1');
+          sfxBuy(); save(); buyCooldown = 0.6;
+        }
+      } else {
+        toast('💸 Need ' + fmt(it.ch.price) + ' for ' + it.ch.name);
+        sfxDenied(); buyCooldown = 1.5;
+      }
+    }
+  }
+
+  // stealing from NPC bases
+  npcBases.forEach(function (b) {
+    // restock
+    b.restockT -= dt;
+    if (b.restockT <= 0) {
+      b.restockT = 18 + Math.random() * 14;
+      var empty = b.pads.filter(function (p) { return !p.item; });
+      if (empty.length > 0 && b.pads.filter(function (p) { return p.item; }).length < 4) {
+        empty[0].item = randomChar();
+      }
+    }
+    // pick up
+    if (!player.carrying && player.safeT <= 0) {
+      for (var j = 0; j < b.pads.length; j++) {
+        var p = b.pads[j];
+        if (p.item && dist(player.x, player.y, p.x, p.y) < 42) {
+          player.carrying = p.item; player.carryFrom = b;
+          p.item = null;
+          b.guard.chasing = true;
+          player.safeT = 2.0; // head start before the guard can tag you
+          toast('🥷 You grabbed ' + player.carrying.name + '! RUN HOME!');
+          sfxSteal();
+          break;
+        }
+      }
+    }
+    // guard AI
+    var g = b.guard;
+    var homeX = b.x + b.w / 2, homeY = b.y + b.h / 2;
+    var speed;
+    if (g.chasing && player.carrying && player.carryFrom === b) {
+      speed = 175;
+      var dx = player.x - g.x, dy = player.y - g.y;
+      var d = Math.sqrt(dx * dx + dy * dy) || 1;
+      g.x += (dx / d) * speed * dt; g.y += (dy / d) * speed * dt;
+      // caught!
+      if (d < 40 && player.safeT <= 0) {
+        var back = b.pads.filter(function (p) { return !p.item; })[0];
+        if (back) back.item = player.carrying;
+        toast('👮 Caught! ' + player.carrying.name + ' went back!');
+        player.carrying = null; player.carryFrom = null;
+        player.stunT = 0.9; player.safeT = 2.5;
+        g.chasing = false;
+        sfxCaught();
+      }
+      // give up far from home
+      if (dist(g.x, g.y, homeX, homeY) > 780) g.chasing = false;
+    } else {
+      g.chasing = false;
+      // wander / return home
+      g.wanderT -= dt;
+      if (g.wanderT <= 0) {
+        g.wanderT = 2 + Math.random() * 2;
+        g.tx = homeX + (Math.random() - 0.5) * (b.w - 80);
+        g.ty = homeY + (Math.random() - 0.5) * (b.h - 80);
+      }
+      var wx = g.tx - g.x, wy = g.ty - g.y;
+      var wd = Math.sqrt(wx * wx + wy * wy);
+      if (wd > 6) { g.x += (wx / wd) * 70 * dt; g.y += (wy / wd) * 70 * dt; }
+    }
+  });
+
+  // secure at home base
+  if (player.carrying && inRect(player.x, player.y, myBase, 10)) {
+    var pad2 = freePad();
+    if (pad2) {
+      pad2.item = player.carrying;
+      toast('🏠 ' + player.carrying.name + ' is YOURS! +' + fmt(player.carrying.rate) + '/s');
+      floater(player.x, player.y - 60, '⭐ SECURED! ⭐', '#ffd700');
+      if (player.carryFrom) player.carryFrom.guard.chasing = false;
+      player.carrying = null; player.carryFrom = null;
+      sfxSecure(); save();
+    } else if (toastT <= 0) {
+      toast('🧠 Base full! (12 max)');
+    }
+  }
+
+  // floaters & toast
+  for (var f = floaters.length - 1; f >= 0; f--) {
+    floaters[f].t -= dt; floaters[f].y -= 30 * dt;
+    if (floaters[f].t <= 0) floaters.splice(f, 1);
+  }
+  if (toastT > 0) {
+    toastT -= dt;
+    if (toastT <= 0) document.getElementById('toast').style.display = 'none';
+  }
+
+  // HUD
+  document.getElementById('money').textContent = '💰 ' + fmt(state.money);
+  document.getElementById('income').textContent = '📈 +' + fmt(incomePerSec()) + '/s';
+  document.getElementById('owned').textContent = '🧠 ' + ownedCount() + '/' + MAX_PADS;
+}
+
+/* ---------- render ---------- */
+var ctx = cv.getContext('2d');
+var view = { w: 0, h: 0, dpr: 1 };
+function resize() {
+  view.dpr = Math.min(devicePixelRatio || 1, 2);
+  view.w = innerWidth; view.h = innerHeight;
+  cv.width = view.w * view.dpr; cv.height = view.h * view.dpr;
+  ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+}
+addEventListener('resize', resize);
+resize();
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawItem(x, y, ch, showPrice) {
+  var tier = TIERS[ch.tier];
+  ctx.beginPath();
+  ctx.arc(x, y, 26, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = tier.color; ctx.stroke();
+  ctx.font = '30px ' + EMOJI; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(ch.emoji, x, y + 2);
+  ctx.font = 'bold 11px Arial'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = tier.color;
+  ctx.fillText(ch.name, x, y - 34);
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = 'bold 10px Arial';
+  ctx.fillText(showPrice ? fmt(ch.price) : '+' + fmt(ch.rate) + '/s', x, y + 44);
+}
+
+function render() {
+  var camX = Math.max(0, Math.min(WORLD.w - view.w, player.x - view.w / 2));
+  var camY = Math.max(0, Math.min(WORLD.h - view.h, player.y - view.h / 2));
+  if (view.w >= WORLD.w) camX = (WORLD.w - view.w) / 2;
+  if (view.h >= WORLD.h) camY = (WORLD.h - view.h) / 2;
+
+  // grass
+  ctx.fillStyle = '#2e8b47';
+  ctx.fillRect(0, 0, view.w, view.h);
+  ctx.save();
+  ctx.translate(-camX, -camY);
+  ctx.fillStyle = 'rgba(255,255,255,.04)';
+  for (var gx = 0; gx < WORLD.w; gx += 120)
+    for (var gy = (gx / 120) % 2 ? 120 : 0; gy < WORLD.h; gy += 240)
+      ctx.fillRect(gx, gy, 120, 120);
+
+  // conveyor
+  ctx.fillStyle = '#37474f';
+  roundRect(conveyor.x1 - 40, conveyor.y, conveyor.x2 - conveyor.x1 + 80, conveyor.h, 20);
+  ctx.fill();
+  ctx.fillStyle = '#546e7a';
+  var stripeShift = (performance.now() / 1000 * conveyor.speed) % 60;
+  for (var sx = conveyor.x1 - 40 + stripeShift; sx < conveyor.x2 + 40; sx += 60)
+    ctx.fillRect(sx, conveyor.y + 8, 24, conveyor.h - 16);
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('🛒 BRAINROT SHOP — walk on one to buy!', (conveyor.x1 + conveyor.x2) / 2, conveyor.y - 14);
+  conveyor.items.forEach(function (it) { drawItem(it.x, conveyor.y + conveyor.h / 2, it.ch, true); });
+
+  // bases
+  var bases = npcBases.concat([myBase]);
+  bases.forEach(function (b) {
+    ctx.fillStyle = b.mine ? 'rgba(46,125,50,.55)' : 'rgba(0,0,0,.28)';
+    roundRect(b.x, b.y, b.w, b.h, 18); ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = b.mine ? '#ffd700' : (b.color || '#fff');
+    ctx.stroke();
+    ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
+    ctx.fillStyle = b.mine ? '#ffd700' : '#fff';
+    ctx.fillText((b.mine ? '⭐ ' : '') + b.name, b.x + b.w / 2, b.y + 26);
+    b.pads.forEach(function (p) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 30, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fill();
+      if (p.item) drawItem(p.x, p.y, p.item, false);
+    });
+  });
+
+  // guards
+  npcBases.forEach(function (b) {
+    var g = b.guard;
+    ctx.beginPath(); ctx.arc(g.x, g.y, 22, 0, Math.PI * 2);
+    ctx.fillStyle = g.chasing ? '#c62828' : '#283593'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.font = '30px ' + EMOJI; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(g.chasing ? '😡' : '👮', g.x, g.y);
+    ctx.textBaseline = 'alphabetic';
+    if (g.chasing) { ctx.font = 'bold 13px Arial'; ctx.fillStyle = '#ff5252'; ctx.fillText('!!!', g.x, g.y - 26); }
+  });
+
+  // player
+  var blink = player.safeT > 0 && Math.floor(performance.now() / 120) % 2 === 0;
+  if (!blink) {
+    ctx.beginPath(); ctx.arc(player.x, player.y, 24, 0, Math.PI * 2);
+    ctx.fillStyle = '#fbc02d'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.font = '32px ' + EMOJI; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(player.stunT > 0 ? '😵' : '🏃', player.x, player.y);
+    ctx.textBaseline = 'alphabetic';
+    if (player.carrying) {
+      ctx.font = '28px ' + EMOJI;
+      ctx.fillText(player.carrying.emoji, player.x, player.y - 40);
+    }
+  }
+
+  // floaters
+  floaters.forEach(function (f) {
+    ctx.globalAlpha = Math.min(1, f.t);
+    ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.globalAlpha = 1;
+  });
+
+  ctx.restore();
+
+  // joystick
+  if (joy.active) {
+    ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 52, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(joy.ox + joy.dx * 52, joy.oy + joy.dy * 52, 22, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fill();
+  }
+}
+
+/* ---------- loop ---------- */
+var last = performance.now();
+function loop(now) {
+  var dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  if (state.started) update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+setInterval(save, 5000);
+
+document.getElementById('play').addEventListener('click', function () {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  document.getElementById('start').style.display = 'none';
+  state.started = true;
+});
+})();
+</script>
+<script src="worldcup-widget.js"></script>
+</body>
+</html>
