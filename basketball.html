@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0d1b2a">
+<link rel="icon" href="icon.svg">
 <title>Hoops 3D</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -39,17 +40,19 @@
     transition: opacity 0.3s; }
   #streak.show { opacity: 1; }
 
-  /* ---------- power meter ---------- */
-  #meter { position: fixed; right: 14px; top: 50%; transform: translateY(-50%);
-    width: 14px; height: min(38vh, 300px); border-radius: 8px; z-index: 10;
-    background: rgba(13,27,42,0.65); border: 1px solid rgba(255,255,255,0.18);
-    overflow: hidden; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+  /* ---------- power meter (timing bar: green top = good, red bottom = bad) ---------- */
+  #meter { position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
+    width: 20px; height: min(44vh, 340px); border-radius: 10px; z-index: 10;
+    background: linear-gradient(180deg,
+      #35e07c 0%, #35e07c 15%,      /* green zone: top 15% */
+      #ffd166 40%, #ff9e42 68%, #ff5252 100%);
+    border: 2px solid rgba(255,255,255,0.35);
+    opacity: 0; transition: opacity 0.15s, box-shadow 0.1s; pointer-events: none; }
   #meter.show { opacity: 1; }
-  #meterZone { position: absolute; left: 0; right: 0; background: rgba(128, 224, 168, 0.28);
-    border-top: 1px solid rgba(128,224,168,0.7); border-bottom: 1px solid rgba(128,224,168,0.7); }
-  #meterFill { position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
-    background: linear-gradient(180deg, #ffd166, #f77f00); transition: height 0.03s linear; }
-  #meterFill.hot { background: linear-gradient(180deg, #80e0a8, #3fb872); }
+  #meter.green { box-shadow: 0 0 18px rgba(53, 224, 124, 0.9); border-color: #b8ffd6; }
+  #meterInd { position: absolute; left: -6px; right: -6px; height: 6px; bottom: 0;
+    background: #fff; border-radius: 3px; box-shadow: 0 0 8px rgba(255,255,255,0.9);
+    margin-bottom: -3px; }
 
   /* ---------- popups ---------- */
   #popup { position: fixed; top: 32%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
@@ -66,7 +69,7 @@
   }
   #missHint { position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
     font-size: 22px; font-weight: 700; color: #8d99ae; z-index: 19; opacity: 0;
-    pointer-events: none; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
+    pointer-events: none; text-shadow: 0 2px 10px rgba(0,0,0,0.7); white-space: nowrap; }
   #missHint.pop { animation: hintIn 0.9s ease-out forwards; }
   @keyframes hintIn {
     0% { opacity: 0; } 20% { opacity: 1; } 70% { opacity: 1; }
@@ -138,10 +141,10 @@
 </div>
 <button id="pauseBtn" aria-label="Pause">⏸</button>
 <div id="streak"></div>
-<div id="meter"><div id="meterZone"></div><div id="meterFill"></div></div>
+<div id="meter"><div id="meterInd"></div></div>
 <div id="popup"></div>
 <div id="missHint"></div>
-<div id="hint">Swipe up to shoot 🏀</div>
+<div id="hint">Hold to charge — release in the GREEN 🏀</div>
 
 <!-- main menu -->
 <div class="overlay" id="menuScreen">
@@ -165,8 +168,9 @@
     </button>
   </div>
   <button id="soundBtn">🔊 Sound on</button>
-  <p style="margin-top:16px">Swipe up through the ball to shoot &middot; angle aims &middot; length is power.<br>
-  Land the meter in the green zone. Deep shots score <b style="color:#ffd166">3</b>.</p>
+  <p style="margin-top:16px">Press and hold to charge — the power bar climbs and falls.<br>
+  Release in the <b style="color:#35e07c">green</b> at the top for a perfect shot; the <b style="color:#ff5252">red</b> bottom throws it short.<br>
+  Slide your finger left/right while holding to aim. Deep shots score <b style="color:#ffd166">3</b>.</p>
 </div>
 
 <!-- pause -->
@@ -459,6 +463,47 @@ const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 24), ballMat);
 ball.castShadow = true;
 scene.add(ball);
 
+// ---------- Player character ----------
+// low-poly baller, built facing local +z; arms pivot at the shoulders
+const ARM_HOLD = -1.52, ARM_UP = -2.72;   // shoulder rotation.x: holding vs full release
+const player = new THREE.Group();
+let armL, armR;
+{
+  const skin   = new THREE.MeshStandardMaterial({ color: 0xc68863, roughness: 0.7 });
+  const jersey = new THREE.MeshStandardMaterial({ color: 0x1565c0, roughness: 0.6 });
+  const shorts = new THREE.MeshStandardMaterial({ color: 0x0d2b52, roughness: 0.6 });
+  const shoe   = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.5 });
+  const hair   = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.9 });
+  const add = (mesh, x, y, z, parent) => {
+    mesh.position.set(x, y, z); mesh.castShadow = true; (parent || player).add(mesh); return mesh;
+  };
+  for (const s of [-1, 1]) {
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.075, 0.24), shoe), 0.095 * s, 0.038, 0.035);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.046, 0.5, 10), skin), 0.095 * s, 0.32, 0);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.062, 0.3, 10), shorts), 0.095 * s, 0.68, 0);
+  }
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.115, 0.56, 12), jersey), 0, 1.11, 0);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.1, 10), skin), 0, 1.43, 0); // neck
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), skin), 0, 1.56, 0);           // head
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.104, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair);
+  add(cap, 0, 1.565, -0.012);
+  for (const s of [-1, 1]) {
+    const arm = new THREE.Group();
+    arm.position.set(0.175 * s, 1.36, 0);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), jersey), 0, 0, 0, arm);          // shoulder
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.038, 0.3, 8), skin), 0, -0.16, 0, arm);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.032, 0.27, 8), skin), 0, -0.44, 0, arm);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 6), skin), 0, -0.58, 0, arm);         // hand
+    arm.rotation.x = ARM_HOLD;
+    arm.rotation.z = -0.18 * s;   // hands angled inward around the ball
+    player.add(arm);
+    if (s === -1) armL = arm; else armR = arm;
+  }
+}
+scene.add(player);
+let armRaise = 0;        // 1 right after release, decays back to hold
+let crouch = 0;          // 0..1 while charging
+
 // spot marker ring on the floor
 const spotRing = new THREE.Mesh(
   new THREE.TorusGeometry(0.34, 0.03, 8, 40),
@@ -585,7 +630,11 @@ let audioCtx = null;
 let soundOn = localStorage.getItem('hoops3d_sound') !== '0';
 function ac() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  // 'suspended' or iOS's non-standard 'interrupted' (after a call/Siri) — always try to resume
+  if (audioCtx.state !== 'running') {
+    const p = audioCtx.resume();
+    if (p && p.catch) p.catch(() => {});
+  }
   return audioCtx;
 }
 let noiseBuf = null;
@@ -658,12 +707,38 @@ function sfx(kind) {
 }
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 
+// the celebration clip that plays when the release lands in the green zone
+let greenBuf = null, greenLoadStarted = false;
+function warmGreen() {
+  if (greenLoadStarted) return;
+  greenLoadStarted = true;
+  try {
+    fetch('green.mp3')
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(b => ac().decodeAudioData(b))
+      .then(buf => { greenBuf = buf; })
+      .catch(() => { greenLoadStarted = false; });
+  } catch (e) { greenLoadStarted = false; }
+}
+function playGreen() {
+  if (!soundOn) return;
+  try {
+    warmGreen();
+    if (!greenBuf) return;
+    const ctx = ac();
+    const src = ctx.createBufferSource(); src.buffer = greenBuf;
+    const gn = ctx.createGain(); gn.gain.value = 0.9;
+    src.connect(gn); gn.connect(ctx.destination);
+    src.start();
+  } catch (e) {}
+}
+
 // ---------- DOM refs ----------
 const $ = id => document.getElementById(id);
 const $hud = $('hud'), $hud1l = $('hud1l'), $hud1v = $('hud1v'),
   $hud2l = $('hud2l'), $hud2v = $('hud2v'), $hud3l = $('hud3l'), $hud3v = $('hud3v');
 const $streak = $('streak'), $popup = $('popup'), $missHint = $('missHint'), $hint = $('hint');
-const $meter = $('meter'), $meterFill = $('meterFill'), $meterZone = $('meterZone');
+const $meter = $('meter'), $meterInd = $('meterInd');
 const $pauseBtn = $('pauseBtn');
 
 // ---------- Modes / spots ----------
@@ -694,7 +769,8 @@ const state = {
   makes: 0,
   attempts: 0,
   atwIdx: 0,                 // current around-the-world spot
-  shotPos: new THREE.Vector3(0, BALL_R + 1.15, 4.2),
+  shotPos: new THREE.Vector3(0, 1.95, 4.2),   // launch origin (above the player's head)
+  holdPos: new THREE.Vector3(0, 1.18, 3.7),   // where the ball sits in the player's hands
   ballVel: new THREE.Vector3(),
   ballSpin: new THREE.Vector3(),
   flying: false,
@@ -719,11 +795,19 @@ function currentSpot() {
   return ARCADE_SPOTS[state.spotIdx % ARCADE_SPOTS.length];
 }
 
-function placeBallAtSpot(announce) {
-  const [sx, sz, gold] = currentSpot();
+const RELEASE_Y = 1.95, RELEASE_FWD = 0.25, HOLD_Y = 1.42, HOLD_FWD = 0.38;
+function placeBallAt(sx, sz, gold, announce) {
   state.golden = state.mode === 'arcade' && !!gold;
-  state.shotPos.set(sx, 1.15 + BALL_R, sz);
-  ball.position.copy(state.shotPos);
+  const fx = rimCenter.x - sx, fz = rimCenter.z - sz;
+  const fl = Math.hypot(fx, fz) || 1;
+  const fwdX = fx / fl, fwdZ = fz / fl;
+  state.shotPos.set(sx + fwdX * RELEASE_FWD, RELEASE_Y, sz + fwdZ * RELEASE_FWD);
+  // shooting pocket: in front of the face, slightly to the camera side so it reads on screen
+  state.holdPos.set(sx + fwdX * HOLD_FWD - fwdZ * 0.1, HOLD_Y, sz + fwdZ * HOLD_FWD + fwdX * 0.1);
+  player.position.set(sx, 0, sz);
+  player.lookAt(rimCenter.x, 0, rimCenter.z);
+  armRaise = 0;
+  ball.position.copy(state.holdPos);
   state.ballVel.set(0, 0, 0);
   state.flying = false;
   state.scoredThisFlight = false;
@@ -738,6 +822,10 @@ function placeBallAtSpot(announce) {
   if (announce && state.golden) showPopup('GOLDEN BALL ×2', '#ffd166');
   updateCamera(true);
 }
+function placeBallAtSpot(announce) {
+  const [sx, sz, gold] = currentSpot();
+  placeBallAt(sx, sz, gold, announce);
+}
 
 function nextSpot() {
   if (state.mode !== 'atw') state.spotIdx++;
@@ -750,17 +838,19 @@ const camPos = new THREE.Vector3();
 const lookAt = new THREE.Vector3(rimCenter.x, RIM_HEIGHT - 0.4, rimCenter.z);
 function updateCamera(snap) {
   const dir = new THREE.Vector3().subVectors(state.shotPos, rimCenter); dir.y = 0; dir.normalize();
-  camPos.copy(state.shotPos).addScaledVector(dir, 1.9);
-  camPos.y = state.shotPos.y + 0.75;
+  camPos.copy(state.shotPos).addScaledVector(dir, 3.05);
+  camPos.x += dir.z * 0.6; camPos.z += -dir.x * 0.6;   // over the right shoulder
+  camPos.y = 2.2;
   // while the ball flies, drift the view toward it so the arc reads
   if (state.flying) {
     camTarget.set(
       (rimCenter.x + ball.position.x) / 2,
-      Math.max(RIM_HEIGHT - 0.4, (RIM_HEIGHT + ball.position.y) / 2 - 0.4),
+      Math.max(RIM_HEIGHT - 0.7, (RIM_HEIGHT + ball.position.y) / 2 - 0.7),
       (rimCenter.z + ball.position.z * 0.2) / 1.2
     );
   } else {
-    camTarget.set(rimCenter.x, RIM_HEIGHT - 0.4, rimCenter.z);
+    // frame both the player (near, low) and the rim (far, high)
+    camTarget.set(rimCenter.x, RIM_HEIGHT - 0.75, rimCenter.z);
   }
   lookAt.lerp(camTarget, snap ? 1 : 0.07);
   if (snap) camera.position.copy(camPos);
@@ -772,38 +862,54 @@ function updateCamera(snap) {
   camera.lookAt(lookAt);
 }
 
-// ---------- Input ----------
-let dragStart = null, dragCur = null, dragT0 = 0;
+// ---------- Input: hold to charge, release in the green ----------
+const BAR_SPEED = 1.25;   // full bottom-to-top sweep in 0.8 s, then back down
+const GREEN_LO = 0.85;    // top 15% of the bar is the green zone
+let charging = false, barVal = 0, barDir = 1, chargeStartX = 0, chargeLateral = 0;
+let touchId = null;   // identifier of the finger that started the charge
 const el = renderer.domElement;
+// returns coords of the charging finger only; null if this event is another finger
 function ptr(e) {
-  const t = e.changedTouches ? e.changedTouches[0] : e;
-  return { x: t.clientX, y: t.clientY };
+  if (!e.changedTouches) return { x: e.clientX, y: e.clientY };
+  for (const t of e.changedTouches) if (t.identifier === touchId) return { x: t.clientX, y: t.clientY };
+  return null;
 }
 function onDown(e) {
   if (soundOn) { try { ac(); } catch (err) {} }  // unlock audio on gesture
-  if (state.screen !== 'playing' || state.flying) return;
-  dragStart = ptr(e); dragCur = dragStart; dragT0 = performance.now();
+  if (state.screen !== 'playing' || state.flying || charging) return;
+  const t = e.changedTouches ? e.changedTouches[0] : e;
+  touchId = e.changedTouches ? t.identifier : null;
+  charging = true;
+  barVal = 0; barDir = 1;
+  chargeStartX = t.clientX; chargeLateral = 0;
+  $meter.classList.add('show');
   e.preventDefault();
 }
 function onMove(e) {
-  if (!dragStart) return;
-  dragCur = ptr(e);
-  const shot = computeShot();
-  showAim(shot && shot.v);
-  showMeter(shot);
+  if (!charging) return;
+  const p = ptr(e);
+  if (!p) return;   // a different finger moved — ignore
+  // slide left/right while holding to aim
+  chargeLateral = THREE.MathUtils.clamp((p.x - chargeStartX) / window.innerWidth * 2.6, -1.4, 1.4);
   e.preventDefault();
 }
-function onUp(e) {
-  if (!dragStart) return;
-  dragCur = ptr(e);
-  const shot = computeShot();
+function cancelCharge() {
+  charging = false;
   aimGroup.visible = false;
-  $meter.classList.remove('show');
-  if (shot && state.screen === 'playing' && !state.flying) {
-    launch(shot.v);
+  $meter.classList.remove('show', 'green');
+}
+function onUp(e) {
+  if (!charging) return;
+  if (e.changedTouches && !ptr(e)) return;   // another finger lifted — not the shooting one
+  const inGreen = barVal >= GREEN_LO;
+  const power = 0.45 + 0.55 * barVal;   // bottom of the bar throws it badly short
+  cancelCharge();
+  if (state.screen === 'playing' && !state.flying) {
+    if (window.HOOPS) HOOPS.lastGreenHit = inGreen;
+    if (inGreen) playGreen();
+    launch(shotVelocity(power, chargeLateral));
     $hint.classList.add('hide');
   }
-  dragStart = null;
   e.preventDefault();
 }
 el.addEventListener('mousedown', onDown);
@@ -812,6 +918,7 @@ window.addEventListener('mouseup', onUp);
 el.addEventListener('touchstart', onDown, { passive: false });
 el.addEventListener('touchmove', onMove, { passive: false });
 el.addEventListener('touchend', onUp, { passive: false });
+el.addEventListener('touchcancel', e => { if (!charging || !e.changedTouches || ptr(e)) cancelCharge(); });
 
 // power ∈ (0, 1.6]; 1.0 is a perfect-range shot.
 // The ideal speed is solved numerically with the SAME integrator as stepPhysics,
@@ -848,15 +955,7 @@ function idealSpeedFor(dist, dh) {
   idealCache.set(key, v);
   return v;
 }
-function computeShot() {
-  const dx = dragCur.x - dragStart.x;
-  const dy = dragStart.y - dragCur.y;
-  if (dy < 24) return null;
-  const h = window.innerHeight;
-  const dt = Math.max(80, performance.now() - dragT0);
-  const speedBoost = THREE.MathUtils.clamp(420 / dt, 0.75, 1.5);
-  let power = THREE.MathUtils.clamp((dy / h) * 2.2 * speedBoost, 0.25, 1.6);
-
+function shotVelocity(power, lateral) {
   const toHoop = new THREE.Vector3().subVectors(rimCenter, state.shotPos);
   const dist = Math.hypot(toHoop.x, toHoop.z);
   const fwd = new THREE.Vector3(toHoop.x, 0, toHoop.z).normalize();
@@ -864,7 +963,6 @@ function computeShot() {
   const ang = launchAngleFor(dist);
   const ideal = idealSpeedFor(dist, RIM_HEIGHT - state.shotPos.y);
 
-  let lateral = (dx / window.innerWidth) * 3.2;
   // aim assist: near-perfect releases get gently pulled toward perfect
   if (power > 0.9 && power < 1.1) power = 1 + (power - 1) * 0.35;
   if (Math.abs(lateral) < 0.35) lateral *= 0.35;
@@ -874,7 +972,7 @@ function computeShot() {
     .addScaledVector(fwd, speed * Math.cos(ang))
     .addScaledVector(right, lateral);
   v.y = speed * Math.sin(ang);
-  return { v, power };
+  return v;
 }
 
 function showAim(v) {
@@ -888,21 +986,20 @@ function showAim(v) {
     aimGroup.children[i].position.copy(p);
   }
 }
-function showMeter(shot) {
-  if (!shot) { $meter.classList.remove('show'); return; }
-  $meter.classList.add('show');
-  const frac = THREE.MathUtils.clamp(shot.power / 1.6, 0, 1);
-  $meterFill.style.height = (frac * 100) + '%';
-  const inZone = shot.power > 0.88 && shot.power < 1.12;
-  $meterFill.classList.toggle('hot', inZone);
-  // green zone: power 0.88–1.12 mapped onto the bar
-  $meterZone.style.bottom = (0.88 / 1.6 * 100) + '%';
-  $meterZone.style.height = ((1.12 - 0.88) / 1.6 * 100) + '%';
+function updateChargeBar(dt) {
+  if (!charging) return;
+  barVal += barDir * BAR_SPEED * dt;
+  if (barVal >= 1) { barVal = 1; barDir = -1; }
+  if (barVal <= 0) { barVal = 0; barDir = 1; }
+  $meterInd.style.bottom = (barVal * 100) + '%';
+  $meter.classList.toggle('green', barVal >= GREEN_LO);
+  showAim(shotVelocity(0.45 + 0.55 * barVal, chargeLateral));
 }
 
 function launch(v) {
-  ball.position.copy(state.shotPos); // exact rest position — idle bob must not perturb the shot
+  ball.position.copy(state.shotPos); // exact release point — animations must not perturb the shot
   if (window.HOOPS) HOOPS.lastLaunch = { v: v.toArray(), p: ball.position.toArray(), spot: state.shotPos.toArray() };
+  armRaise = 1;                      // arms snap up into the follow-through
   state.flying = true;
   state.ballVel.copy(v);
   state.shotFromPos = state.shotPos.clone();
@@ -1176,11 +1273,13 @@ function startGame(mode) {
   $('pauseScreen').classList.add('hide');
   placeBallAtSpot(true);
   refreshHud();
+  warmGreen();
   sfx('click');
 }
 function endGame(won) {
   if (state.screen === 'over') return;
   state.screen = 'over';
+  cancelCharge();
   $pauseBtn.classList.remove('show');
   sfx(won ? 'cheer' : 'buzzer');
 
@@ -1212,6 +1311,7 @@ function endGame(won) {
 }
 function goMenu() {
   state.screen = 'menu';
+  cancelCharge();
   $('menuScreen').classList.remove('hide');
   $('endScreen').classList.add('hide');
   $('pauseScreen').classList.add('hide');
@@ -1227,6 +1327,7 @@ function goMenu() {
 function pauseGame() {
   if (state.screen !== 'playing') return;
   state.screen = 'paused';
+  cancelCharge();
   $('pauseScreen').classList.remove('hide');
   sfx('click');
 }
@@ -1252,7 +1353,13 @@ $('soundBtn').addEventListener('click', () => {
   if (soundOn) sfx('click');
 });
 syncSoundBtn();
-document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { pauseGame(); return; }
+  // returning to the tab: recover audio if the OS interrupted it
+  if (soundOn && audioCtx && audioCtx.state !== 'running') {
+    try { const p = audioCtx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
+});
 
 // ---------- Main loop ----------
 refreshMenuBests();
@@ -1297,14 +1404,28 @@ function animate() {
     }
   }
 
-  // ball pop-in + idle bob
+  // charge bar + player pose
+  updateChargeBar(dt);
+  const crouchTarget = charging ? 0.35 + 0.65 * barVal : 0;
+  crouch += (crouchTarget - crouch) * Math.min(1, dt * 10);
+  armRaise = Math.max(0, armRaise - dt * 2.4);
+  player.position.y = -0.1 * crouch;
+  const baseAng = ARM_HOLD + 0.32 * crouch;
+  const armAng = baseAng + (ARM_UP - baseAng) * armRaise;
+  armL.rotation.x = armAng; armR.rotation.x = armAng;
+
+  // ball pop-in + resting in the player's hands
   if (state.spawnScale < 1) {
     state.spawnScale = Math.min(1, state.spawnScale + dt * 5);
     const s = 0.4 + 0.6 * state.spawnScale;
     ball.scale.setScalar(s * (1 + 0.15 * Math.sin(state.spawnScale * Math.PI)));
   } else ball.scale.setScalar(1);
   if (!state.flying && (state.screen === 'playing' || state.screen === 'menu')) {
-    ball.position.y = state.shotPos.y + Math.sin(t * 2.2) * 0.02;
+    ball.position.set(
+      state.holdPos.x,
+      state.holdPos.y - 0.16 * crouch + Math.sin(t * 2.2) * 0.015,
+      state.holdPos.z
+    );
     ball.rotation.y += dt * 0.4;
   }
   spotRing.scale.setScalar(1 + 0.08 * Math.sin(t * 3));
@@ -1332,21 +1453,12 @@ window.HOOPS = {
   start: startGame,
   shoot(power = 1, lateralMps = 0) {
     if (state.screen !== 'playing' || state.flying) return false;
-    const toHoop = new THREE.Vector3().subVectors(rimCenter, state.shotPos);
-    const dist = Math.hypot(toHoop.x, toHoop.z);
-    const fwd = new THREE.Vector3(toHoop.x, 0, toHoop.z).normalize();
-    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
-    const ang = launchAngleFor(dist);
-    // same power->speed mapping (incl. aim assist) as a real swipe
-    if (power > 0.9 && power < 1.1) power = 1 + (power - 1) * 0.35;
-    const speed = idealSpeedFor(dist, RIM_HEIGHT - state.shotPos.y) * (0.55 + 0.45 * power);
-    const v = new THREE.Vector3()
-      .addScaledVector(fwd, speed * Math.cos(ang))
-      .addScaledVector(right, lateralMps);
-    v.y = speed * Math.sin(ang);
-    launch(v);
+    launch(shotVelocity(power, lateralMps));
     return true;
   },
+  setSpot(x, z) { placeBallAt(x, z, 0, false); },
+  greenLoaded() { return !!greenBuf; },
+  bar() { return barVal; },
 };
 </script>
 </body>
