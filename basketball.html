@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1b2a">
+<title>Hoops 3D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1b2a;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    -webkit-user-select: none; user-select: none; touch-action: none; }
+  #game { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex;
+    justify-content: space-between; align-items: flex-start; padding: 12px 16px;
+    pointer-events: none; z-index: 10; }
+  .hud-box { background: rgba(13, 27, 42, 0.75); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px; padding: 8px 16px; color: #fff; text-align: center;
+    backdrop-filter: blur(6px); min-width: 84px; }
+  .hud-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; }
+  .hud-value { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  #timerBox .hud-value.low { color: #ff5252; animation: pulse 0.5s infinite alternate; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.15); } }
+
+  #streak { position: fixed; top: 84px; left: 50%; transform: translateX(-50%);
+    color: #ffd166; font-weight: 800; font-size: 15px; z-index: 10;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6); pointer-events: none; opacity: 0;
+    transition: opacity 0.3s; }
+  #streak.show { opacity: 1; }
+
+  #popup { position: fixed; top: 34%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
+    font-size: 52px; font-weight: 900; color: #ffd166; z-index: 20; opacity: 0;
+    pointer-events: none; text-shadow: 0 4px 20px rgba(0,0,0,0.7);
+    font-style: italic; letter-spacing: 1px; white-space: nowrap; }
+  #popup.pop { animation: popIn 1s ease-out forwards; }
+  @keyframes popIn {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+    20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    35%  { transform: translate(-50%, -50%) scale(1); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+  }
+
+  #hint { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.85); font-size: 15px; z-index: 10; pointer-events: none;
+    background: rgba(13,27,42,0.6); padding: 8px 18px; border-radius: 20px;
+    backdrop-filter: blur(4px); transition: opacity 0.5s; white-space: nowrap; }
+  #hint.hide { opacity: 0; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(8, 15, 26, 0.82);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 30; backdrop-filter: blur(8px); transition: opacity 0.4s; }
+  .overlay.hide { opacity: 0; pointer-events: none; }
+  .overlay h1 { color: #fff; font-size: clamp(38px, 9vw, 64px); font-weight: 900;
+    font-style: italic; letter-spacing: 2px; margin-bottom: 6px; }
+  .overlay h1 .accent { color: #f77f00; }
+  .overlay p { color: rgba(255,255,255,0.7); font-size: 15px; margin: 4px 24px; text-align: center; }
+  .overlay .bigscore { font-size: 64px; font-weight: 900; color: #ffd166; margin: 8px 0; }
+  .overlay .best { color: #90e0ef; font-weight: 700; font-size: 16px; margin-bottom: 10px; }
+  .btn { margin-top: 22px; padding: 14px 46px; font-size: 19px; font-weight: 800;
+    color: #fff; background: linear-gradient(135deg, #f77f00, #d62828);
+    border: none; border-radius: 30px; cursor: pointer; letter-spacing: 1px;
+    box-shadow: 0 6px 24px rgba(247, 127, 0, 0.45); transition: transform 0.15s; }
+  .btn:active { transform: scale(0.94); }
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div class="hud-box"><div class="hud-label">Score</div><div class="hud-value" id="score">0</div></div>
+  <div class="hud-box" id="timerBox"><div class="hud-label">Time</div><div class="hud-value" id="timer">60</div></div>
+  <div class="hud-box"><div class="hud-label">Best</div><div class="hud-value" id="best">0</div></div>
+</div>
+<div id="streak"></div>
+<div id="popup"></div>
+<div id="hint">Swipe up to shoot 🏀</div>
+
+<div class="overlay" id="startOverlay">
+  <h1>HOOPS <span class="accent">3D</span></h1>
+  <p>Swipe (or drag the mouse) up through the ball to shoot.</p>
+  <p>Swipe angle aims left / right &middot; swipe length sets power.</p>
+  <p>Long-range shots are worth <b style="color:#ffd166">3 points</b>. Score as much as you can in 60 seconds!</p>
+  <button class="btn" id="startBtn">PLAY</button>
+</div>
+
+<div class="overlay hide" id="endOverlay">
+  <h1>TIME<span class="accent">!</span></h1>
+  <p>Final score</p>
+  <div class="bigscore" id="finalScore">0</div>
+  <div class="best" id="finalBest"></div>
+  <button class="btn" id="againBtn">PLAY AGAIN</button>
+</div>
+
+<script src="three.min.js"></script>
+<script>
+'use strict';
+/* ============================================================
+   HOOPS 3D — arcade basketball
+   Coordinates: y up, hoop faces -z (player shoots toward +z...
+   actually player is at -z side looking toward hoop at z=0-ish).
+   Units are meters. Regulation-ish: rim at 3.05 m, rim r 0.2286.
+   ============================================================ */
+
+const RIM_HEIGHT = 3.05;
+const RIM_RADIUS = 0.23;
+const RIM_TUBE   = 0.018;
+const BALL_R     = 0.121;
+const BOARD_W = 1.8, BOARD_H = 1.05;
+const G = -9.81;
+const GAME_SECONDS = 60;
+
+// Hoop position: rim center
+const rimCenter = new THREE.Vector3(0, RIM_HEIGHT, -0.05);
+const boardZ = rimCenter.z - RIM_RADIUS - 0.12;   // backboard plane behind rim
+const boardBottomY = 2.9, boardTopY = boardBottomY + BOARD_H;
+
+// ---------- Renderer / scene ----------
+const container = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1b2a);
+scene.fog = new THREE.Fog(0x0d1b2a, 18, 42);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+
+// ---------- Lights ----------
+scene.add(new THREE.AmbientLight(0xbfd4ff, 0.55));
+const key = new THREE.DirectionalLight(0xfff2df, 1.15);
+key.position.set(-6, 12, 6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -10; key.shadow.camera.right = 10;
+key.shadow.camera.top = 12;  key.shadow.camera.bottom = -4;
+key.shadow.camera.far = 40;
+scene.add(key);
+const rimLight = new THREE.PointLight(0xffe0b0, 0.5, 15);
+rimLight.position.set(0, 5.5, 1.5);
+scene.add(rimLight);
+
+// ---------- Court ----------
+function makeCourtTexture() {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 1024;
+  const x = c.getContext('2d');
+  // wood planks
+  const g = x.createLinearGradient(0, 0, 1024, 1024);
+  g.addColorStop(0, '#c8873f'); g.addColorStop(0.5, '#d99a4e'); g.addColorStop(1, '#c07f38');
+  x.fillStyle = g; x.fillRect(0, 0, 1024, 1024);
+  x.globalAlpha = 0.14;
+  for (let i = 0; i < 26; i++) {
+    x.fillStyle = i % 2 ? '#8a5a24' : '#e8b06a';
+    x.fillRect(0, i * 40, 1024, 20);
+  }
+  x.globalAlpha = 1;
+  // court markings (texture spans 15m x 15m, hoop near center-top)
+  const m = 1024 / 15; // px per meter
+  x.strokeStyle = '#ffffff'; x.lineWidth = 6; x.globalAlpha = 0.85;
+  // free-throw "key" box: hoop at (512, y0)
+  const hx = 512, hy = 3.2 * m;
+  x.strokeRect(hx - 2.45 * m, hy - 1.2 * m, 4.9 * m, 5.8 * m);
+  // free-throw circle
+  x.beginPath(); x.arc(hx, hy + 4.6 * m, 1.8 * m, 0, Math.PI * 2); x.stroke();
+  // 3-point arc
+  x.beginPath(); x.arc(hx, hy, 6.75 * m, 0.12 * Math.PI, 0.88 * Math.PI); x.stroke();
+  x.globalAlpha = 1;
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 8;
+  return t;
+}
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(15, 15),
+  new THREE.MeshStandardMaterial({ map: makeCourtTexture(), roughness: 0.75, metalness: 0.05 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.position.set(0, 0, 4.3); // hoop sits near far edge of texture
+floor.receiveShadow = true;
+scene.add(floor);
+
+// dark surround beyond court
+const apron = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.MeshStandardMaterial({ color: 0x14213d, roughness: 1 })
+);
+apron.rotation.x = -Math.PI / 2;
+apron.position.y = -0.01;
+scene.add(apron);
+
+// back wall / crowd suggestion
+function makeCrowdTexture() {
+  const c = document.createElement('canvas'); c.width = 2048; c.height = 512;
+  const x = c.getContext('2d');
+  x.fillStyle = '#0a1220'; x.fillRect(0, 0, 2048, 512);
+  const cols = ['#3a506b', '#5b6c8f', '#22334f', '#6e5a7e', '#4f6d7a', '#7a5c46'];
+  let s = 7;
+  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let ry = 0; ry < 26; ry++) for (let cx = 0; cx < 250; cx++) {
+    x.fillStyle = cols[Math.floor(rnd() * cols.length)];
+    x.globalAlpha = 0.5 + rnd() * 0.5;
+    x.beginPath();
+    x.arc(4 + cx * 8.2 + rnd() * 3, 12 + ry * 19 + rnd() * 4, 2.6 + rnd() * 1.4, 0, Math.PI * 2);
+    x.fill();
+  }
+  x.globalAlpha = 1;
+  // dark rows between "seating tiers"
+  x.fillStyle = 'rgba(5, 10, 20, 0.55)';
+  for (let ry = 0; ry < 5; ry++) x.fillRect(0, 90 + ry * 95, 2048, 8);
+  return new THREE.CanvasTexture(c);
+}
+const wall = new THREE.Mesh(
+  new THREE.PlaneGeometry(46, 11),
+  new THREE.MeshBasicMaterial({ map: makeCrowdTexture(), fog: true })
+);
+wall.position.set(0, 5.5, -9);
+scene.add(wall);
+
+// ---------- Hoop assembly ----------
+const hoop = new THREE.Group();
+
+// pole + arm
+const poleMat = new THREE.MeshStandardMaterial({ color: 0x2b2d42, roughness: 0.5, metalness: 0.6 });
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.9, 16), poleMat);
+pole.position.set(0, 1.95, boardZ - 1.0);
+pole.castShadow = true;
+hoop.add(pole);
+const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 1.0), poleMat);
+arm.position.set(0, 3.75, boardZ - 0.5);
+arm.castShadow = true;
+hoop.add(arm);
+
+// backboard (glass with white shooting square)
+function makeBoardTexture() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 300;
+  const x = c.getContext('2d');
+  x.fillStyle = 'rgba(228, 240, 252, 0.92)'; x.fillRect(0, 0, 512, 300);
+  x.strokeStyle = '#d62828'; x.lineWidth = 10;
+  x.strokeRect(6, 6, 500, 288);           // outer frame
+  x.strokeStyle = '#e63946'; x.lineWidth = 8;
+  x.strokeRect(512/2 - 84, 300 - 8 - 130, 168, 130); // shooter square (bottom center)
+  return new THREE.CanvasTexture(c);
+}
+const board = new THREE.Mesh(
+  new THREE.BoxGeometry(BOARD_W, BOARD_H, 0.04),
+  new THREE.MeshStandardMaterial({ map: makeBoardTexture(), roughness: 0.25, metalness: 0.1,
+    transparent: true, opacity: 0.96 })
+);
+board.position.set(0, boardBottomY + BOARD_H / 2, boardZ);
+board.castShadow = true;
+hoop.add(board);
+
+// rim
+const rim = new THREE.Mesh(
+  new THREE.TorusGeometry(RIM_RADIUS, RIM_TUBE, 12, 40),
+  new THREE.MeshStandardMaterial({ color: 0xe85d04, roughness: 0.35, metalness: 0.7 })
+);
+rim.rotation.x = Math.PI / 2;
+rim.position.copy(rimCenter);
+rim.castShadow = true;
+hoop.add(rim);
+// rim bracket
+const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.13), rim.material);
+bracket.position.set(0, RIM_HEIGHT - 0.01, boardZ + 0.08);
+hoop.add(bracket);
+
+// net (animated line segments)
+const NET_SEGS = 12, NET_ROWS = 5, NET_DEPTH = 0.42;
+const netGeom = new THREE.BufferGeometry();
+{
+  const pos = [];
+  for (let i = 0; i < NET_SEGS; i++) {
+    for (let r = 0; r < NET_ROWS; r++) {
+      pos.push(0,0,0, 0,0,0); // vertical-ish zigzag pairs, filled each frame
+      pos.push(0,0,0, 0,0,0);
+    }
+  }
+  netGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos.length), 3));
+}
+const net = new THREE.LineSegments(netGeom,
+  new THREE.LineBasicMaterial({ color: 0xf5f5f5, transparent: true, opacity: 0.85 }));
+hoop.add(net);
+let netSway = 0; // 0..1 excitement, decays
+function updateNet(time) {
+  const p = net.geometry.attributes.position.array;
+  let k = 0;
+  for (let i = 0; i < NET_SEGS; i++) {
+    const a0 = (i / NET_SEGS) * Math.PI * 2;
+    const a1 = ((i + 0.5) / NET_SEGS) * Math.PI * 2;
+    const a2 = ((i + 1) / NET_SEGS) * Math.PI * 2;
+    for (let r = 0; r < NET_ROWS; r++) {
+      const t0 = r / NET_ROWS, t1 = (r + 1) / NET_ROWS;
+      const rad0 = RIM_RADIUS * (1 - 0.45 * t0);
+      const rad1 = RIM_RADIUS * (1 - 0.45 * t1);
+      const swirl = netSway * 0.05 * Math.sin(time * 14 + r * 1.7 + i);
+      const y0 = RIM_HEIGHT - t0 * NET_DEPTH, y1 = RIM_HEIGHT - t1 * NET_DEPTH;
+      const aa = r % 2 ? a1 : a0, bb = r % 2 ? a2 : a1;
+      // two zigzag strands per segment-row
+      p[k++] = rimCenter.x + Math.cos(aa) * rad0 + swirl; p[k++] = y0; p[k++] = rimCenter.z + Math.sin(aa) * rad0;
+      p[k++] = rimCenter.x + Math.cos(bb) * rad1 + swirl; p[k++] = y1; p[k++] = rimCenter.z + Math.sin(bb) * rad1;
+      p[k++] = rimCenter.x + Math.cos(bb) * rad0 + swirl; p[k++] = y0; p[k++] = rimCenter.z + Math.sin(bb) * rad0;
+      p[k++] = rimCenter.x + Math.cos(aa) * rad1 + swirl; p[k++] = y1; p[k++] = rimCenter.z + Math.sin(aa) * rad1;
+    }
+  }
+  net.geometry.attributes.position.needsUpdate = true;
+}
+scene.add(hoop);
+
+// ---------- Ball ----------
+function makeBallTexture() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#e8752a'); g.addColorStop(0.5, '#d96520'); g.addColorStop(1, '#c2551a');
+  x.fillStyle = g; x.fillRect(0, 0, 512, 256);
+  // pebble noise
+  x.globalAlpha = 0.08;
+  let s = 13;
+  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 1400; i++) {
+    x.fillStyle = rnd() > 0.5 ? '#000' : '#fff';
+    x.fillRect(rnd() * 512, rnd() * 256, 2, 2);
+  }
+  x.globalAlpha = 1;
+  // seams
+  x.strokeStyle = '#1a1a1a'; x.lineWidth = 5;
+  x.beginPath(); x.moveTo(0, 128); x.lineTo(512, 128); x.stroke();          // equator
+  x.beginPath(); x.moveTo(128, 0); x.lineTo(128, 256); x.stroke();          // meridians
+  x.beginPath(); x.moveTo(384, 0); x.lineTo(384, 256); x.stroke();
+  x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(256, 128, 0, 256); x.stroke();
+  x.beginPath(); x.moveTo(512, 0); x.quadraticCurveTo(256, 128, 512, 256); x.stroke();
+  return new THREE.CanvasTexture(c);
+}
+const ball = new THREE.Mesh(
+  new THREE.SphereGeometry(BALL_R, 32, 24),
+  new THREE.MeshStandardMaterial({ map: makeBallTexture(), roughness: 0.65, metalness: 0.0 })
+);
+ball.castShadow = true;
+scene.add(ball);
+
+// fake soft contact shadow helper is handled by real shadows; add slight glow ring for aiming? keep simple.
+
+// aim arc (dots showing predicted trajectory while dragging)
+const AIM_DOTS = 14;
+const aimGroup = new THREE.Group();
+for (let i = 0; i < AIM_DOTS; i++) {
+  const d = new THREE.Mesh(
+    new THREE.SphereGeometry(0.035, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 - i * 0.05 })
+  );
+  aimGroup.add(d);
+}
+aimGroup.visible = false;
+scene.add(aimGroup);
+
+// ---------- Audio (tiny WebAudio synth) ----------
+let audioCtx = null;
+function sfx(kind) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), gn = audioCtx.createGain();
+    o.connect(gn); gn.connect(audioCtx.destination);
+    if (kind === 'bounce') {
+      o.type = 'sine'; o.frequency.setValueAtTime(110, t);
+      o.frequency.exponentialRampToValueAtTime(55, t + 0.09);
+      gn.gain.setValueAtTime(0.25, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      o.start(t); o.stop(t + 0.13);
+    } else if (kind === 'rim') {
+      o.type = 'triangle'; o.frequency.setValueAtTime(520, t);
+      o.frequency.exponentialRampToValueAtTime(300, t + 0.15);
+      gn.gain.setValueAtTime(0.15, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      o.start(t); o.stop(t + 0.22);
+    } else if (kind === 'score') {
+      o.type = 'sine';
+      [523, 659, 784].forEach((f, i) => o.frequency.setValueAtTime(f, t + i * 0.09));
+      gn.gain.setValueAtTime(0.22, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      o.start(t); o.stop(t + 0.42);
+    } else if (kind === 'buzzer') {
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t);
+      gn.gain.setValueAtTime(0.2, t); gn.gain.setValueAtTime(0.2, t + 0.7);
+      gn.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+      o.start(t); o.stop(t + 0.9);
+    }
+  } catch (e) { /* audio unavailable — fine */ }
+}
+
+// ---------- Game state ----------
+const $score = document.getElementById('score');
+const $timer = document.getElementById('timer');
+const $best  = document.getElementById('best');
+const $streak = document.getElementById('streak');
+const $popup = document.getElementById('popup');
+const $hint  = document.getElementById('hint');
+
+let best = parseInt(localStorage.getItem('hoops3d_best') || '0', 10);
+$best.textContent = best;
+
+const state = {
+  playing: false,
+  timeLeft: GAME_SECONDS,
+  score: 0,
+  streak: 0,
+  shotPos: new THREE.Vector3(0, BALL_R + 1.15, 4.2), // ball rest position (held ~waist/chest height)
+  ballVel: new THREE.Vector3(),
+  ballSpin: new THREE.Vector3(),
+  flying: false,          // ball in the air
+  shotFromPos: null,      // where the shot was released (for 2/3 pts)
+  scoredThisFlight: false,
+  aboveRim: false,        // was ball above rim plane last frame (for score detection)
+  touchedRim: false,
+  resetTimer: 0,
+};
+
+function distToHoop(p) { return Math.hypot(p.x - rimCenter.x, p.z - rimCenter.z); }
+function isThree(p) { return distToHoop(p) >= 6.0; }
+
+// shot spots the ball moves through (x, z) — mix of 2s and 3s
+const SPOTS = [
+  [0, 4.2], [-1.6, 3.9], [1.6, 3.9], [0, 5.4], [-2.6, 4.6],
+  [2.6, 4.6], [0, 6.6], [-3.4, 5.6], [3.4, 5.6], [-1.2, 6.4], [1.2, 6.4],
+];
+let spotIdx = 0;
+
+function placeBallAtSpot() {
+  const [sx, sz] = SPOTS[spotIdx % SPOTS.length];
+  state.shotPos.set(sx, 1.15 + BALL_R, sz);
+  ball.position.copy(state.shotPos);
+  state.ballVel.set(0, 0, 0);
+  state.flying = false;
+  state.scoredThisFlight = false;
+  state.touchedRim = false;
+  updateCamera(true);
+}
+
+function nextSpot() { spotIdx++; placeBallAtSpot(); }
+
+// camera follows shot position, looking at hoop
+const camTarget = new THREE.Vector3();
+const camPos = new THREE.Vector3();
+function updateCamera(snap) {
+  // stand behind the ball, opposite the hoop
+  const dir = new THREE.Vector3().subVectors(state.shotPos, rimCenter); dir.y = 0; dir.normalize();
+  camPos.copy(state.shotPos).addScaledVector(dir, 1.9);
+  camPos.y = state.shotPos.y + 0.75;
+  camTarget.set(rimCenter.x, RIM_HEIGHT - 0.4, rimCenter.z);
+  if (snap) {
+    camera.position.copy(camPos);
+  } else {
+    camera.position.lerp(camPos, 0.08);
+  }
+  camera.lookAt(camTarget);
+}
+
+// ---------- Input: swipe to shoot ----------
+let dragStart = null, dragCur = null, dragT0 = 0;
+const el = renderer.domElement;
+
+function ptr(e) {
+  const t = e.changedTouches ? e.changedTouches[0] : e;
+  return { x: t.clientX, y: t.clientY };
+}
+function onDown(e) {
+  if (!state.playing || state.flying) return;
+  dragStart = ptr(e); dragCur = dragStart; dragT0 = performance.now();
+  e.preventDefault();
+}
+function onMove(e) {
+  if (!dragStart) return;
+  dragCur = ptr(e);
+  showAim(computeShot());
+  e.preventDefault();
+}
+function onUp(e) {
+  if (!dragStart) return;
+  dragCur = ptr(e);
+  const shot = computeShot();
+  aimGroup.visible = false;
+  if (shot) {
+    launch(shot);
+    $hint.classList.add('hide');
+  }
+  dragStart = null;
+  e.preventDefault();
+}
+el.addEventListener('mousedown', onDown);
+window.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+el.addEventListener('touchstart', onDown, { passive: false });
+el.addEventListener('touchmove', onMove, { passive: false });
+el.addEventListener('touchend', onUp, { passive: false });
+
+function computeShot() {
+  const dx = dragCur.x - dragStart.x;
+  const dy = dragStart.y - dragCur.y;           // up = positive
+  if (dy < 24) return null;                     // need an upward swipe
+  const h = window.innerHeight;
+  const dt = Math.max(80, performance.now() - dragT0);
+  const speedBoost = THREE.MathUtils.clamp(420 / dt, 0.75, 1.5); // fast flick = more zip
+  const power = THREE.MathUtils.clamp((dy / h) * 2.2 * speedBoost, 0.25, 1.6);
+
+  // base direction: toward the hoop
+  const toHoop = new THREE.Vector3().subVectors(rimCenter, state.shotPos);
+  const dist = Math.hypot(toHoop.x, toHoop.z);
+  const fwd = new THREE.Vector3(toHoop.x, 0, toHoop.z).normalize();
+  const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+
+  // ideal speed to reach the rim with a ~52 deg launch, scaled by swipe power
+  const angle = THREE.MathUtils.degToRad(52);
+  const dh = RIM_HEIGHT - state.shotPos.y;
+  const denom = 2 * Math.cos(angle) * Math.cos(angle) * (dist * Math.tan(angle) - dh);
+  let ideal = denom > 0 ? Math.sqrt((9.81 * dist * dist) / denom) : 7;
+  const speed = ideal * (0.55 + 0.45 * power);  // power 1.0 ≈ perfect
+
+  const lateral = (dx / window.innerWidth) * 3.2; // aim left/right
+  const v = new THREE.Vector3()
+    .addScaledVector(fwd, speed * Math.cos(angle))
+    .addScaledVector(right, lateral);
+  v.y = speed * Math.sin(angle);
+  return v;
+}
+
+function showAim(v) {
+  if (!v) { aimGroup.visible = false; return; }
+  aimGroup.visible = true;
+  const p = state.shotPos.clone(), vel = v.clone();
+  const dt = 0.07;
+  for (let i = 0; i < AIM_DOTS; i++) {
+    vel.y += G * dt;
+    p.addScaledVector(vel, dt);
+    aimGroup.children[i].position.copy(p);
+  }
+}
+
+function launch(v) {
+  state.flying = true;
+  state.ballVel.copy(v);
+  state.shotFromPos = state.shotPos.clone();
+  state.scoredThisFlight = false;
+  state.touchedRim = false;
+  state.aboveRim = false;
+  state.ballSpin.set(-8, 0, 0); // backspin
+  state.resetTimer = 0;
+}
+
+// ---------- Scoring ----------
+function showPopup(text, color) {
+  $popup.textContent = text;
+  $popup.style.color = color || '#ffd166';
+  $popup.classList.remove('pop');
+  void $popup.offsetWidth; // restart animation
+  $popup.classList.add('pop');
+}
+function onScore() {
+  const three = isThree(state.shotFromPos);
+  let pts = three ? 3 : 2;
+  state.streak++;
+  if (state.streak >= 3) pts += 1; // on-fire bonus
+  state.score += pts;
+  $score.textContent = state.score;
+  netSway = 1;
+  sfx('score');
+  if (state.streak >= 3) {
+    showPopup(three ? '🔥 3PT +' + pts : '🔥 ON FIRE +' + pts, '#ff6b35');
+  } else if (!state.touchedRim) {
+    showPopup(three ? 'SWISH! +3' : 'SWISH! +2', '#90e0ef');
+  } else {
+    showPopup(three ? '+3' : '+2');
+  }
+  if (state.streak >= 2) {
+    $streak.textContent = '🔥 streak ×' + state.streak;
+    $streak.classList.add('show');
+  }
+}
+function onMiss() {
+  if (state.streak >= 2) showPopup('MISS', '#8d99ae');
+  state.streak = 0;
+  $streak.classList.remove('show');
+}
+
+// ---------- Physics ----------
+const tmpV = new THREE.Vector3();
+function stepPhysics(dt) {
+  if (!state.flying) return;
+  const p = ball.position, v = state.ballVel;
+
+  v.y += G * dt;
+  v.multiplyScalar(1 - 0.06 * dt); // light air drag
+  p.addScaledVector(v, dt);
+
+  // spin the mesh for visual effect
+  ball.rotation.x += state.ballSpin.x * dt;
+  ball.rotation.z += state.ballSpin.z * dt;
+
+  // --- backboard ---
+  if (p.z < boardZ + BALL_R && p.z > boardZ - 0.15 && v.z < 0 &&
+      p.y > boardBottomY - BALL_R && p.y < boardTopY + BALL_R &&
+      Math.abs(p.x) < BOARD_W / 2 + BALL_R) {
+    p.z = boardZ + BALL_R;
+    v.z = -v.z * 0.62;
+    v.x *= 0.85; v.y *= 0.85;
+    sfx('rim');
+  }
+
+  // --- rim (collide with the torus ring) ---
+  const dxz = Math.hypot(p.x - rimCenter.x, p.z - rimCenter.z);
+  if (Math.abs(p.y - RIM_HEIGHT) < BALL_R + RIM_TUBE + 0.05 && dxz > 0.0001) {
+    // nearest point on rim circle
+    tmpV.set(
+      rimCenter.x + (p.x - rimCenter.x) / dxz * RIM_RADIUS,
+      RIM_HEIGHT,
+      rimCenter.z + (p.z - rimCenter.z) / dxz * RIM_RADIUS
+    );
+    const d = p.distanceTo(tmpV);
+    const minD = BALL_R + RIM_TUBE;
+    if (d < minD && d > 0.0001) {
+      const n = new THREE.Vector3().subVectors(p, tmpV).divideScalar(d);
+      p.copy(tmpV).addScaledVector(n, minD + 0.001);
+      const vn = v.dot(n);
+      if (vn < 0) {
+        v.addScaledVector(n, -vn * 1.55); // restitution ~0.55
+        v.multiplyScalar(0.94);
+        state.touchedRim = true;
+        sfx('rim');
+      }
+    }
+  }
+
+  // --- score detection: cross rim plane downward inside the ring ---
+  if (p.y > RIM_HEIGHT) state.aboveRim = true;
+  if (state.aboveRim && !state.scoredThisFlight && v.y < 0 &&
+      p.y < RIM_HEIGHT && p.y > RIM_HEIGHT - 0.25 &&
+      dxz < RIM_RADIUS - BALL_R * 0.35) {
+    state.scoredThisFlight = true;
+    onScore();
+  }
+
+  // --- floor ---
+  if (p.y < BALL_R) {
+    p.y = BALL_R;
+    if (Math.abs(v.y) > 0.8) sfx('bounce');
+    v.y = -v.y * 0.6;
+    v.x *= 0.8; v.z *= 0.8;
+    state.ballSpin.multiplyScalar(0.7);
+    if (Math.abs(v.y) < 0.5) { v.y = 0; }
+  }
+
+  // --- end of flight: ball settled or out of range ---
+  const settled = p.y <= BALL_R + 0.001 && v.lengthSq() < 0.3;
+  const gone = p.z < -8 || Math.abs(p.x) > 12 || p.z > 14;
+  if (settled || gone) {
+    state.resetTimer += dt;
+    if (state.resetTimer > 0.35) {
+      if (!state.scoredThisFlight) onMiss();
+      if (state.playing) nextSpot();
+      else placeBallAtSpot();
+    }
+  } else if (state.scoredThisFlight && p.y < 1.2) {
+    // scored and dropped through — advance quickly
+    state.resetTimer += dt;
+    if (state.resetTimer > 0.5) { if (state.playing) nextSpot(); else placeBallAtSpot(); }
+  } else {
+    state.resetTimer = 0;
+  }
+}
+
+// ---------- Game flow ----------
+let lastTimerWhole = GAME_SECONDS;
+function startGame() {
+  state.playing = true;
+  state.timeLeft = GAME_SECONDS;
+  state.score = 0;
+  state.streak = 0;
+  spotIdx = 0;
+  $score.textContent = '0';
+  $timer.textContent = GAME_SECONDS;
+  $timer.classList.remove('low');
+  $streak.classList.remove('show');
+  $hint.classList.remove('hide');
+  placeBallAtSpot();
+  document.getElementById('startOverlay').classList.add('hide');
+  document.getElementById('endOverlay').classList.add('hide');
+  sfx('bounce'); // unlock audio on user gesture
+}
+function endGame() {
+  state.playing = false;
+  sfx('buzzer');
+  if (state.score > best) {
+    best = state.score;
+    localStorage.setItem('hoops3d_best', String(best));
+    $best.textContent = best;
+    document.getElementById('finalBest').textContent = '🏆 New best!';
+  } else {
+    document.getElementById('finalBest').textContent = 'Best: ' + best;
+  }
+  document.getElementById('finalScore').textContent = state.score;
+  document.getElementById('endOverlay').classList.remove('hide');
+}
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('againBtn').addEventListener('click', startGame);
+
+// ---------- Main loop ----------
+placeBallAtSpot();
+updateCamera(true);
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.033);
+  const t = clock.elapsedTime;
+
+  if (state.playing) {
+    state.timeLeft -= dt;
+    const whole = Math.max(0, Math.ceil(state.timeLeft));
+    if (whole !== lastTimerWhole) {
+      lastTimerWhole = whole;
+      $timer.textContent = whole;
+      if (whole <= 10) $timer.classList.add('low');
+    }
+    if (state.timeLeft <= 0) endGame();
+  }
+
+  // substep physics for stable rim collisions
+  const steps = 3;
+  for (let i = 0; i < steps; i++) stepPhysics(dt / steps);
+
+  // idle ball bob while waiting to shoot
+  if (!state.flying) {
+    ball.position.y = state.shotPos.y + Math.sin(t * 2.2) * 0.02;
+    ball.rotation.y += dt * 0.4;
+  }
+
+  netSway = Math.max(0, netSway - dt * 1.4);
+  updateNet(t);
+  updateCamera(false);
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
