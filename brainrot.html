@@ -179,10 +179,12 @@ var PLOTS = {
 };
 var MAX_PADS = 16;
 var myBase = { rect: PLOTS.R3, name: 'YOUR BASE', mine: true, pads: [] };
+// centers of the map's own floor squares inside the base (map units)
+var PAD_XS = [0.61, 0.7475, 0.8825, 1.035];
+var PAD_ZS = [1.365, 1.525, 1.675, 1.835];
 (function () {
-  var r = myBase.rect;
   for (var i = 0; i < MAX_PADS; i++) {
-    myBase.pads.push({ x: r.cx + (-12.75 + (i % 4) * 8.5), z: r.cz + (-12.75 + Math.floor(i / 4) * 8.5), item: null, sprite: null });
+    myBase.pads.push({ x: PAD_XS[i % 4] * S, z: PAD_ZS[Math.floor(i / 4)] * S, item: null, sprite: null });
   }
 })();
 var npcBases = [
@@ -463,14 +465,7 @@ function padSpriteRefresh(pad, showPrice) {
     scene.add(pad.sprite);
   }
 }
-var pedestalGeo = new THREE.BoxGeometry(5.4, 0.35, 5.4); // flat grey square pads
-var pedestalMat = new THREE.MeshLambertMaterial({ color: 0xc7c7c7 });
 var floorMat = new THREE.MeshLambertMaterial({ color: 0x90a4ae });
-function addPedestal(p) {
-  var ped = new THREE.Mesh(pedestalGeo, pedestalMat);
-  ped.position.set(p.x, groundY(p.x, p.z) + (p.yo || 0) + 0.18, p.z);
-  scene.add(ped);
-}
 // each rebirth adds a whole new floor of 16 pads above your base
 var FLOOR_H = 13;
 function addFloor(f) {
@@ -484,15 +479,10 @@ function addFloor(f) {
     scene.add(pil);
   });
   for (var i = 0; i < 16; i++) {
-    var p = { x: r.cx + (-12.75 + (i % 4) * 8.5), z: r.cz + (-12.75 + Math.floor(i / 4) * 8.5),
-              yo: yo, item: null, sprite: null };
-    myBase.pads.push(p);
-    addPedestal(p);
+    myBase.pads.push({ x: PAD_XS[i % 4] * S, z: PAD_ZS[Math.floor(i / 4)] * S,
+                       yo: yo, item: null, sprite: null });
   }
 }
-[myBase].concat(npcBases).forEach(function (b) {
-  b.pads.forEach(function (p) { addPedestal(p); });
-});
 // apply the save: rebuild floors first, then put the collection back
 if (SAVED) {
   state.money = SAVED.money || 50;
@@ -511,7 +501,9 @@ var carrySprite = null;
 
 /* ---------- conveyor items ---------- */
 var beltItems = [];
+var walkers = []; // bought brainrots strolling home
 window.__game.belt = beltItems;
+window.__game.walkers = walkers;
 var beltSpawnT = 0;
 function spawnBeltItem() {
   var ch = randomChar();
@@ -659,14 +651,13 @@ function update(dt) {
     if (it.z > BELT.z2) { disposeSprite(it.sprite); beltItems.splice(i, 1); continue; }
     if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 6.5) {
       if (state.money >= it.ch.price) {
-        var pad = freePad();
-        if (!pad) { toast('🧠 Base full! (' + myBase.pads.length + ' max) — Rebirth adds a floor!'); sfxDenied(); buyCooldown = 1.2; }
+        if (!freePad()) { toast('🧠 Base full! (' + myBase.pads.length + ' max) — Rebirth adds a floor!'); sfxDenied(); buyCooldown = 1.2; }
         else {
           state.money -= it.ch.price;
-          pad.item = it.ch; padSpriteRefresh(pad);
-          disposeSprite(it.sprite); beltItems.splice(i, 1);
-          toast('🛒 Bought ' + it.ch.name + '!');
-          sfxBuy(); save(); buyCooldown = 0.6;
+          walkers.push({ ch: it.ch, x: BELT.x, z: it.z, sprite: it.sprite });
+          beltItems.splice(i, 1); // sprite lives on as a walker
+          toast('🛒 Bought ' + it.ch.name + " — it's walking to your base!");
+          sfxBuy(); buyCooldown = 0.6;
         }
       } else {
         toast('💸 Need ' + fmt(it.ch.price) + ' for ' + it.ch.name);
@@ -737,6 +728,34 @@ function update(dt) {
     }
     g.avatar.position.set(g.x, groundY(g.x, g.z), g.z);
   });
+
+  // bought brainrots walk themselves to the base
+  for (var wI = walkers.length - 1; wI >= 0; wI--) {
+    var wk = walkers[wI];
+    var wtx = myBase.rect.cx, wtz = myBase.rect.z1 + 6;
+    var wdx = wtx - wk.x, wdz = wtz - wk.z;
+    var wd = Math.sqrt(wdx * wdx + wdz * wdz);
+    if (wd < 3.5) {
+      disposeSprite(wk.sprite);
+      walkers.splice(wI, 1);
+      var wp = freePad();
+      if (!wp) {
+        wp = myBase.pads.reduce(function (best, q) {
+          return (!best || q.item.rate < best.item.rate) ? q : best;
+        }, null);
+        wp.item = null; padSpriteRefresh(wp);
+      }
+      wp.item = wk.ch; padSpriteRefresh(wp);
+      toast('🏠 ' + wk.ch.name + ' arrived at your base!');
+      sfxSecure(); save();
+    } else {
+      wk.x += (wdx / wd) * 16 * dt;
+      wk.z += (wdz / wd) * 16 * dt;
+      wk.sprite.position.set(wk.x,
+        groundY(wk.x, wk.z) + 6.2 + Math.abs(Math.sin(performance.now() / 150)) * 0.8,
+        wk.z);
+    }
+  }
 
   // carried item floats over your head
   if (carrySprite) carrySprite.position.set(player.x, groundY(player.x, player.z) + 13, player.z);
