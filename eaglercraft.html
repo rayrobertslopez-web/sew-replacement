@@ -217,15 +217,15 @@ for (var t = 0; t < 90; t++) {
   if (th <= 0) continue;                    // no trees on the ice
   var trunk = 3 + Math.floor(hash(t, 3) * 3);
   for (var yy = 1; yy <= trunk; yy++) wood.push([tx, th + yy, tz]);
-  var top = th + trunk;
+  var crown = th + trunk;
   for (var ly = 0; ly < 3; ly++) {          // layered canopy, narrowing upward
     var rad = ly === 0 ? 2 : ly === 1 ? 1 : 0;
     for (var lx = -rad; lx <= rad; lx++) for (var lz = -rad; lz <= rad; lz++) {
       if (Math.abs(lx) === 2 && Math.abs(lz) === 2) continue;
-      leaf.push([tx + lx, top - 1 + ly, tz + lz]);
+      leaf.push([tx + lx, crown - 1 + ly, tz + lz]);
     }
   }
-  leaf.push([tx, top + 1, tz]);
+  leaf.push([tx, crown + 1, tz]);
 }
 
 var dummy = new THREE.Object3D();
