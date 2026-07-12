@@ -104,6 +104,12 @@
     background: rgba(0,0,0,.85); color: #fff; font-size: 16px; font-weight: 700; outline: none; }
   #chatSend { padding: 12px 16px; border: 0; border-radius: 12px; background: #00e5ff;
     color: #023; font-weight: 900; font-size: 15px; cursor: pointer; }
+  #traitBar { position: fixed; right: 6px; top: 50%; transform: translateY(-50%); z-index: 13;
+    display: none; flex-direction: column; gap: 4px; pointer-events: none; }
+  #traitBar.open { display: flex; }
+  #traitBar .tr { display: flex; align-items: center; gap: 4px; justify-content: flex-end;
+    font-weight: 900; font-size: 12px; color: #fff; text-shadow: 0 1px 3px #000; }
+  #traitBar .tr .em { font-size: 20px; }
 </style>
 </head>
 <body>
@@ -125,6 +131,7 @@
 <div id="adminAbuse"><div class="aa-title">⚠️ ADMIN ABUSE ⚠️</div><div class="aa-time">1:00</div></div>
 <div id="broadcast"><div class="bc-txt"></div></div>
 <div id="say">💬 Say</div>
+<div id="traitBar"></div>
 <div id="chatBar"><input id="chatInput" maxlength="80" placeholder="Type a message for everyone…" autocomplete="off"><button id="chatSend">Send</button></div>
 <div id="toast"></div>
 <div id="start">
@@ -331,7 +338,8 @@ var SAVE_KEY = 'roba-el-brainrot-save';
 function save() {
   try {
     var owned = myBase.pads.map(function (p) { return p.item ? p.item.id : null; });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, owned: owned, rebirths: state.rebirths }));
+    var traits = myBase.pads.map(function (p) { return p.trait ? p.trait.i : null; });
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, owned: owned, traits: traits, rebirths: state.rebirths }));
   } catch (e) {}
 }
 var SAVED = null;
@@ -420,6 +428,36 @@ Object.keys(MODELS).forEach(function (id) {
 });
 
 /* ---------- sprites (emoji characters, labels) ---------- */
+/* ---------- traits: emoji modifiers that multiply a brainrot's income ---------- */
+var TRAITS = [
+  { e: '✨', name: 'Shiny',    mult: 2,   color: 0xfff176 },
+  { e: '⭐', name: 'Gold',     mult: 3,   color: 0xffd700 },
+  { e: '💎', name: 'Diamond',  mult: 5,   color: 0x4fc3f7 },
+  { e: '❄️', name: 'Frozen',   mult: 4,   color: 0x81d4fa },
+  { e: '🔥', name: 'Lava',     mult: 7,   color: 0xff5722 },
+  { e: '⚡', name: 'Electric', mult: 8,   color: 0xffeb3b },
+  { e: '🌈', name: 'Rainbow',  mult: 12,  color: 0xff4081 },
+  { e: '🩸', name: 'Bloodrot', mult: 15,  color: 0xd32f2f },
+  { e: '🌌', name: 'Galaxy',   mult: 20,  color: 0x7c4dff },
+  { e: '👑', name: 'Royal',    mult: 25,  color: 0xffc107 },
+  { e: '☠️', name: 'Toxic',    mult: 30,  color: 0x76ff03 },
+  { e: '💫', name: 'Cosmic',   mult: 50,  color: 0xe040fb }
+];
+TRAITS.forEach(function (t, i) { t.i = i; });
+function traitByIndex(i) { return (i != null && TRAITS[i]) ? TRAITS[i] : null; }
+
+function makeEmojiSprite(emoji, size) {
+  var c = document.createElement('canvas'); c.width = c.height = 128;
+  var x = c.getContext('2d');
+  x.font = '104px ' + EMOJI; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(emoji, 64, 70);
+  var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
+  sp.scale.set(size, size, 1);
+  sp.userData.disposables = [t, sp.material];
+  return sp;
+}
+
 function makeItemTexture(ch, showPrice) {
   var c = document.createElement('canvas'); c.width = c.height = 256;
   var x = c.getContext('2d');
@@ -575,10 +613,16 @@ new GLTFLoader().load('./map.glb', function (g) {
 /* ---------- pads & items ---------- */
 function padSpriteRefresh(pad, showPrice) {
   disposeSprite(pad.sprite); pad.sprite = null;
+  if (pad.traitBadge) { disposeSprite(pad.traitBadge); pad.traitBadge = null; }
+  if (!pad.item) pad.trait = null; // empty pad keeps no trait
   if (pad.item) {
     pad.sprite = makeItemSprite(pad.item, !!showPrice);
     pad.sprite.position.set(pad.x, groundY(pad.x, pad.z) + (pad.yo || 0) + 6.2, pad.z);
     scene.add(pad.sprite);
+    if (pad.trait) {
+      pad.traitBadge = makeEmojiSprite(pad.trait.e, 5);
+      scene.add(pad.traitBadge);
+    }
   }
 }
 var floorMat = new THREE.MeshLambertMaterial({ color: 0x90a4ae });
@@ -606,6 +650,9 @@ if (SAVED) {
   for (var f = 1; f <= state.rebirths; f++) addFloor(f);
   (SAVED.owned || []).forEach(function (id, i) {
     if (id && i < myBase.pads.length) myBase.pads[i].item = charById(id);
+  });
+  (SAVED.traits || []).forEach(function (ti, i) {
+    if (ti != null && i < myBase.pads.length && myBase.pads[i].item) myBase.pads[i].trait = traitByIndex(ti);
   });
 }
 myBase.pads.forEach(function (p) { padSpriteRefresh(p); });
@@ -649,7 +696,9 @@ function toast(msg) {
 }
 function ownedCount() { return myBase.pads.filter(function (p) { return p.item; }).length; }
 function incomePerSec() {
-  var base = myBase.pads.reduce(function (s, p) { return s + (p.item ? p.item.rate : 0); }, 0);
+  var base = myBase.pads.reduce(function (s, p) {
+    return s + (p.item ? p.item.rate * (p.trait ? p.trait.mult : 1) : 0);
+  }, 0);
   return base * Math.pow(2, state.rebirths);
 }
 function freePad() {
@@ -719,9 +768,44 @@ window.__cam = cam;
 var aaEl = document.getElementById('adminAbuse');
 var aaTimeEl = aaEl.querySelector('.aa-time');
 var admin = { left: 60, running: false };
-var chaos = { active: false, t: 0, lasers: [], bursts: [] };
+var chaos = { active: false, t: 0, lasers: [], bursts: [], flyers: [], spawnT: 0 };
 window.__game.admin = admin;
 window.__game.chaos = chaos;
+window.__game.TRAITS = TRAITS;
+
+// every ground-level brainrot pad across all bases (targets for flying traits)
+function allGroundPads() {
+  var out = [];
+  [myBase].concat(npcBases).forEach(function (b) {
+    b.pads.forEach(function (p) { if (p.item && !(p.yo > 0)) out.push(p); });
+  });
+  return out;
+}
+function applyTrait(pad, trait) {
+  if (!pad.item || pad.trait === trait) return;
+  pad.trait = trait;
+  padSpriteRefresh(pad);
+  // little colored pop
+  var g = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 6),
+    new THREE.MeshBasicMaterial({ color: trait.color, transparent: true, opacity: 0.9 }));
+  g.position.set(pad.x, groundY(pad.x, pad.z) + (pad.yo || 0) + 6, pad.z);
+  g.userData.life = 1;
+  scene.add(g); chaos.bursts.push(g);
+}
+function spawnFlyer() {
+  var trait = TRAITS[Math.floor(Math.random() * TRAITS.length)];
+  var sp = makeEmojiSprite(trait.e, 9);
+  var fromLeft = Math.random() < 0.5;
+  var z = (Math.random() - 0.5) * 380;
+  var f = {
+    trait: trait, sprite: sp,
+    x: fromLeft ? -180 : 180, z: z,
+    vx: (fromLeft ? 1 : -1) * (55 + Math.random() * 35),
+    vz: (Math.random() - 0.5) * 40
+  };
+  sp.position.set(f.x, FLOOR + 8, f.z);
+  scene.add(sp); chaos.flyers.push(f);
+}
 
 function startAdminAbuse() {
   admin.left = 60; admin.running = true;
@@ -756,6 +840,12 @@ function startChaos() {
     chaos.lasers.push(m);
   }
   ground.material.color.setHex(0x8a1010); // scorched red ground
+  // right-side corner column of every trait emoji + its multiplier
+  var tb = document.getElementById('traitBar');
+  tb.innerHTML = TRAITS.map(function (t) {
+    return '<div class="tr"><span>x' + t.mult + '</span><span class="em">' + t.e + '</span></div>';
+  }).join('');
+  tb.classList.add('open');
   try { SOUNDS.garama && (SOUNDS.garama.currentTime = 0, SOUNDS.garama.play().catch(function(){})); } catch (e) {}
 }
 function spawnBurst() {
@@ -790,6 +880,22 @@ function updateChaos(dt) {
     b.scale.multiplyScalar(1 + dt * 3);
     b.material.opacity = Math.max(0, b.userData.life);
     if (b.userData.life <= 0) { scene.remove(b); b.material.dispose(); chaos.bursts.splice(i, 1); }
+  }
+  // trait emojis fly through the map and boost any brainrot they pass over
+  chaos.spawnT -= dt;
+  if (chaos.spawnT <= 0 && chaos.flyers.length < 14) { chaos.spawnT = 0.7; spawnFlyer(); }
+  var pads = allGroundPads();
+  for (var fi = chaos.flyers.length - 1; fi >= 0; fi--) {
+    var f = chaos.flyers[fi];
+    f.x += f.vx * dt; f.z += f.vz * dt;
+    f.sprite.position.set(f.x, FLOOR + 8 + Math.sin(chaos.t * 6 + fi) * 2, f.z);
+    for (var pi = 0; pi < pads.length; pi++) {
+      var p = pads[pi];
+      if (dist2d(f.x, f.z, p.x, p.z) < 6) applyTrait(p, f.trait);
+    }
+    if (f.x < -220 || f.x > 220 || f.z < -260 || f.z > 260) {
+      disposeSprite(f.sprite); chaos.flyers.splice(fi, 1);
+    }
   }
 }
 
@@ -1013,11 +1119,12 @@ function update(dt) {
     }
   }
 
-  // item bobbing
+  // item bobbing + trait badges
   var bob = Math.sin(performance.now() / 400) * 0.6;
   [myBase].concat(npcBases).forEach(function (b) {
     b.pads.forEach(function (p) {
       if (p.sprite) p.sprite.position.y = groundY(p.x, p.z) + (p.yo || 0) + 6.2 + bob;
+      if (p.traitBadge) p.traitBadge.position.set(p.x, groundY(p.x, p.z) + (p.yo || 0) + 12 + bob, p.z);
     });
   });
 
