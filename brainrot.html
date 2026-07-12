@@ -165,7 +165,7 @@ function charById(id) {
 }
 
 /* ---------- world layout (probed from the map model, map units x30) ---------- */
-var S = 60;                       // map scale
+var S = 80;                       // map scale
 var FLOOR = 0.06 * S;             // walkable floor height
 var BOUNDS = { x1: -1.30 * S, x2: 1.32 * S, z1: -2.35 * S, z2: 2.25 * S };
 // six buildings: two columns of three
@@ -195,13 +195,13 @@ var npcBases = [
 npcBases.forEach(function (b) {
   b.pads = [];
   for (var i = 0; i < 4; i++) {
-    b.pads.push({ x: b.rect.cx + (i % 2 ? 8 : -8), z: b.rect.cz + (i < 2 ? -8 : 8), item: null, sprite: null });
+    b.pads.push({ x: b.rect.cx + (i % 2 ? 10 : -10), z: b.rect.cz + (i < 2 ? -10 : 10), item: null, sprite: null });
   }
   b.restockT = 0;
 });
-var BELT = { x: 0, halfW: 0.2 * S, z1: -2.4 * S, z2: 2.4 * S, speed: 11 };
+var BELT = { x: 0, halfW: 0.2 * S, z1: -2.4 * S, z2: 2.4 * S, speed: 14 };
 var PLOT_LIST = Object.keys(PLOTS).map(function (k) { return PLOTS[k]; });
-var WALL_T = 1.6;
+var WALL_T = 3.2; // thicker than the max per-frame step so nobody tunnels through
 var WALLS = [];
 PLOT_LIST.forEach(function (r) {
   var openWest = r.cx > 0; // right column opens toward the belt; left column mirrors
@@ -231,8 +231,8 @@ function groundY(x, z) {
 }
 
 var player = {
-  x: myBase.rect.x1 - 10, z: myBase.rect.cz,
-  speed: 42, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
+  x: myBase.rect.x1 - 12, z: myBase.rect.cz,
+  speed: 52, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
 };
 var state = { money: 50, started: false, rebirths: 0 };
 var REBIRTH_REQS = [
@@ -294,8 +294,8 @@ function sfxDenied() { beep(200, .15, 'square', .06); }
 /* ---------- three.js scene ---------- */
 var scene = new THREE.Scene();
 scene.background = new THREE.Color(0x6ec6ea);
-scene.fog = new THREE.Fog(0x6ec6ea, 350, 950);
-var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 1300);
+scene.fog = new THREE.Fog(0x6ec6ea, 460, 1250);
+var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 1700);
 var renderer = new THREE.WebGLRenderer({
   antialias: (devicePixelRatio || 1) <= 1,
   powerPreference: 'high-performance'
@@ -459,8 +459,8 @@ npcBases.forEach(function (b) {
   x.strokeText('⭐ YOUR BASE', 256, 80); x.fillText('⭐ YOUR BASE', 256, 80);
   var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
-  sp.scale.set(30, 7.5, 1);
-  sp.position.set(myBase.rect.cx, FLOOR + 28, myBase.rect.cz);
+  sp.scale.set(36, 9, 1);
+  sp.position.set(myBase.rect.cx, FLOOR + 38, myBase.rect.cz);
   scene.add(sp);
 })();
 
@@ -505,14 +505,14 @@ function padSpriteRefresh(pad, showPrice) {
 }
 var floorMat = new THREE.MeshLambertMaterial({ color: 0x90a4ae });
 // each rebirth adds a whole new floor of 16 pads above your base
-var FLOOR_H = 13;
+var FLOOR_H = 16;
 function addFloor(f) {
   var r = myBase.rect, yo = f * FLOOR_H;
-  var slab = new THREE.Mesh(new THREE.BoxGeometry(30, 1, 30), floorMat);
+  var slab = new THREE.Mesh(new THREE.BoxGeometry(42, 1.2, 42), floorMat);
   slab.position.set(r.cx, groundY(r.cx, r.cz) + yo - 0.5, r.cz);
   scene.add(slab);
-  [[-13.5, -13.5], [13.5, -13.5], [-13.5, 13.5], [13.5, 13.5]].forEach(function (c) {
-    var pil = new THREE.Mesh(new THREE.BoxGeometry(1.6, FLOOR_H, 1.6), floorMat);
+  [[-19, -19], [19, -19], [-19, 19], [19, 19]].forEach(function (c) {
+    var pil = new THREE.Mesh(new THREE.BoxGeometry(2, FLOOR_H, 2), floorMat);
     pil.position.set(r.cx + c[0], groundY(r.cx, r.cz) + yo - FLOOR_H / 2, r.cz + c[1]);
     scene.add(pil);
   });
@@ -581,7 +581,7 @@ function freePad() {
 
 /* ---------- input ---------- */
 var keys = {}, joy = { id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
-var cam = { yaw: 0, pitch: 0.85, dist: 28, dragId: null, lx: 0, ly: 0, mouse: false };
+var cam = { yaw: 0, pitch: 0.85, dist: 32, dragId: null, lx: 0, ly: 0, mouse: false };
 addEventListener('keydown', function (e) { keys[e.key.toLowerCase()] = true; });
 addEventListener('keyup',   function (e) { keys[e.key.toLowerCase()] = false; });
 var cv = renderer.domElement;
@@ -632,7 +632,7 @@ addEventListener('mousemove', function (e) {
 });
 addEventListener('mouseup', function () { cam.mouse = false; });
 cv.addEventListener('wheel', function (e) {
-  cam.dist = Math.max(14, Math.min(64, cam.dist + e.deltaY * 0.03));
+  cam.dist = Math.max(14, Math.min(84, cam.dist + e.deltaY * 0.03));
 }, { passive: true });
 window.__cam = cam;
 
@@ -686,7 +686,7 @@ function update(dt) {
     it.z += BELT.speed * dt;
     it.sprite.position.z = it.z;
     if (it.z > BELT.z2) { disposeSprite(it.sprite); beltItems.splice(i, 1); continue; }
-    if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 6.5) {
+    if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 7.5) {
       if (state.money >= it.ch.price) {
         if (!freePad()) { toast('🧠 Base full! (' + myBase.pads.length + ' max) — Rebirth adds a floor!'); sfxDenied(); buyCooldown = 1.2; }
         else {
@@ -718,7 +718,7 @@ function update(dt) {
     if (!player.carrying && player.safeT <= 0) {
       for (var j = 0; j < b.pads.length; j++) {
         var p = b.pads[j];
-        if (p.item && dist2d(player.x, player.z, p.x, p.z) < 6) {
+        if (p.item && dist2d(player.x, player.z, p.x, p.z) < 7) {
           player.carrying = p.item; player.carryFrom = b;
           p.item = null; padSpriteRefresh(p);
           carrySprite = makeItemSprite(player.carrying, false);
@@ -735,9 +735,9 @@ function update(dt) {
     if (g.chasing && player.carrying && player.carryFrom === b) {
       var dx = player.x - g.x, dz = player.z - g.z;
       var d = Math.sqrt(dx * dx + dz * dz) || 1;
-      moveWithWalls(g, g.x + (dx / d) * 31 * dt, g.z + (dz / d) * 31 * dt);
+      moveWithWalls(g, g.x + (dx / d) * 39 * dt, g.z + (dz / d) * 39 * dt);
       g.avatar.rotation.y = Math.atan2(dx, dz);
-      if (d < 5.6 && player.safeT <= 0) {
+      if (d < 6.2 && player.safeT <= 0) {
         var back = b.pads.filter(function (p) { return !p.item; })[0];
         if (back) { back.item = player.carrying; padSpriteRefresh(back); }
         toast('👮 Caught! ' + player.carrying.name + ' went back!');
@@ -747,19 +747,19 @@ function update(dt) {
         g.chasing = false;
         sfxCaught();
       }
-      if (dist2d(g.x, g.z, b.rect.cx, b.rect.cz) > 190) g.chasing = false;
+      if (dist2d(g.x, g.z, b.rect.cx, b.rect.cz) > 250) g.chasing = false;
     } else {
       g.chasing = false;
       g.wanderT -= dt;
       if (g.wanderT <= 0) {
         g.wanderT = 2 + Math.random() * 2;
-        g.tx = b.rect.cx + (Math.random() - 0.5) * 24;
-        g.tz = b.rect.cz + (Math.random() - 0.5) * 24;
+        g.tx = b.rect.cx + (Math.random() - 0.5) * 30;
+        g.tz = b.rect.cz + (Math.random() - 0.5) * 30;
       }
       var wx = g.tx - g.x, wz = g.tz - g.z;
       var wd = Math.sqrt(wx * wx + wz * wz);
       if (wd > 0.8) {
-        moveWithWalls(g, g.x + (wx / wd) * 14 * dt, g.z + (wz / wd) * 14 * dt);
+        moveWithWalls(g, g.x + (wx / wd) * 17 * dt, g.z + (wz / wd) * 17 * dt);
         g.avatar.rotation.y = Math.atan2(wx, wz);
       }
     }
@@ -770,7 +770,7 @@ function update(dt) {
   for (var wI = walkers.length - 1; wI >= 0; wI--) {
     var wk = walkers[wI];
     var wtx, wtz;
-    if (!wk.stage) { wtx = myBase.rect.x1 - 7; wtz = myBase.rect.cz; } // walk to the door first
+    if (!wk.stage) { wtx = myBase.rect.x1 - 9; wtz = myBase.rect.cz; } // walk to the door first
     else { wtx = myBase.rect.cx; wtz = myBase.rect.cz; }
     var wdx = wtx - wk.x, wdz = wtz - wk.z;
     var wd = Math.sqrt(wdx * wdx + wdz * wdz);
@@ -789,8 +789,8 @@ function update(dt) {
       toast('🏠 ' + wk.ch.name + ' arrived at your base!');
       sfxSecure(); save();
     } else {
-      wk.x += (wdx / wd) * 16 * dt;
-      wk.z += (wdz / wd) * 16 * dt;
+      wk.x += (wdx / wd) * 20 * dt;
+      wk.z += (wdz / wd) * 20 * dt;
       wk.sprite.position.set(wk.x,
         groundY(wk.x, wk.z) + 6.2 + Math.abs(Math.sin(performance.now() / 150)) * 0.8,
         wk.z);
@@ -920,7 +920,7 @@ function spawnToBase(ch) {
 }
 function spawnToBelt(ch) {
   var free = Object.assign({}, ch, { price: 0 });
-  var z = Math.max(BELT.z1, Math.min(BELT.z2 - 30, player.z - 50));
+  var z = Math.max(BELT.z1, Math.min(BELT.z2 - 40, player.z - 60));
   var sp = makeItemSprite(free, true);
   sp.position.set(BELT.x, FLOOR + 6.2, z);
   scene.add(sp);
