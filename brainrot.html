@@ -99,7 +99,7 @@ function charById(id) {
 }
 
 /* ---------- world layout (probed from the map model, map units x30) ---------- */
-var S = 30;                       // map scale
+var S = 45;                       // map scale
 var FLOOR = 0.06 * S;             // walkable floor height
 var BOUNDS = { x1: -1.30 * S, x2: 1.32 * S, z1: -2.35 * S, z2: 2.25 * S };
 // six buildings: two columns of three
@@ -111,12 +111,12 @@ var PLOTS = {
   R1: rect(0.48, -2.16, 1.12, -1.52), R2: rect(0.48, -0.48, 1.12, 0.24), R3: rect(0.48, 1.28, 1.12, 1.92),
   L1: rect(-1.04, -2.24, -0.48, -1.52), L2: rect(-1.04, -0.48, -0.48, 0.16), L3: rect(-1.04, 1.28, -0.48, 1.92)
 };
-var MAX_PADS = 12;
+var MAX_PADS = 16;
 var myBase = { rect: PLOTS.R3, name: 'YOUR BASE', mine: true, pads: [] };
 (function () {
   var r = myBase.rect;
   for (var i = 0; i < MAX_PADS; i++) {
-    myBase.pads.push({ x: r.cx + (-6.75 + (i % 4) * 4.5), z: r.cz + (-5.4 + Math.floor(i / 4) * 5.4), item: null, sprite: null });
+    myBase.pads.push({ x: r.cx + (-9.75 + (i % 4) * 6.5), z: r.cz + (-9.75 + Math.floor(i / 4) * 6.5), item: null, sprite: null });
   }
 })();
 var npcBases = [
@@ -127,11 +127,11 @@ var npcBases = [
 npcBases.forEach(function (b) {
   b.pads = [];
   for (var i = 0; i < 4; i++) {
-    b.pads.push({ x: b.rect.cx + (i % 2 ? 4.2 : -4.2), z: b.rect.cz + (i < 2 ? -4.2 : 4.2), item: null, sprite: null });
+    b.pads.push({ x: b.rect.cx + (i % 2 ? 6 : -6), z: b.rect.cz + (i < 2 ? -6 : 6), item: null, sprite: null });
   }
   b.restockT = 0;
 });
-var BELT = { x: 0, halfW: 0.2 * S, z1: -2.4 * S, z2: 2.4 * S, speed: 7 };
+var BELT = { x: 0, halfW: 0.2 * S, z1: -2.4 * S, z2: 2.4 * S, speed: 9 };
 var PLOT_LIST = Object.keys(PLOTS).map(function (k) { return PLOTS[k]; });
 function groundY(x, z) {
   for (var i = 0; i < PLOT_LIST.length; i++) {
@@ -143,7 +143,7 @@ function groundY(x, z) {
 
 var player = {
   x: myBase.rect.cx, z: myBase.rect.z1 - 8,
-  speed: 26, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
+  speed: 34, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
 };
 var state = { money: 50, started: false };
 var toastT = 0;
@@ -189,10 +189,13 @@ function sfxDenied() { beep(200, .15, 'square', .06); }
 /* ---------- three.js scene ---------- */
 var scene = new THREE.Scene();
 scene.background = new THREE.Color(0x6ec6ea);
-scene.fog = new THREE.Fog(0x6ec6ea, 180, 420);
-var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 600);
-var renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+scene.fog = new THREE.Fog(0x6ec6ea, 260, 640);
+var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 900);
+var renderer = new THREE.WebGLRenderer({
+  antialias: (devicePixelRatio || 1) <= 1,
+  powerPreference: 'high-performance'
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 addEventListener('resize', function () {
@@ -236,7 +239,7 @@ function makeItemTexture(ch, showPrice) {
 }
 function makeItemSprite(ch, showPrice) {
   var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeItemTexture(ch, showPrice), transparent: true }));
-  sp.scale.set(9, 9, 1);
+  sp.scale.set(7.5, 7.5, 1);
   return sp;
 }
 function disposeSprite(sp) {
@@ -295,7 +298,7 @@ npcBases.forEach(function (b) {
   var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
   sp.scale.set(24, 6, 1);
-  sp.position.set(myBase.rect.cx, FLOOR + 17, myBase.rect.cz);
+  sp.position.set(myBase.rect.cx, FLOOR + 22, myBase.rect.cz);
   scene.add(sp);
 })();
 
@@ -307,13 +310,19 @@ new GLTFLoader().load('./map.glb', function (g) {
   g.scene.traverse(function (o) {
     if (o.isMesh) {
       var mats = Array.isArray(o.material) ? o.material : [o.material];
-      mats.forEach(function (m) { m.side = THREE.DoubleSide; });
+      // MeshLambert renders much faster than the glTF PBR default
+      var cheap = mats.map(function (m) {
+        var lm = new THREE.MeshLambertMaterial({ map: m.map || null, color: m.color, side: THREE.DoubleSide });
+        return lm;
+      });
+      o.material = Array.isArray(o.material) ? cheap : cheap[0];
       // fade roofs so you can see inside the bases
       var bb = new THREE.Box3().setFromObject(o);
       if (bb.min.y > 0.3 * S) {
-        mats.forEach(function (m) { m.transparent = true; m.opacity = 0.35; m.depthWrite = false; });
+        cheap.forEach(function (m) { m.transparent = true; m.opacity = 0.35; m.depthWrite = false; });
       }
     }
+    o.matrixAutoUpdate = false;
   });
   scene.add(g.scene);
   mapReady = true;
@@ -454,10 +463,10 @@ function update(dt) {
     it.z += BELT.speed * dt;
     it.sprite.position.z = it.z;
     if (it.z > BELT.z2) { disposeSprite(it.sprite); beltItems.splice(i, 1); continue; }
-    if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 5) {
+    if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 5.5) {
       if (state.money >= it.ch.price) {
         var pad = freePad();
-        if (!pad) { toast('🧠 Base full! (12 max)'); sfxDenied(); buyCooldown = 1.2; }
+        if (!pad) { toast('🧠 Base full! (16 max)'); sfxDenied(); buyCooldown = 1.2; }
         else {
           state.money -= it.ch.price;
           pad.item = it.ch; padSpriteRefresh(pad);
@@ -486,7 +495,7 @@ function update(dt) {
     if (!player.carrying && player.safeT <= 0) {
       for (var j = 0; j < b.pads.length; j++) {
         var p = b.pads[j];
-        if (p.item && dist2d(player.x, player.z, p.x, p.z) < 4.6) {
+        if (p.item && dist2d(player.x, player.z, p.x, p.z) < 5.2) {
           player.carrying = p.item; player.carryFrom = b;
           p.item = null; padSpriteRefresh(p);
           carrySprite = makeItemSprite(player.carrying, false);
@@ -503,9 +512,9 @@ function update(dt) {
     if (g.chasing && player.carrying && player.carryFrom === b) {
       var dx = player.x - g.x, dz = player.z - g.z;
       var d = Math.sqrt(dx * dx + dz * dz) || 1;
-      g.x += (dx / d) * 19 * dt; g.z += (dz / d) * 19 * dt;
+      g.x += (dx / d) * 25 * dt; g.z += (dz / d) * 25 * dt;
       g.avatar.rotation.y = Math.atan2(dx, dz);
-      if (d < 4.4 && player.safeT <= 0) {
+      if (d < 5 && player.safeT <= 0) {
         var back = b.pads.filter(function (p) { return !p.item; })[0];
         if (back) { back.item = player.carrying; padSpriteRefresh(back); }
         toast('👮 Caught! ' + player.carrying.name + ' went back!');
@@ -515,19 +524,19 @@ function update(dt) {
         g.chasing = false;
         sfxCaught();
       }
-      if (dist2d(g.x, g.z, b.rect.cx, b.rect.cz) > 95) g.chasing = false;
+      if (dist2d(g.x, g.z, b.rect.cx, b.rect.cz) > 140) g.chasing = false;
     } else {
       g.chasing = false;
       g.wanderT -= dt;
       if (g.wanderT <= 0) {
         g.wanderT = 2 + Math.random() * 2;
-        g.tx = b.rect.cx + (Math.random() - 0.5) * 12;
-        g.tz = b.rect.cz + (Math.random() - 0.5) * 12;
+        g.tx = b.rect.cx + (Math.random() - 0.5) * 18;
+        g.tz = b.rect.cz + (Math.random() - 0.5) * 18;
       }
       var wx = g.tx - g.x, wz = g.tz - g.z;
       var wd = Math.sqrt(wx * wx + wz * wz);
       if (wd > 0.8) {
-        g.x += (wx / wd) * 8 * dt; g.z += (wz / wd) * 8 * dt;
+        g.x += (wx / wd) * 11 * dt; g.z += (wz / wd) * 11 * dt;
         g.avatar.rotation.y = Math.atan2(wx, wz);
       }
     }
@@ -535,7 +544,7 @@ function update(dt) {
   });
 
   // carried item floats over your head
-  if (carrySprite) carrySprite.position.set(player.x, groundY(player.x, player.z) + 9.5, player.z);
+  if (carrySprite) carrySprite.position.set(player.x, groundY(player.x, player.z) + 11, player.z);
 
   // secure at home
   if (player.carrying && inPlot(player.x, player.z, myBase.rect, 2)) {
@@ -548,7 +557,7 @@ function update(dt) {
       player.carrying = null; player.carryFrom = null;
       sfxSecure(); save();
     } else if (toastT <= 0) {
-      toast('🧠 Base full! (12 max)');
+      toast('🧠 Base full! (16 max)');
     }
   }
 
@@ -575,7 +584,7 @@ renderer.setAnimationLoop(function () {
   var dt = Math.min(clock.getDelta(), 0.1);
   if (state.started) update(dt);
   var gy = groundY(player.x, player.z);
-  camera.position.set(player.x, gy + 34, player.z + 28);
+  camera.position.set(player.x, gy + 42, player.z + 34);
   camera.lookAt(player.x, gy + 3, player.z);
   renderer.render(scene, camera);
 });
