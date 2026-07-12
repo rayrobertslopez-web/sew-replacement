@@ -80,6 +80,30 @@
   #scBelt { background: #e53935; color: #fff; }
   #scBase { background: #ffd700; color: #123; }
   #scCancel { background: rgba(255,255,255,.15); color: #fff; font-size: 13px !important; padding: 8px !important; }
+  #adminAbuse { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 13;
+    text-align: center; pointer-events: none; display: none; }
+  #adminAbuse .aa-title { font-size: clamp(22px, 7vw, 44px); font-weight: 900; color: #ff2d2d;
+    letter-spacing: 2px; text-shadow: 0 0 12px #ff0000, 0 3px 6px rgba(0,0,0,.9);
+    animation: aaPulse .6s ease-in-out infinite; }
+  #adminAbuse .aa-time { font-size: clamp(28px, 9vw, 56px); font-weight: 900; color: #fff;
+    text-shadow: 0 0 10px #ff5252, 0 3px 6px rgba(0,0,0,.9); }
+  @keyframes aaPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: .75; } }
+  #broadcast { position: fixed; top: 42%; left: 50%; transform: translate(-50%,-50%); z-index: 14;
+    text-align: center; pointer-events: none; display: none; max-width: 92vw; }
+  #broadcast .bc-txt { font-size: clamp(24px, 8vw, 54px); font-weight: 900; color: #fff;
+    text-shadow: 0 0 14px #00e5ff, 0 4px 8px rgba(0,0,0,.9); word-break: break-word; }
+  #say { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 10;
+    padding: 10px 18px; background: rgba(8,12,18,.88); border: 2px solid #00e5ff;
+    border-radius: 14px; color: #fff; font-weight: 900; font-size: 14px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; user-select: none; }
+  #say:active { transform: translateX(-50%) scale(.93); }
+  #chatBar { position: fixed; left: 50%; bottom: 54px; transform: translateX(-50%); z-index: 17;
+    width: min(360px, calc(100vw - 30px)); display: none; gap: 6px; }
+  #chatBar.open { display: flex; }
+  #chatInput { flex: 1; padding: 12px; border-radius: 12px; border: 2px solid #00e5ff;
+    background: rgba(0,0,0,.85); color: #fff; font-size: 16px; font-weight: 700; outline: none; }
+  #chatSend { padding: 12px 16px; border: 0; border-radius: 12px; background: #00e5ff;
+    color: #023; font-weight: 900; font-size: 15px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -98,6 +122,10 @@
   <button id="scBase">🏠 My Base</button>
   <button id="scCancel">Cancel</button>
 </div>
+<div id="adminAbuse"><div class="aa-title">⚠️ ADMIN ABUSE ⚠️</div><div class="aa-time">1:00</div></div>
+<div id="broadcast"><div class="bc-txt"></div></div>
+<div id="say">💬 Say</div>
+<div id="chatBar"><input id="chatInput" maxlength="80" placeholder="Type a message for everyone…" autocomplete="off"><button id="chatSend">Send</button></div>
 <div id="toast"></div>
 <div id="start">
   <h1>ROBA EL BRAINROT 3D</h1>
@@ -143,6 +171,56 @@ var CHARS = [
   { id: 'tralalita',  name: 'Tralalita Tralala',        emoji: '🐋', tier: 'god',       price: 90000,  rate: 1600 },
   { id: 'dragonfrut', name: 'Torrtuginni Dragonfrutini',emoji: '🐢', tier: 'god',       price: 150000, rate: 2400 },
   { id: 'garama',     name: 'Garama and Madundung',     emoji: '🥁', tier: 'secret',    price: 45e6,   rate: 25e6 },
+  { id: 'sec0', name: 'Tralalero Supremo', emoji: '🦈', tier: 'secret', price: 1200000, rate: 700000 },
+  { id: 'sec1', name: 'Bombombini Gusini', emoji: '🦢', tier: 'secret', price: 1704000, rate: 994000 },
+  { id: 'sec2', name: 'Chimpanzini Spiderini', emoji: '🕷️', tier: 'secret', price: 2419680, rate: 1411480 },
+  { id: 'sec3', name: 'Ballerino Lololo', emoji: '🩰', tier: 'secret', price: 3435946, rate: 2004302 },
+  { id: 'sec4', name: 'Cocofanto Elefanto', emoji: '🥥', tier: 'secret', price: 4879043, rate: 2846108 },
+  { id: 'sec5', name: 'Girafa Celestre', emoji: '🦒', tier: 'secret', price: 6928241, rate: 4041474 },
+  { id: 'sec6', name: 'Matteo the Trippi', emoji: '🐙', tier: 'secret', price: 9838102, rate: 5738893 },
+  { id: 'sec7', name: 'Orangutini Ananassini', emoji: '🍍', tier: 'secret', price: 13970105, rate: 8149228 },
+  { id: 'sec8', name: 'Brri Brri Bicus', emoji: '🦆', tier: 'secret', price: 19837548, rate: 11571903 },
+  { id: 'sec9', name: 'Trippi Troppi Troppa', emoji: '🦐', tier: 'secret', price: 28169319, rate: 16432103 },
+  { id: 'sec10', name: 'Frulli Frulla', emoji: '🐦', tier: 'secret', price: 40000433, rate: 23333586 },
+  { id: 'sec11', name: 'Svinino Bombondino', emoji: '🐷', tier: 'secret', price: 56800615, rate: 33133692 },
+  { id: 'sec12', name: 'Bananita Dolphinita', emoji: '🐬', tier: 'secret', price: 80656873, rate: 47049842 },
+  { id: 'sec13', name: 'Zibra Zubra Zibralini', emoji: '🦓', tier: 'secret', price: 114532759, rate: 66810776 },
+  { id: 'sec14', name: 'Tigrilini Watermelini', emoji: '🍉', tier: 'secret', price: 162636518, rate: 94871302 },
+  { id: 'sec15', name: 'Rhino Toasterino', emoji: '🦏', tier: 'secret', price: 230943855, rate: 134717249 },
+  { id: 'sec16', name: 'Tric Trac Baraboom', emoji: '💥', tier: 'secret', price: 327940275, rate: 191298494 },
+  { id: 'sec17', name: 'Blueberrinni Octopusini', emoji: '🫐', tier: 'secret', price: 465675190, rate: 271643861 },
+  { id: 'sec18', name: 'Ballerina Nicotina', emoji: '🚬', tier: 'secret', price: 661258770, rate: 385734282 },
+  { id: 'sec19', name: 'Gangster Footera', emoji: '👟', tier: 'secret', price: 938987453, rate: 547742681 },
+  { id: 'sec20', name: 'Espresso Signora', emoji: '☕', tier: 'secret', price: 1333362184, rate: 777794607 },
+  { id: 'sec21', name: 'Bombardini Tortini', emoji: '🎂', tier: 'secret', price: 1893374301, rate: 1104468342 },
+  { id: 'sec22', name: 'Cactouro Bicicleto', emoji: '🌵', tier: 'secret', price: 2688591507, rate: 1568345046 },
+  { id: 'sec23', name: 'Piccione Macchina', emoji: '🚗', tier: 'secret', price: 3817799941, rate: 2227049965 },
+  { id: 'sec24', name: 'Los Tralaleritos', emoji: '🦈', tier: 'secret', price: 5421275916, rate: 3162410951 },
+  { id: 'sec25', name: 'Graipuss Medussi', emoji: '🐙', tier: 'secret', price: 7698211800, rate: 4490623550 },
+  { id: 'sec26', name: 'Pot Hotspot', emoji: '🍲', tier: 'secret', price: 10931460756, rate: 6376685441 },
+  { id: 'sec27', name: 'Nuclearo Dinossauro', emoji: '🦖', tier: 'secret', price: 15522674274, rate: 9054893326 },
+  { id: 'sec28', name: 'Las Tralaleritas', emoji: '🦈', tier: 'secret', price: 22042197469, rate: 12857948523 },
+  { id: 'sec29', name: 'Ballerino Ossino', emoji: '💀', tier: 'secret', price: 31299920406, rate: 18258286903 },
+  { id: 'sec30', name: 'Extinct Ballerino', emoji: '🦕', tier: 'secret', price: 44445886976, rate: 25926767403 },
+  { id: 'sec31', name: 'Tortugini Dragonfrutini', emoji: '🐢', tier: 'secret', price: 63113159506, rate: 36816009712 },
+  { id: 'sec32', name: 'Chachechi Chimichanga', emoji: '🌯', tier: 'secret', price: 89620686499, rate: 52278733791 },
+  { id: 'sec33', name: 'Sammyni Spyder', emoji: '🕸️', tier: 'secret', price: 127261374828, rate: 74235801983 },
+  { id: 'sec34', name: 'Karkerkar Kurkur', emoji: '🐫', tier: 'secret', price: 180711152256, rate: 105414838816 },
+  { id: 'sec35', name: 'Trulimero Trulicina', emoji: '🐟', tier: 'secret', price: 256609836203, rate: 149689071118 },
+  { id: 'sec36', name: 'Banana Crocodilo', emoji: '🍌', tier: 'secret', price: 364385967408, rate: 212558480988 },
+  { id: 'sec37', name: 'La Grande Combinasion', emoji: '🌀', tier: 'secret', price: 517428073720, rate: 301833043003 },
+  { id: 'sec38', name: 'Ballerina Lorona', emoji: '👻', tier: 'secret', price: 734747864682, rate: 428602921065 },
+  { id: 'sec39', name: 'Guerriero Digitale', emoji: '🎮', tier: 'secret', price: 1043341967849, rate: 608616147912 },
+  { id: 'sec40', name: 'Agarrini la Palini', emoji: '🎾', tier: 'secret', price: 1481545594346, rate: 864234930035 },
+  { id: 'sec41', name: 'Tortellini Autobus', emoji: '🚌', tier: 'secret', price: 2103794743971, rate: 1227213600650 },
+  { id: 'sec42', name: 'Bulbito Bandito', emoji: '💣', tier: 'secret', price: 2987388536438, rate: 1742643312922 },
+  { id: 'sec43', name: 'Tigroligre Frutonni', emoji: '🐯', tier: 'secret', price: 4242091721742, rate: 2474553504350 },
+  { id: 'sec44', name: 'Elefanto Frigo', emoji: '🧊', tier: 'secret', price: 6023770244874, rate: 3513865976177 },
+  { id: 'sec45', name: 'Serpiente Fresa', emoji: '🍓', tier: 'secret', price: 8553753747721, rate: 4989689686171 },
+  { id: 'sec46', name: 'Ganganzelli Trulala', emoji: '🎺', tier: 'secret', price: 12146330321764, rate: 7085359354363 },
+  { id: 'sec47', name: 'Urubini Flamingini', emoji: '🦩', tier: 'secret', price: 17247789056905, rate: 10061210283195 },
+  { id: 'sec48', name: 'Spioniro Golubiro', emoji: '🕊️', tier: 'secret', price: 24491860460806, rate: 14286918602137 },
+  { id: 'sec49', name: 'Job Job Job Sahur', emoji: '🔨', tier: 'secret', price: 34778441854344, rate: 20287424415034 },
   { id: 'strawelephant', name: 'Strawberry Elephant',   emoji: '🍓', tier: 'og',        price: 500e9,  rate: 500e6 }
 ];
 var TIER_ODDS = [
@@ -582,7 +660,8 @@ function freePad() {
 /* ---------- input ---------- */
 var keys = {}, joy = { id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
 var cam = { yaw: 0, pitch: 0.85, dist: 32, dragId: null, lx: 0, ly: 0, mouse: false };
-addEventListener('keydown', function (e) { keys[e.key.toLowerCase()] = true; });
+var typing = false; // true while the chat box is focused, so keys don't move the player
+addEventListener('keydown', function (e) { if (!typing) keys[e.key.toLowerCase()] = true; });
 addEventListener('keyup',   function (e) { keys[e.key.toLowerCase()] = false; });
 var cv = renderer.domElement;
 function eachTouch(e, fn) {
@@ -635,6 +714,125 @@ cv.addEventListener('wheel', function (e) {
   cam.dist = Math.max(14, Math.min(84, cam.dist + e.deltaY * 0.03));
 }, { passive: true });
 window.__cam = cam;
+
+/* ---------- ADMIN ABUSE timer, chaos mode, broadcast chat ---------- */
+var aaEl = document.getElementById('adminAbuse');
+var aaTimeEl = aaEl.querySelector('.aa-time');
+var admin = { left: 60, running: false };
+var chaos = { active: false, t: 0, lasers: [], bursts: [] };
+window.__game.admin = admin;
+window.__game.chaos = chaos;
+
+function startAdminAbuse() {
+  admin.left = 60; admin.running = true;
+  aaEl.style.display = 'block';
+}
+function updateAdminAbuse(dt) {
+  if (!admin.running) return;
+  admin.left -= dt;
+  if (admin.left <= 0) { admin.running = false; startChaos(); return; }
+  var m = Math.floor(admin.left / 60), s = Math.floor(admin.left % 60);
+  aaTimeEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// laser + explosion visuals like the reference chaos shot
+var laserMat = [0x00ff66, 0xffff00, 0xff2d2d, 0x00e5ff, 0xff00ff, 0x66ff00];
+function startChaos() {
+  if (chaos.active) return;
+  chaos.active = true;
+  aaEl.querySelector('.aa-title').textContent = '💥 ADMIN ABUSE 💥';
+  aaEl.style.display = 'block'; aaTimeEl.textContent = 'CHAOS!!';
+  broadcast('⚠️ THE ADMIN HAS ABUSED — SERVER IS CHAOS ⚠️', 6);
+  // sweeping laser beams spread across the whole map, tilted like the reference
+  var geo = new THREE.CylinderGeometry(1.4, 1.4, 700, 6);
+  for (var i = 0; i < 22; i++) {
+    var col = laserMat[i % laserMat.length];
+    var m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col }));
+    m.position.set((Math.sin(i * 1.7) * 0.5 + (i % 2 ? 0.4 : -0.4)) * 180, 55 + (i % 4) * 24, (i / 22 - 0.5) * 400);
+    m.rotation.set(Math.sin(i) * 1.1, i * 0.6, Math.cos(i * 1.3) * 1.1); // diagonal beams
+    m.userData.spin = 0.4 + (i % 5) * 0.25;
+    m.userData.axis = i % 3;
+    scene.add(m);
+    chaos.lasers.push(m);
+  }
+  ground.material.color.setHex(0x8a1010); // scorched red ground
+  try { SOUNDS.garama && (SOUNDS.garama.currentTime = 0, SOUNDS.garama.play().catch(function(){})); } catch (e) {}
+}
+function spawnBurst() {
+  var g = new THREE.Mesh(
+    new THREE.SphereGeometry(6, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0x00ff55, transparent: true, opacity: 0.85 })
+  );
+  g.position.set((Math.random() - 0.5) * 700, 120 + Math.random() * 160, (Math.random() - 0.5) * 700);
+  g.userData.life = 1;
+  scene.add(g);
+  chaos.bursts.push(g);
+}
+function updateChaos(dt) {
+  if (!chaos.active) return;
+  chaos.t += dt;
+  // disco sky + lights
+  var hue = (chaos.t * 0.15) % 1;
+  scene.background.setHSL(hue, 0.8, 0.35);
+  if (scene.fog) scene.fog.color.setHSL((hue + 0.5) % 1, 0.9, 0.4);
+  sun.color.setHSL((hue + 0.3) % 1, 1, 0.6);
+  // spin lasers
+  chaos.lasers.forEach(function (m) {
+    if (m.userData.axis === 0) m.rotation.z += m.userData.spin * dt;
+    else if (m.userData.axis === 1) m.rotation.x += m.userData.spin * dt;
+    else m.rotation.y += m.userData.spin * dt;
+  });
+  // green explosions raining down
+  if (Math.sin(chaos.t * 9) > 0.6 && chaos.bursts.length < 40) spawnBurst();
+  for (var i = chaos.bursts.length - 1; i >= 0; i--) {
+    var b = chaos.bursts[i];
+    b.userData.life -= dt * 0.8;
+    b.scale.multiplyScalar(1 + dt * 3);
+    b.material.opacity = Math.max(0, b.userData.life);
+    if (b.userData.life <= 0) { scene.remove(b); b.material.dispose(); chaos.bursts.splice(i, 1); }
+  }
+}
+
+// broadcast: big centered text everyone (on this screen) sees
+var bcEl = document.getElementById('broadcast');
+var bcTxt = bcEl.querySelector('.bc-txt');
+var bcTimer = 0;
+function broadcast(msg, secs) {
+  bcTxt.textContent = msg;
+  bcEl.style.display = 'block';
+  bcTimer = secs || 5;
+}
+function updateBroadcast(dt) {
+  if (bcTimer > 0) { bcTimer -= dt; if (bcTimer <= 0) bcEl.style.display = 'none'; }
+}
+window.__game.broadcast = broadcast;
+
+var chatBar = document.getElementById('chatBar');
+var chatInput = document.getElementById('chatInput');
+function openChat() {
+  if (!state.started) return;
+  chatBar.classList.add('open');
+  typing = true; keys = {};
+  chatInput.focus();
+}
+function closeChat() { chatBar.classList.remove('open'); typing = false; chatInput.blur(); }
+function sendChat() {
+  var v = chatInput.value.trim();
+  if (v) broadcast('💬 ' + v, 6);
+  chatInput.value = '';
+  closeChat();
+}
+document.getElementById('say').addEventListener('click', openChat);
+document.getElementById('chatSend').addEventListener('click', sendChat);
+chatInput.addEventListener('keydown', function (e) {
+  e.stopPropagation();
+  if (e.key === 'Enter') sendChat();
+  else if (e.key === 'Escape') closeChat();
+});
+chatInput.addEventListener('blur', function () { typing = false; });
+addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && state.started && !typing) openChat();
+});
 
 /* ---------- game update ---------- */
 var incomeAcc = 0, buyCooldown = 0;
@@ -838,6 +1036,9 @@ var clock = new THREE.Clock();
 renderer.setAnimationLoop(function () {
   var dt = Math.min(clock.getDelta(), 0.1);
   if (state.started) update(dt);
+  updateAdminAbuse(dt);
+  updateChaos(dt);
+  updateBroadcast(dt);
   var gy = groundY(player.x, player.z);
   var cosP = Math.cos(cam.pitch);
   camera.position.set(
@@ -992,6 +1193,7 @@ document.getElementById('play').addEventListener('click', function () {
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
   document.getElementById('start').style.display = 'none';
   state.started = true;
+  startAdminAbuse();
 });
 </script>
 <script src="worldcup-widget.js"></script>
