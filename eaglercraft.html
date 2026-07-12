@@ -67,14 +67,42 @@
   #toast { position: fixed; bottom: 30%; left: 50%; transform: translateX(-50%); z-index: 13;
     background: rgba(0,0,0,.78); color: #fff; padding: 9px 18px; border-radius: 6px;
     font-size: 15px; font-weight: 700; display: none; text-align: center; max-width: 84vw; }
+
+  /* game HUD */
+  #hp { top: 10px; left: 10px; font-size: 20px; letter-spacing: 1px; }
+  #carrots { top: 40px; left: 10px; font-size: 16px; color: #ffd9a6; }
+  #nights { top: 64px; left: 10px; font-size: 12px; color: #bcd0e6; }
+
+  /* win / lose screen */
+  #endScreen { position: fixed; inset: 0; z-index: 60; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: #fff; padding: 26px; }
+  #endScreen.win  { background: radial-gradient(circle at 50% 32%, #14431f, #04120a 72%); }
+  #endScreen.lose { background: radial-gradient(circle at 50% 32%, #451414, #120404 72%); }
+  #endScreen h1 { font-size: clamp(30px, 8vw, 56px); margin: 0 0 10px; letter-spacing: 2px;
+    text-shadow: 3px 3px 0 rgba(0,0,0,.6); }
+  #endScreen p { max-width: 430px; line-height: 1.65; color: #e8eefb; font-size: 15px; }
+  #restart { margin-top: 22px; font-size: 21px; font-weight: 800; padding: 13px 44px; border: 0;
+    border-radius: 6px; cursor: pointer; color: #06210f; letter-spacing: 1px;
+    background: linear-gradient(#8be06a, #4fae3a); box-shadow: 0 6px 0 #2f7a25; }
+  #restart:active { transform: translateY(3px); box-shadow: 0 3px 0 #2f7a25; }
 </style>
 </head>
 <body>
 <div class="hud" id="clockPill">☀️ DAY</div>
+<div class="hud" id="hp">❤️❤️❤️</div>
+<div class="hud" id="carrots">🥕 0/10</div>
+<div class="hud" id="nights">Nights survived: 0</div>
 <div class="hud" id="hint">WASD move · mouse look · SPACE jump · N = night · M = monster on/off</div>
 <div id="crosshair"></div>
 <div id="vig"></div>
 <div id="toast"></div>
+
+<div id="endScreen">
+  <h1 id="endTitle"></h1>
+  <p id="endMsg"></p>
+  <button id="restart">PLAY AGAIN</button>
+</div>
 
 <button class="touchBtn" id="toggleBtn" title="Monster on/off">😱</button>
 <button class="touchBtn" id="nightBtn" title="Bring the night">🌙</button>
@@ -85,11 +113,11 @@
 <div id="start">
   <h1>EAGLERCRAFT</h1>
   <div class="sub">NIGHT&nbsp;STALKER&nbsp;MOD</div>
-  <p>A snowy blocky world — walk around and explore.</p>
-  <p>☀️ By day it's calm. 🌙 But when <b>night</b> falls, something tall and thin
-     wakes up in the dark… and it <b>watches you</b>.</p>
-  <p>It freezes when you look at it. It <b>rushes</b> the moment you look away.
-     Don't let it reach you.</p>
+  <p>🥕 Find and grab all <b>10 glowing carrots</b> hidden across the snowy woods.</p>
+  <p>☀️ By day it's calm. 🌙 But at <b>night</b> a tall long-necked rabbit wakes and
+     <b>hunts you</b> — it freezes when you look at it and <b>rushes</b> when you look away.</p>
+  <p>❤️ Get caught and you lose a heart and respawn. Lose all three and it's
+     <b>GAME OVER</b>. Collect every carrot to <b>escape</b>.</p>
   <p class="warn">⚠️ Contains sudden scares &amp; loud sound. Play with sound on.</p>
   <button id="play">PLAY</button>
 </div>
@@ -153,6 +181,7 @@ for (var gx = -HALF; gx < HALF; gx++) {
     HEIGHTS[hIndex(gx, gz)] = Math.max(0, Math.round(e));   // top solid block index
   }
 }
+function dist2d(ax, az, bx, bz) { var dx = ax - bx, dz = az - bz; return Math.sqrt(dx * dx + dz * dz); }
 function topY(x, z) {                       // integer top block index at column
   x = Math.round(x); z = Math.round(z);
   if (!inWorld(x, z)) return 0;
@@ -484,7 +513,11 @@ function jumpscare() {
   scream();
   if (navigator.vibrate) { try { navigator.vibrate([90, 40, 170]); } catch (e) {} }
   despawn(); Mod.cooldown = 20;
-  toast('😱 IT GOT YOU!');
+  // respawn back at spawn and lose a heart
+  player.x = startX + 0.5; player.z = startZ + 0.5; player.y = surfaceY(startX, startZ); player.vy = 0;
+  Game.hearts--; updateHud();
+  if (Game.hearts <= 0) lose();
+  else toast('😱 IT GOT YOU! ' + Game.hearts + ' ❤️ left');
 }
 
 /* buttons */
@@ -568,6 +601,120 @@ function updateMod(dt) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.style.display = 'none'; }
 }
 
+/* ==========================================================================
+   GAME LAYER — objective, health, win/lose, restart
+   Gather every glowing carrot while surviving the night rabbit.
+   ========================================================================== */
+var Game = { hearts: 3, maxHearts: 3, carrots: 0, total: 10, nights: 0, prevNight: false, over: false, list: [] };
+
+function updateHud() {
+  var h = '';
+  for (var i = 0; i < Game.maxHearts; i++) h += i < Game.hearts ? '❤️' : '🖤';
+  document.getElementById('hp').textContent = h;
+  document.getElementById('carrots').textContent = '🥕 ' + Game.carrots + '/' + Game.total;
+  document.getElementById('nights').textContent = 'Nights survived: ' + Game.nights;
+}
+
+var _glowTex = null;
+function glowTex() {
+  if (_glowTex) return _glowTex;
+  var gc = document.createElement('canvas'); gc.width = gc.height = 64;
+  var gx = gc.getContext('2d');
+  var gr = gx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  gr.addColorStop(0, 'rgba(255,190,90,.95)'); gr.addColorStop(1, 'rgba(255,150,40,0)');
+  gx.fillStyle = gr; gx.fillRect(0, 0, 64, 64);
+  _glowTex = new THREE.CanvasTexture(gc); return _glowTex;
+}
+function buildCarrots() {
+  Game.list.forEach(function (c) { scene.remove(c.obj); });
+  Game.list = [];
+  var placed = 0, i = 0;
+  while (placed < Game.total && i < 500) {
+    var cx = Math.floor((hash(i * 2 + 3, 57) - 0.5) * (WORLD - 10));
+    var cz = Math.floor((hash(i * 5 + 8, 83) - 0.5) * (WORLD - 10));
+    i++;
+    if (!inWorld(cx, cz) || topY(cx, cz) <= 0) continue;      // on land, never on ice
+    var grp = new THREE.Group();
+    var body = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 7), new THREE.MeshBasicMaterial({ color: 0xff8a1e }));
+    body.rotation.x = Math.PI; grp.add(body);
+    var leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 5), new THREE.MeshBasicMaterial({ color: 0x54c23a }));
+    leaf.position.y = 0.5; grp.add(leaf);
+    var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), transparent: true, fog: false, depthWrite: false }));
+    glow.scale.set(2.6, 2.6, 1); grp.add(glow);
+    grp.position.set(cx + 0.5, surfaceY(cx, cz) + 0.85, cz + 0.5);
+    scene.add(grp);
+    Game.list.push({ obj: grp, x: cx + 0.5, z: cz + 0.5, col: cx, colz: cz, got: false });
+    placed++;
+  }
+}
+
+function chime() {
+  if (!actx) return; var t = actx.currentTime;
+  [880, 1320].forEach(function (f, k) {
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f, t + k * 0.07);
+    g.gain.setValueAtTime(0.12, t + k * 0.07); g.gain.exponentialRampToValueAtTime(0.001, t + k * 0.07 + 0.2);
+    o.connect(g); g.connect(actx.destination); o.start(t + k * 0.07); o.stop(t + k * 0.07 + 0.22);
+  });
+}
+function fanfare() {
+  if (!actx) return; var t = actx.currentTime;
+  [523, 659, 784, 1047].forEach(function (f, k) {
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f, t + k * 0.12);
+    g.gain.setValueAtTime(0.12, t + k * 0.12); g.gain.exponentialRampToValueAtTime(0.001, t + k * 0.12 + 0.35);
+    o.connect(g); g.connect(actx.destination); o.start(t + k * 0.12); o.stop(t + k * 0.12 + 0.36);
+  });
+}
+
+function updateGame(dt) {
+  if (Game.over) return;
+  var now = performance.now();
+  // nights-survived counter, on the night -> morning flip
+  if (Game.prevNight && Mod.nightF < 0.3) { Game.nights++; updateHud(); toast('☀️ Survived the night! (' + Game.nights + ')'); }
+  Game.prevNight = Mod.nightF > 0.6;
+  // carrots: spin, bob, pick up
+  for (var i = 0; i < Game.list.length; i++) {
+    var c = Game.list[i]; if (c.got) continue;
+    c.obj.rotation.y += dt * 1.6;
+    c.obj.position.y = surfaceY(c.col, c.colz) + 0.85 + Math.sin(now / 380 + i) * 0.12;
+    if (dist2d(player.x, player.z, c.x, c.z) < 1.9) {
+      c.got = true; c.obj.visible = false; Game.carrots++; chime(); updateHud();
+      if (Game.carrots >= Game.total) win();
+      else toast('🥕 Carrot ' + Game.carrots + '/' + Game.total + '!');
+    }
+  }
+}
+
+function endScreen(kind, title, msg) {
+  Game.over = true; started = false;
+  jumpEl.style.display = 'none'; jsFace.classList.remove('jsShake'); vig.style.opacity = 0;
+  if (document.exitPointerLock) document.exitPointerLock();
+  var es = document.getElementById('endScreen');
+  es.className = kind; es.style.display = 'flex';
+  document.getElementById('endTitle').textContent = title;
+  document.getElementById('endMsg').textContent = msg;
+}
+function win() {
+  fanfare();
+  endScreen('win', '🥕 YOU ESCAPED!', 'You gathered all ' + Game.total + ' carrots and slipped out of the woods — surviving ' +
+    Game.nights + ' night' + (Game.nights === 1 ? '' : 's') + '. The rabbit goes hungry tonight.');
+}
+function lose() {
+  endScreen('lose', '💀 GAME OVER', 'The night rabbit caught you for good. You collected ' + Game.carrots + '/' +
+    Game.total + ' carrots and survived ' + Game.nights + ' night' + (Game.nights === 1 ? '' : 's') + '.');
+}
+function startGame() {
+  Game.hearts = Game.maxHearts; Game.carrots = 0; Game.nights = 0; Game.prevNight = false; Game.over = false;
+  Mod.clock = 6; Mod.cooldown = 6; Mod.jumpT = 0; despawn();
+  jumpEl.style.display = 'none'; jsFace.classList.remove('jsShake'); vig.style.opacity = 0;
+  document.getElementById('endScreen').style.display = 'none';
+  player.x = startX + 0.5; player.z = startZ + 0.5; player.y = surfaceY(startX, startZ); player.vy = 0;
+  yaw = 0; pitch = 0;
+  buildCarrots(); updateHud();
+  started = true;
+}
+
 /* ---------- movement + main loop ---------- */
 var GRAV = 26, SPEED = 5.6;
 var vTmp = new THREE.Vector3(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
@@ -607,19 +754,25 @@ var started = false, last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   var dt = Math.min((now - last) / 1000, 0.1); last = now;
-  if (started) { updatePlayer(dt); updateMod(dt); }
+  if (started) { updatePlayer(dt); updateMod(dt); updateGame(dt); }
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
 
-window.__ec = { Mod: Mod, player: player, camera: camera, spawnMonster: spawnMonster, applySky: applySky, setStarted: function (v) { started = v; } };
+window.__ec = { Mod: Mod, Game: Game, player: player, camera: camera, spawnMonster: spawnMonster, jumpscare: jumpscare, applySky: applySky, setStarted: function (v) { started = v; } };
 
 /* ---------- start ---------- */
 document.getElementById('play').addEventListener('click', function () {
   ensureAudio();
   if (actx && actx.state === 'suspended') actx.resume();
   document.getElementById('start').style.display = 'none';
-  started = true;
+  startGame();
+  if (!isTouch) renderer.domElement.requestPointerLock();
+});
+document.getElementById('restart').addEventListener('click', function () {
+  ensureAudio();
+  if (actx && actx.state === 'suspended') actx.resume();
+  startGame();
   if (!isTouch) renderer.domElement.requestPointerLock();
 });
 </script>
