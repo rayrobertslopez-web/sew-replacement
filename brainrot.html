@@ -29,12 +29,21 @@
     box-shadow: 0 6px 0 #616161; }
   #play.ready { background: #ffd700; box-shadow: 0 6px 0 #a88600; }
   #play.ready:active { transform: translateY(4px); box-shadow: 0 2px 0 #a88600; }
+  #rebirth { position: fixed; left: 10px; top: 50%; transform: translateY(-50%); z-index: 10;
+    width: 76px; padding: 9px 4px; background: rgba(8,12,18,.88); border: 2px solid #4caf50;
+    border-radius: 14px; text-align: center; color: #fff; font-weight: 900; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; user-select: none; }
+  #rebirth .ico { font-size: 32px; line-height: 1.1; display: block; }
+  #rebirth .lbl { font-size: 12px; margin-top: 2px; display: block; letter-spacing: .5px; }
+  #rebirth:active { transform: translateY(-50%) scale(.93); }
 </style>
 </head>
 <body>
 <div class="hud" id="money">💰 $0</div>
 <div class="hud" id="income">📈 +$0/s</div>
-<div class="hud" id="owned">🧠 0/12</div>
+<div class="hud" id="owned">🧠 0/16</div>
+<div class="hud" id="rb" style="top:36px;right:10px;font-size:14px;color:#8ef58e;text-align:right"></div>
+<div id="rebirth"><span class="ico">🔄</span><span class="lbl">Rebirth</span></div>
 <div id="toast"></div>
 <div id="start">
   <h1>ROBA EL BRAINROT 3D</h1>
@@ -43,6 +52,7 @@
      👮 Run home before the guard catches you!<br>
      💰 Every brainrot in your base makes money</p>
   <p>🕹️ Left side: drag to move &nbsp;•&nbsp; 🎥 Right side: drag to turn camera<br>💻 On computer: WASD moves, mouse drag turns, scroll zooms</p>
+  <p>🔄 <b>Rebirth</b> (left side) when you're rich enough — adds a whole new floor to your base and doubles your income!</p>
   <p>⚽ Tap the soccer ball up top for today's <b>WORLD CUP</b> games!</p>
   <button id="play" disabled>LOADING MAP…</button>
 </div>
@@ -59,7 +69,7 @@ var TIERS = {
   common:    { color: '#c9c9c9' }, rare:   { color: '#4fc3f7' },
   epic:      { color: '#ba68c8' }, legendary: { color: '#ffb300' },
   mythic:    { color: '#ff5252' }, god:    { color: '#fff176' },
-  secret:    { color: '#69f0ae' }
+  secret:    { color: '#69f0ae' }, og:     { color: '#ffd700' }
 };
 var CHARS = [
   { id: 'noobini',    name: 'Noobini Pizzanini',        emoji: '🍕', tier: 'common',    price: 25,     rate: 1 },
@@ -78,9 +88,11 @@ var CHARS = [
   { id: 'vaca',       name: 'La Vaca Saturno Saturnita',emoji: '🪐', tier: 'mythic',    price: 35000,  rate: 650 },
   { id: 'tralalita',  name: 'Tralalita Tralala',        emoji: '🐋', tier: 'god',       price: 90000,  rate: 1600 },
   { id: 'dragonfrut', name: 'Torrtuginni Dragonfrutini',emoji: '🐢', tier: 'god',       price: 150000, rate: 2400 },
-  { id: 'garama',     name: 'Garama and Madundung',     emoji: '🌀', tier: 'secret',    price: 500000, rate: 8000 }
+  { id: 'garama',     name: 'Garama and Madundung',     emoji: '🌀', tier: 'secret',    price: 500000, rate: 8000 },
+  { id: 'strawelephant', name: 'Strawberry Elephant',   emoji: '🍓', tier: 'og',        price: 500e9,  rate: 500e6 }
 ];
 var TIER_ODDS = [
+  ['og', 0.00001], // 0.00001% — must be first so the sliver is reachable
   ['common', 42], ['rare', 27], ['epic', 16], ['legendary', 9],
   ['mythic', 4], ['god', 1.6], ['secret', 0.4]
 ];
@@ -145,7 +157,16 @@ var player = {
   x: myBase.rect.cx, z: myBase.rect.z1 - 10,
   speed: 42, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
 };
-var state = { money: 50, started: false };
+var state = { money: 50, started: false, rebirths: 0 };
+var REBIRTH_REQS = [
+  { money: 1000, char: 'tungtung' },
+  { money: 25000, char: 'tralalero' },
+  { money: 250000, char: 'bombardiro' },
+  { money: 2500000, char: 'vaca' },
+  { money: 25e6, char: 'tralalita' },
+  { money: 500e6, char: 'dragonfrut' },
+  { money: 10e9, char: 'garama' }
+];
 var toastT = 0;
 window.__game = { player: player, state: state, myBase: myBase, npcBases: npcBases };
 window.__cam = null; // set after input init
@@ -155,22 +176,20 @@ var SAVE_KEY = 'roba-el-brainrot-save';
 function save() {
   try {
     var owned = myBase.pads.map(function (p) { return p.item ? p.item.id : null; });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, owned: owned }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, owned: owned, rebirths: state.rebirths }));
   } catch (e) {}
 }
-function load() {
-  try {
-    var d = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (!d) return;
-    state.money = d.money || 50;
-    (d.owned || []).forEach(function (id, i) {
-      if (id && i < myBase.pads.length) myBase.pads[i].item = charById(id);
-    });
-  } catch (e) {}
-}
-load();
+var SAVED = null;
+try { SAVED = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
 
 /* ---------- audio ---------- */
+var strawSound = new Audio('strawberry-elephant.ogg');
+strawSound.preload = 'auto';
+function announceSpawn(ch) {
+  if (!ch || ch.id !== 'strawelephant' || !state.started) return;
+  toast('🍓⭐ A STRAWBERRY ELEPHANT SPAWNED!! ⭐🍓');
+  try { strawSound.currentTime = 0; strawSound.play().catch(function () {}); } catch (e) {}
+}
 var actx = null;
 function beep(freq, dur, type, vol) {
   if (!actx) return;
@@ -217,6 +236,17 @@ ground.rotation.x = -Math.PI / 2;
 ground.position.y = -1.5;
 scene.add(ground);
 
+/* ---------- Strawberry Elephant model ---------- */
+var strawModel = null;
+new GLTFLoader().load('./strawberry.glb', function (g) {
+  g.scene.traverse(function (o) {
+    if (o.isMesh) {
+      o.material = new THREE.MeshLambertMaterial({ map: o.material.map || null, color: o.material.color });
+    }
+  });
+  strawModel = g.scene;
+}, undefined, function () {});
+
 /* ---------- sprites (emoji characters, labels) ---------- */
 function makeItemTexture(ch, showPrice) {
   var c = document.createElement('canvas'); c.width = c.height = 256;
@@ -238,15 +268,52 @@ function makeItemTexture(ch, showPrice) {
   var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
+function makeOgLabelTexture(ch) {
+  // styled like the reference: name, red income, yellow price, yellow OG tag
+  var c = document.createElement('canvas'); c.width = 256; c.height = 170;
+  var x = c.getContext('2d');
+  x.fillStyle = 'rgba(0,0,0,.6)';
+  x.beginPath(); x.roundRect(4, 4, 248, 162, 18); x.fill();
+  x.textAlign = 'center';
+  x.font = 'bold 26px Arial'; x.fillStyle = '#ffd700';
+  x.fillText('OG', 128, 36);
+  x.font = 'bold 24px Arial';
+  var w = x.measureText(ch.name).width;
+  if (w > 236) x.font = 'bold ' + Math.floor(24 * 236 / w) + 'px Arial';
+  x.fillStyle = '#fff'; x.fillText(ch.name, 128, 74);
+  x.font = 'bold 26px Arial'; x.fillStyle = '#ff5252';
+  x.fillText('+' + fmt(ch.rate) + '/s', 128, 112);
+  x.fillStyle = '#ffd700'; x.fillText(fmt(ch.price), 128, 150);
+  var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 function makeItemSprite(ch, showPrice) {
-  var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeItemTexture(ch, showPrice), transparent: true }));
+  if (ch.tier === 'og' && strawModel) {
+    // real 3D model with a floating OG label
+    var grp = new THREE.Group();
+    var m = strawModel.clone();
+    var sc = 4.5;
+    m.scale.setScalar(sc);
+    m.position.y = -6.2 + 0.9973 * sc; // feet on the ground (model min.y ≈ -1)
+    grp.add(m);
+    var lt = makeOgLabelTexture(ch);
+    var lb = new THREE.Sprite(new THREE.SpriteMaterial({ map: lt, transparent: true }));
+    lb.scale.set(11, 7.3, 1);
+    lb.position.y = 7.5;
+    grp.add(lb);
+    grp.userData.disposables = [lt, lb.material];
+    return grp;
+  }
+  var tex = makeItemTexture(ch, showPrice);
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
   sp.scale.set(8.5, 8.5, 1);
+  sp.userData.disposables = [tex, sp.material];
   return sp;
 }
 function disposeSprite(sp) {
   if (!sp) return;
   scene.remove(sp);
-  sp.material.map.dispose(); sp.material.dispose();
+  (sp.userData.disposables || []).forEach(function (d) { d.dispose(); });
 }
 
 /* ---------- blocky avatars ---------- */
@@ -338,20 +405,50 @@ function padSpriteRefresh(pad, showPrice) {
   disposeSprite(pad.sprite); pad.sprite = null;
   if (pad.item) {
     pad.sprite = makeItemSprite(pad.item, !!showPrice);
-    pad.sprite.position.set(pad.x, groundY(pad.x, pad.z) + 6.2, pad.z);
+    pad.sprite.position.set(pad.x, groundY(pad.x, pad.z) + (pad.yo || 0) + 6.2, pad.z);
     scene.add(pad.sprite);
   }
 }
 var pedestalGeo = new THREE.CylinderGeometry(2.2, 2.4, 0.8, 20);
 var pedestalMat = new THREE.MeshLambertMaterial({ color: 0xbdbdbd });
-[myBase].concat(npcBases).forEach(function (b) {
-  b.pads.forEach(function (p) {
-    var ped = new THREE.Mesh(pedestalGeo, pedestalMat);
-    ped.position.set(p.x, groundY(p.x, p.z) + 0.4, p.z);
-    scene.add(ped);
-    padSpriteRefresh(p);
+var floorMat = new THREE.MeshLambertMaterial({ color: 0x90a4ae });
+function addPedestal(p) {
+  var ped = new THREE.Mesh(pedestalGeo, pedestalMat);
+  ped.position.set(p.x, groundY(p.x, p.z) + (p.yo || 0) + 0.4, p.z);
+  scene.add(ped);
+}
+// each rebirth adds a whole new floor of 16 pads above your base
+var FLOOR_H = 13;
+function addFloor(f) {
+  var r = myBase.rect, yo = f * FLOOR_H;
+  var slab = new THREE.Mesh(new THREE.BoxGeometry(30, 1, 30), floorMat);
+  slab.position.set(r.cx, groundY(r.cx, r.cz) + yo - 0.5, r.cz);
+  scene.add(slab);
+  [[-13.5, -13.5], [13.5, -13.5], [-13.5, 13.5], [13.5, 13.5]].forEach(function (c) {
+    var pil = new THREE.Mesh(new THREE.BoxGeometry(1.6, FLOOR_H, 1.6), floorMat);
+    pil.position.set(r.cx + c[0], groundY(r.cx, r.cz) + yo - FLOOR_H / 2, r.cz + c[1]);
+    scene.add(pil);
   });
+  for (var i = 0; i < 16; i++) {
+    var p = { x: r.cx + (-12.75 + (i % 4) * 8.5), z: r.cz + (-12.75 + Math.floor(i / 4) * 8.5),
+              yo: yo, item: null, sprite: null };
+    myBase.pads.push(p);
+    addPedestal(p);
+  }
+}
+[myBase].concat(npcBases).forEach(function (b) {
+  b.pads.forEach(function (p) { addPedestal(p); });
 });
+// apply the save: rebuild floors first, then put the collection back
+if (SAVED) {
+  state.money = SAVED.money || 50;
+  state.rebirths = SAVED.rebirths || 0;
+  for (var f = 1; f <= state.rebirths; f++) addFloor(f);
+  (SAVED.owned || []).forEach(function (id, i) {
+    if (id && i < myBase.pads.length) myBase.pads[i].item = charById(id);
+  });
+}
+myBase.pads.forEach(function (p) { padSpriteRefresh(p); });
 npcBases.forEach(function (b) {
   for (var i = 0; i < 3; i++) b.pads[i].item = randomChar();
   b.pads.forEach(function (p) { padSpriteRefresh(p); });
@@ -367,10 +464,13 @@ function spawnBeltItem() {
   sp.position.set(BELT.x, FLOOR + 6.2, BELT.z1);
   scene.add(sp);
   beltItems.push({ ch: ch, z: BELT.z1, sprite: sp });
+  announceSpawn(ch);
 }
 
 /* ---------- helpers ---------- */
 function fmt(n) {
+  if (n >= 1e12) return '$' + (n / 1e12).toFixed(n < 1e13 ? 1 : 0) + 'T';
+  if (n >= 1e9) return '$' + (n / 1e9).toFixed(n < 1e10 ? 1 : 0) + 'B';
   if (n >= 1e6) return '$' + (n / 1e6).toFixed(n < 1e7 ? 1 : 0) + 'M';
   if (n >= 1e3) return '$' + (n / 1e3).toFixed(n < 1e4 ? 1 : 0) + 'K';
   return '$' + Math.floor(n);
@@ -386,7 +486,8 @@ function toast(msg) {
 }
 function ownedCount() { return myBase.pads.filter(function (p) { return p.item; }).length; }
 function incomePerSec() {
-  return myBase.pads.reduce(function (s, p) { return s + (p.item ? p.item.rate : 0); }, 0);
+  var base = myBase.pads.reduce(function (s, p) { return s + (p.item ? p.item.rate : 0); }, 0);
+  return base * Math.pow(2, state.rebirths);
 }
 function freePad() {
   for (var i = 0; i < myBase.pads.length; i++) if (!myBase.pads[i].item) return myBase.pads[i];
@@ -504,7 +605,7 @@ function update(dt) {
     if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 6.5) {
       if (state.money >= it.ch.price) {
         var pad = freePad();
-        if (!pad) { toast('🧠 Base full! (16 max)'); sfxDenied(); buyCooldown = 1.2; }
+        if (!pad) { toast('🧠 Base full! (' + myBase.pads.length + ' max) — Rebirth adds a floor!'); sfxDenied(); buyCooldown = 1.2; }
         else {
           state.money -= it.ch.price;
           pad.item = it.ch; padSpriteRefresh(pad);
@@ -528,6 +629,7 @@ function update(dt) {
       if (filled < 4) {
         var empty = b.pads.filter(function (p) { return !p.item; })[0];
         empty.item = randomChar(); padSpriteRefresh(empty);
+        announceSpawn(empty.item);
       }
     }
     if (!player.carrying && player.safeT <= 0) {
@@ -595,7 +697,7 @@ function update(dt) {
       player.carrying = null; player.carryFrom = null;
       sfxSecure(); save();
     } else if (toastT <= 0) {
-      toast('🧠 Base full! (16 max)');
+      toast('🧠 Base full! (' + myBase.pads.length + ' max) — Rebirth adds a floor!');
     }
   }
 
@@ -603,7 +705,7 @@ function update(dt) {
   var bob = Math.sin(performance.now() / 400) * 0.6;
   [myBase].concat(npcBases).forEach(function (b) {
     b.pads.forEach(function (p) {
-      if (p.sprite) p.sprite.position.y = groundY(p.x, p.z) + 6.2 + bob;
+      if (p.sprite) p.sprite.position.y = groundY(p.x, p.z) + (p.yo || 0) + 6.2 + bob;
     });
   });
 
@@ -613,7 +715,8 @@ function update(dt) {
   }
   document.getElementById('money').textContent = '💰 ' + fmt(state.money);
   document.getElementById('income').textContent = '📈 +' + fmt(incomePerSec()) + '/s';
-  document.getElementById('owned').textContent = '🧠 ' + ownedCount() + '/' + MAX_PADS;
+  document.getElementById('owned').textContent = '🧠 ' + ownedCount() + '/' + myBase.pads.length;
+  document.getElementById('rb').textContent = '🔄 Rebirth ' + state.rebirths + (state.rebirths > 0 ? ' (x' + Math.pow(2, state.rebirths) + ' income)' : '');
 }
 
 /* ---------- camera & loop ---------- */
@@ -632,6 +735,39 @@ renderer.setAnimationLoop(function () {
   renderer.render(scene, camera);
 });
 setInterval(save, 5000);
+
+var rebirthArm = 0;
+function attemptRebirth() {
+  if (!state.started) return;
+  if (state.rebirths >= REBIRTH_REQS.length) { toast('🏆 MAX REBIRTH! You beat the game!'); return; }
+  var req = REBIRTH_REQS[state.rebirths];
+  var reqChar = charById(req.char);
+  var hasChar = myBase.pads.some(function (p) { return p.item && p.item.id === req.char; });
+  if (state.money < req.money || !hasChar) {
+    toast('🔄 Rebirth ' + (state.rebirths + 1) + ' needs ' + fmt(req.money) +
+      (state.money >= req.money ? ' ✓' : ' ✗') + ' + ' + reqChar.name + (hasChar ? ' ✓' : ' ✗'));
+    sfxDenied();
+    return;
+  }
+  if (performance.now() - rebirthArm > 5000) {
+    rebirthArm = performance.now();
+    toast('⚠️ Rebirth takes ' + fmt(req.money) + ' + ALL your brainrots! You get a NEW FLOOR + 2x income. Tap again!');
+    return;
+  }
+  state.money -= req.money;
+  myBase.pads.forEach(function (p) { if (p.item) { p.item = null; padSpriteRefresh(p); } });
+  state.rebirths++;
+  addFloor(state.rebirths);
+  toast('🔄✨ REBIRTH ' + state.rebirths + '! New floor added — income x' + Math.pow(2, state.rebirths) + '!');
+  sfxSecure();
+  save();
+}
+document.getElementById('rebirth').addEventListener('click', attemptRebirth);
+window.__game.rebirth = attemptRebirth;
+window.__game.give = function (id) {
+  var p = freePad();
+  if (p) { p.item = charById(id); padSpriteRefresh(p); save(); }
+};
 
 document.getElementById('play').addEventListener('click', function () {
   if (!mapReady) return;
