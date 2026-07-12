@@ -43,6 +43,7 @@
   #admin:active { transform: scale(.93); }
   #adminPanel { position: fixed; left: 10px; bottom: 60px; z-index: 15;
     width: min(320px, calc(100vw - 20px)); max-height: 62vh; overflow-y: auto;
+    touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
     background: rgba(8,12,18,.96); border: 2px solid #e53935; border-radius: 16px;
     padding: 10px; display: none; }
   #adminPanel.open { display: block; }
@@ -791,7 +792,7 @@ document.getElementById('admin').addEventListener('click', function () {
 });
 (function buildAdminList() {
   var list = document.getElementById('adminList');
-  CHARS.forEach(function (ch) {
+  CHARS.slice().reverse().forEach(function (ch) {
     var row = document.createElement('div');
     row.className = 'adm';
     var tierName = ch.tier === 'og' ? 'OG' : ch.tier.charAt(0).toUpperCase() + ch.tier.slice(1);
@@ -800,9 +801,16 @@ document.getElementById('admin').addEventListener('click', function () {
       '<small>' + tierName + ' • +' + fmt(ch.rate) + '/s</small></span>';
     row.addEventListener('click', function () {
       var p = freePad();
-      if (!p) { toast('🧠 Base full! (' + myBase.pads.length + ' max) — Rebirth adds a floor!'); sfxDenied(); return; }
+      if (p) {
+        toast('🛠️ Spawned ' + ch.name + '!');
+      } else {
+        // base full: swap out the lowest earner so admin spawns always work
+        p = myBase.pads.reduce(function (best, q) {
+          return (!best || q.item.rate < best.item.rate) ? q : best;
+        }, null);
+        toast('🛠️ Swapped ' + p.item.name + ' → ' + ch.name + '!');
+      }
       p.item = ch; padSpriteRefresh(p);
-      toast('🛠️ Spawned ' + ch.name + '!');
       if (ch.id === 'strawelephant') {
         try { strawSound.currentTime = 0; strawSound.play().catch(function () {}); } catch (e) {}
       }
