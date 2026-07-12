@@ -42,7 +42,7 @@
      🥷 Sneak into other bases to <b>steal</b> theirs<br>
      👮 Run home before the guard catches you!<br>
      💰 Every brainrot in your base makes money</p>
-  <p>🕹️ Move: touch &amp; drag anywhere (or WASD / arrows)</p>
+  <p>🕹️ Left side: drag to move &nbsp;•&nbsp; 🎥 Right side: drag to turn camera<br>💻 On computer: WASD moves, mouse drag turns, scroll zooms</p>
   <p>⚽ Tap the soccer ball up top for today's <b>WORLD CUP</b> games!</p>
   <button id="play" disabled>LOADING MAP…</button>
 </div>
@@ -99,7 +99,7 @@ function charById(id) {
 }
 
 /* ---------- world layout (probed from the map model, map units x30) ---------- */
-var S = 45;                       // map scale
+var S = 60;                       // map scale
 var FLOOR = 0.06 * S;             // walkable floor height
 var BOUNDS = { x1: -1.30 * S, x2: 1.32 * S, z1: -2.35 * S, z2: 2.25 * S };
 // six buildings: two columns of three
@@ -116,7 +116,7 @@ var myBase = { rect: PLOTS.R3, name: 'YOUR BASE', mine: true, pads: [] };
 (function () {
   var r = myBase.rect;
   for (var i = 0; i < MAX_PADS; i++) {
-    myBase.pads.push({ x: r.cx + (-9.75 + (i % 4) * 6.5), z: r.cz + (-9.75 + Math.floor(i / 4) * 6.5), item: null, sprite: null });
+    myBase.pads.push({ x: r.cx + (-12.75 + (i % 4) * 8.5), z: r.cz + (-12.75 + Math.floor(i / 4) * 8.5), item: null, sprite: null });
   }
 })();
 var npcBases = [
@@ -127,11 +127,11 @@ var npcBases = [
 npcBases.forEach(function (b) {
   b.pads = [];
   for (var i = 0; i < 4; i++) {
-    b.pads.push({ x: b.rect.cx + (i % 2 ? 6 : -6), z: b.rect.cz + (i < 2 ? -6 : 6), item: null, sprite: null });
+    b.pads.push({ x: b.rect.cx + (i % 2 ? 8 : -8), z: b.rect.cz + (i < 2 ? -8 : 8), item: null, sprite: null });
   }
   b.restockT = 0;
 });
-var BELT = { x: 0, halfW: 0.2 * S, z1: -2.4 * S, z2: 2.4 * S, speed: 9 };
+var BELT = { x: 0, halfW: 0.2 * S, z1: -2.4 * S, z2: 2.4 * S, speed: 11 };
 var PLOT_LIST = Object.keys(PLOTS).map(function (k) { return PLOTS[k]; });
 function groundY(x, z) {
   for (var i = 0; i < PLOT_LIST.length; i++) {
@@ -142,12 +142,13 @@ function groundY(x, z) {
 }
 
 var player = {
-  x: myBase.rect.cx, z: myBase.rect.z1 - 8,
-  speed: 34, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
+  x: myBase.rect.cx, z: myBase.rect.z1 - 10,
+  speed: 42, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
 };
 var state = { money: 50, started: false };
 var toastT = 0;
 window.__game = { player: player, state: state, myBase: myBase, npcBases: npcBases };
+window.__cam = null; // set after input init
 
 /* ---------- save / load ---------- */
 var SAVE_KEY = 'roba-el-brainrot-save';
@@ -189,8 +190,8 @@ function sfxDenied() { beep(200, .15, 'square', .06); }
 /* ---------- three.js scene ---------- */
 var scene = new THREE.Scene();
 scene.background = new THREE.Color(0x6ec6ea);
-scene.fog = new THREE.Fog(0x6ec6ea, 260, 640);
-var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 900);
+scene.fog = new THREE.Fog(0x6ec6ea, 350, 950);
+var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 1300);
 var renderer = new THREE.WebGLRenderer({
   antialias: (devicePixelRatio || 1) <= 1,
   powerPreference: 'high-performance'
@@ -239,7 +240,7 @@ function makeItemTexture(ch, showPrice) {
 }
 function makeItemSprite(ch, showPrice) {
   var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeItemTexture(ch, showPrice), transparent: true }));
-  sp.scale.set(7.5, 7.5, 1);
+  sp.scale.set(8.5, 8.5, 1);
   return sp;
 }
 function disposeSprite(sp) {
@@ -297,8 +298,8 @@ npcBases.forEach(function (b) {
   x.strokeText('⭐ YOUR BASE', 256, 80); x.fillText('⭐ YOUR BASE', 256, 80);
   var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
-  sp.scale.set(24, 6, 1);
-  sp.position.set(myBase.rect.cx, FLOOR + 22, myBase.rect.cz);
+  sp.scale.set(30, 7.5, 1);
+  sp.position.set(myBase.rect.cx, FLOOR + 28, myBase.rect.cz);
   scene.add(sp);
 })();
 
@@ -337,16 +338,16 @@ function padSpriteRefresh(pad, showPrice) {
   disposeSprite(pad.sprite); pad.sprite = null;
   if (pad.item) {
     pad.sprite = makeItemSprite(pad.item, !!showPrice);
-    pad.sprite.position.set(pad.x, groundY(pad.x, pad.z) + 5.2, pad.z);
+    pad.sprite.position.set(pad.x, groundY(pad.x, pad.z) + 6.2, pad.z);
     scene.add(pad.sprite);
   }
 }
-var pedestalGeo = new THREE.CylinderGeometry(1.7, 1.9, 0.7, 20);
+var pedestalGeo = new THREE.CylinderGeometry(2.2, 2.4, 0.8, 20);
 var pedestalMat = new THREE.MeshLambertMaterial({ color: 0xbdbdbd });
 [myBase].concat(npcBases).forEach(function (b) {
   b.pads.forEach(function (p) {
     var ped = new THREE.Mesh(pedestalGeo, pedestalMat);
-    ped.position.set(p.x, groundY(p.x, p.z) + 0.35, p.z);
+    ped.position.set(p.x, groundY(p.x, p.z) + 0.4, p.z);
     scene.add(ped);
     padSpriteRefresh(p);
   });
@@ -363,7 +364,7 @@ var beltSpawnT = 0;
 function spawnBeltItem() {
   var ch = randomChar();
   var sp = makeItemSprite(ch, true);
-  sp.position.set(BELT.x, FLOOR + 5.2, BELT.z1);
+  sp.position.set(BELT.x, FLOOR + 6.2, BELT.z1);
   scene.add(sp);
   beltItems.push({ ch: ch, z: BELT.z1, sprite: sp });
 }
@@ -393,28 +394,61 @@ function freePad() {
 }
 
 /* ---------- input ---------- */
-var keys = {}, joy = { active: false, ox: 0, oy: 0, dx: 0, dy: 0 };
+var keys = {}, joy = { id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
+var cam = { yaw: 0, pitch: 0.85, dist: 28, dragId: null, lx: 0, ly: 0, mouse: false };
 addEventListener('keydown', function (e) { keys[e.key.toLowerCase()] = true; });
 addEventListener('keyup',   function (e) { keys[e.key.toLowerCase()] = false; });
 var cv = renderer.domElement;
+function eachTouch(e, fn) {
+  for (var i = 0; i < e.changedTouches.length; i++) fn(e.changedTouches[i]);
+}
 cv.addEventListener('touchstart', function (e) {
   e.preventDefault();
-  var t = e.changedTouches[0];
-  joy.active = true; joy.ox = t.clientX; joy.oy = t.clientY; joy.dx = 0; joy.dy = 0;
+  eachTouch(e, function (t) {
+    // left half of the screen moves, right half turns the camera
+    if (t.clientX < innerWidth / 2 && joy.id === null) {
+      joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joy.dx = 0; joy.dy = 0;
+    } else if (cam.dragId === null) {
+      cam.dragId = t.identifier; cam.lx = t.clientX; cam.ly = t.clientY;
+    }
+  });
 }, { passive: false });
 cv.addEventListener('touchmove', function (e) {
   e.preventDefault();
-  if (!joy.active) return;
-  var t = e.changedTouches[0];
-  var dx = t.clientX - joy.ox, dy = t.clientY - joy.oy;
-  var d = Math.sqrt(dx * dx + dy * dy) || 1, max = 60;
-  var k = Math.min(d, max) / max;
-  joy.dx = (dx / d) * k; joy.dy = (dy / d) * k;
+  eachTouch(e, function (t) {
+    if (t.identifier === joy.id) {
+      var dx = t.clientX - joy.ox, dy = t.clientY - joy.oy;
+      var d = Math.sqrt(dx * dx + dy * dy) || 1, max = 60;
+      var k = Math.min(d, max) / max;
+      joy.dx = (dx / d) * k; joy.dy = (dy / d) * k;
+    } else if (t.identifier === cam.dragId) {
+      cam.yaw -= (t.clientX - cam.lx) * 0.006;
+      cam.pitch = Math.max(0.25, Math.min(1.35, cam.pitch + (t.clientY - cam.ly) * 0.004));
+      cam.lx = t.clientX; cam.ly = t.clientY;
+    }
+  });
 }, { passive: false });
-cv.addEventListener('touchend', function (e) {
+function endTouch(e) {
   e.preventDefault();
-  joy.active = false; joy.dx = 0; joy.dy = 0;
-}, { passive: false });
+  eachTouch(e, function (t) {
+    if (t.identifier === joy.id) { joy.id = null; joy.dx = 0; joy.dy = 0; }
+    if (t.identifier === cam.dragId) cam.dragId = null;
+  });
+}
+cv.addEventListener('touchend', endTouch, { passive: false });
+cv.addEventListener('touchcancel', endTouch, { passive: false });
+cv.addEventListener('mousedown', function (e) { cam.mouse = true; cam.lx = e.clientX; cam.ly = e.clientY; });
+addEventListener('mousemove', function (e) {
+  if (!cam.mouse) return;
+  cam.yaw -= (e.clientX - cam.lx) * 0.006;
+  cam.pitch = Math.max(0.25, Math.min(1.35, cam.pitch + (e.clientY - cam.ly) * 0.004));
+  cam.lx = e.clientX; cam.ly = e.clientY;
+});
+addEventListener('mouseup', function () { cam.mouse = false; });
+cv.addEventListener('wheel', function (e) {
+  cam.dist = Math.max(14, Math.min(64, cam.dist + e.deltaY * 0.03));
+}, { passive: true });
+window.__cam = cam;
 
 /* ---------- game update ---------- */
 var incomeAcc = 0, buyCooldown = 0;
@@ -430,14 +464,18 @@ function update(dt) {
   var moving = false;
   if (player.stunT > 0) player.stunT -= dt;
   else {
-    var mx = 0, mz = 0;
-    if (keys['w'] || keys['arrowup']) mz -= 1;
-    if (keys['s'] || keys['arrowdown']) mz += 1;
-    if (keys['a'] || keys['arrowleft']) mx -= 1;
-    if (keys['d'] || keys['arrowright']) mx += 1;
-    var kd = Math.sqrt(mx * mx + mz * mz);
-    if (kd > 0) { mx /= kd; mz /= kd; }
-    mx += joy.dx; mz += joy.dy;
+    var ix = 0, iy = 0;
+    if (keys['w'] || keys['arrowup']) iy -= 1;
+    if (keys['s'] || keys['arrowdown']) iy += 1;
+    if (keys['a'] || keys['arrowleft']) ix -= 1;
+    if (keys['d'] || keys['arrowright']) ix += 1;
+    var kd = Math.sqrt(ix * ix + iy * iy);
+    if (kd > 0) { ix /= kd; iy /= kd; }
+    ix += joy.dx; iy += joy.dy;
+    // steer relative to where the camera faces
+    var cosY = Math.cos(cam.yaw), sinY = Math.sin(cam.yaw);
+    var mx = ix * cosY + iy * sinY;
+    var mz = -ix * sinY + iy * cosY;
     var slow = player.carrying ? 0.95 : 1;
     player.x += mx * player.speed * slow * dt;
     player.z += mz * player.speed * slow * dt;
@@ -463,7 +501,7 @@ function update(dt) {
     it.z += BELT.speed * dt;
     it.sprite.position.z = it.z;
     if (it.z > BELT.z2) { disposeSprite(it.sprite); beltItems.splice(i, 1); continue; }
-    if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 5.5) {
+    if (buyCooldown <= 0 && dist2d(player.x, player.z, BELT.x, it.z) < 6.5) {
       if (state.money >= it.ch.price) {
         var pad = freePad();
         if (!pad) { toast('🧠 Base full! (16 max)'); sfxDenied(); buyCooldown = 1.2; }
@@ -495,7 +533,7 @@ function update(dt) {
     if (!player.carrying && player.safeT <= 0) {
       for (var j = 0; j < b.pads.length; j++) {
         var p = b.pads[j];
-        if (p.item && dist2d(player.x, player.z, p.x, p.z) < 5.2) {
+        if (p.item && dist2d(player.x, player.z, p.x, p.z) < 6) {
           player.carrying = p.item; player.carryFrom = b;
           p.item = null; padSpriteRefresh(p);
           carrySprite = makeItemSprite(player.carrying, false);
@@ -512,9 +550,9 @@ function update(dt) {
     if (g.chasing && player.carrying && player.carryFrom === b) {
       var dx = player.x - g.x, dz = player.z - g.z;
       var d = Math.sqrt(dx * dx + dz * dz) || 1;
-      g.x += (dx / d) * 25 * dt; g.z += (dz / d) * 25 * dt;
+      g.x += (dx / d) * 31 * dt; g.z += (dz / d) * 31 * dt;
       g.avatar.rotation.y = Math.atan2(dx, dz);
-      if (d < 5 && player.safeT <= 0) {
+      if (d < 5.6 && player.safeT <= 0) {
         var back = b.pads.filter(function (p) { return !p.item; })[0];
         if (back) { back.item = player.carrying; padSpriteRefresh(back); }
         toast('👮 Caught! ' + player.carrying.name + ' went back!');
@@ -524,19 +562,19 @@ function update(dt) {
         g.chasing = false;
         sfxCaught();
       }
-      if (dist2d(g.x, g.z, b.rect.cx, b.rect.cz) > 140) g.chasing = false;
+      if (dist2d(g.x, g.z, b.rect.cx, b.rect.cz) > 190) g.chasing = false;
     } else {
       g.chasing = false;
       g.wanderT -= dt;
       if (g.wanderT <= 0) {
         g.wanderT = 2 + Math.random() * 2;
-        g.tx = b.rect.cx + (Math.random() - 0.5) * 18;
-        g.tz = b.rect.cz + (Math.random() - 0.5) * 18;
+        g.tx = b.rect.cx + (Math.random() - 0.5) * 24;
+        g.tz = b.rect.cz + (Math.random() - 0.5) * 24;
       }
       var wx = g.tx - g.x, wz = g.tz - g.z;
       var wd = Math.sqrt(wx * wx + wz * wz);
       if (wd > 0.8) {
-        g.x += (wx / wd) * 11 * dt; g.z += (wz / wd) * 11 * dt;
+        g.x += (wx / wd) * 14 * dt; g.z += (wz / wd) * 14 * dt;
         g.avatar.rotation.y = Math.atan2(wx, wz);
       }
     }
@@ -544,7 +582,7 @@ function update(dt) {
   });
 
   // carried item floats over your head
-  if (carrySprite) carrySprite.position.set(player.x, groundY(player.x, player.z) + 11, player.z);
+  if (carrySprite) carrySprite.position.set(player.x, groundY(player.x, player.z) + 13, player.z);
 
   // secure at home
   if (player.carrying && inPlot(player.x, player.z, myBase.rect, 2)) {
@@ -565,7 +603,7 @@ function update(dt) {
   var bob = Math.sin(performance.now() / 400) * 0.6;
   [myBase].concat(npcBases).forEach(function (b) {
     b.pads.forEach(function (p) {
-      if (p.sprite) p.sprite.position.y = groundY(p.x, p.z) + 5.2 + bob;
+      if (p.sprite) p.sprite.position.y = groundY(p.x, p.z) + 6.2 + bob;
     });
   });
 
@@ -584,8 +622,13 @@ renderer.setAnimationLoop(function () {
   var dt = Math.min(clock.getDelta(), 0.1);
   if (state.started) update(dt);
   var gy = groundY(player.x, player.z);
-  camera.position.set(player.x, gy + 42, player.z + 34);
-  camera.lookAt(player.x, gy + 3, player.z);
+  var cosP = Math.cos(cam.pitch);
+  camera.position.set(
+    player.x + Math.sin(cam.yaw) * cosP * cam.dist,
+    gy + Math.sin(cam.pitch) * cam.dist + 3,
+    player.z + Math.cos(cam.yaw) * cosP * cam.dist
+  );
+  camera.lookAt(player.x, gy + 5, player.z);
   renderer.render(scene, camera);
 });
 setInterval(save, 5000);
