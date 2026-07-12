@@ -18,8 +18,10 @@
   #clockPill { top: 10px; left: 50%; transform: translateX(-50%);
     background: rgba(0,0,0,.45); padding: 5px 16px; border-radius: 4px;
     font-size: 15px; letter-spacing: 1px; }
-  #hint { bottom: 12px; left: 50%; transform: translateX(-50%);
-    font-size: 12px; color: #d6d6d6; text-align: center; line-height: 1.5; }
+  #hint { bottom: 96px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: #eaeaea; text-align: center; line-height: 1.5;
+    background: rgba(0,0,0,.3); padding: 4px 10px; border-radius: 4px;
+    transition: opacity .6s; }
   #crosshair { top: 50%; left: 50%; transform: translate(-50%,-50%);
     width: 22px; height: 22px; z-index: 8; }
   #crosshair:before, #crosshair:after { content: ""; position: absolute; background: rgba(255,255,255,.85);
@@ -69,9 +71,19 @@
     font-size: 15px; font-weight: 700; display: none; text-align: center; max-width: 84vw; }
 
   /* game HUD */
-  #hp { top: 10px; left: 10px; font-size: 20px; letter-spacing: 1px; }
-  #carrots { top: 40px; left: 10px; font-size: 16px; color: #ffd9a6; }
-  #nights { top: 64px; left: 10px; font-size: 12px; color: #bcd0e6; }
+  #carrots { top: 10px; left: 10px; font-size: 16px; color: #ffe08a; }
+  #nights { top: 34px; left: 10px; font-size: 12px; color: #cfe0f0; }
+  #survival { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 11;
+    display: flex; flex-direction: column; align-items: center; gap: 5px; pointer-events: none; }
+  #status { display: flex; justify-content: space-between; width: min(92vw, 380px); font-size: 15px; }
+  #hearts, #hunger { text-shadow: 1px 1px 2px #000; letter-spacing: 1px; line-height: 1; }
+  #hunger { direction: rtl; }
+  #hotbar { display: flex; gap: 2px; background: rgba(0,0,0,.32); padding: 3px;
+    border: 2px solid rgba(0,0,0,.55); border-radius: 3px; }
+  .slot { position: relative; width: 42px; height: 42px; background: rgba(139,139,139,.5);
+    border: 2px solid rgba(255,255,255,.22); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .slot.sel { border-color: #fff; box-shadow: inset 0 0 0 1px #fff; }
+  .slot .ct { position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-weight: 800; color: #fff; text-shadow: 1px 1px 1px #000; }
 
   /* win / lose screen */
   #endScreen { position: fixed; inset: 0; z-index: 60; display: none;
@@ -90,10 +102,13 @@
 </head>
 <body>
 <div class="hud" id="clockPill">☀️ DAY</div>
-<div class="hud" id="hp">❤️❤️❤️</div>
 <div class="hud" id="carrots">🥕 0/10</div>
-<div class="hud" id="nights">Nights survived: 0</div>
+<div class="hud" id="nights">Night 0</div>
 <div class="hud" id="hint">WASD move · mouse look · SPACE jump · N = night · M = monster on/off</div>
+<div id="survival">
+  <div id="status"><div id="hearts"></div><div id="hunger"></div></div>
+  <div id="hotbar"></div>
+</div>
 <div id="crosshair"></div>
 <div id="vig"></div>
 <div id="toast"></div>
@@ -113,10 +128,10 @@
 <div id="start">
   <h1>EAGLERCRAFT</h1>
   <div class="sub">NIGHT&nbsp;STALKER&nbsp;MOD</div>
-  <p>🥕 Find and grab all <b>10 glowing carrots</b> hidden across the snowy woods.</p>
+  <p>🥕 Find and grab all <b>10 glowing carrots</b> hidden across the grassy hills.</p>
   <p>☀️ By day it's calm. 🌙 But at <b>night</b> a tall long-necked rabbit wakes and
      <b>hunts you</b> — it freezes when you look at it and <b>rushes</b> when you look away.</p>
-  <p>❤️ Get caught and you lose a heart and respawn. Lose all three and it's
+  <p>❤️ Get caught and you take damage and respawn. Lose all your hearts and it's
      <b>GAME OVER</b>. Collect every carrot to <b>escape</b>.</p>
   <p class="warn">⚠️ Contains sudden scares &amp; loud sound. Play with sound on.</p>
   <button id="play">PLAY</button>
@@ -154,11 +169,24 @@ addEventListener('resize', function () {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-var hemi = new THREE.HemisphereLight(0xcfe8ff, 0x4a5a4a, 1.15);
+var hemi = new THREE.HemisphereLight(0xcfe8ff, 0x3f6b2e, 1.15);
 scene.add(hemi);
 var sun = new THREE.DirectionalLight(0xfff4e0, 1.25);
 sun.position.set(60, 120, 40);
 scene.add(sun);
+
+// first-person arm (classic Minecraft view-model)
+scene.add(camera);
+var viewArm = new THREE.Group();
+(function () {
+  var skin = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.72, 0.22), new THREE.MeshLambertMaterial({ color: 0xe7a06a }));
+  skin.position.y = -0.3; viewArm.add(skin);
+  var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.26), new THREE.MeshLambertMaterial({ color: 0x59b25a }));
+  sleeve.position.y = 0.08; viewArm.add(sleeve);
+  viewArm.position.set(0.82, -0.55, -0.95);
+  viewArm.rotation.set(0.12, 0.15, -0.4);
+  camera.add(viewArm);
+})();
 
 /* ---------- deterministic value-noise heightmap ---------- */
 function hash(x, z) {
@@ -242,12 +270,54 @@ function instanced(color, coords, opts) {
   scene.add(mesh);
   return mesh;
 }
-instanced(0xf7fbff, snow);
-instanced(0x9b6a43, dirt);
-instanced(0x8a8f96, stone);
-instanced(0x5a3a22, wood);
-instanced(0xdfeee6, leaf);
-instanced(0xbfe4f2, ice);
+// grass-blade tuft texture (green blades on transparent)
+function grassTuftTex() {
+  var c = document.createElement('canvas'); c.width = c.height = 32;
+  var x = c.getContext('2d'); x.clearRect(0, 0, 32, 32);
+  for (var i = 0; i < 26; i++) {
+    var bx = Math.floor(hash(i, i * 3 + 1) * 30) + 1, h = 8 + hash(i * 5, i) * 20;
+    var g = 120 + Math.floor(hash(i, i * 7) * 70);
+    x.strokeStyle = 'rgb(' + Math.floor(g * 0.45) + ',' + g + ',' + Math.floor(g * 0.3) + ')';
+    x.lineWidth = 1.4;
+    x.beginPath(); x.moveTo(bx, 32); x.lineTo(bx + (hash(i, i + 9) * 4 - 2), 32 - h); x.stroke();
+  }
+  var t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; return t;
+}
+function buildGrassTufts(tops) {
+  var pos = [], uv = [], idx = [], v = 0, s = 0.5, hgt = 0.85, n = 0;
+  for (var i = 0; i < tops.length && n < 900; i++) {
+    var cx = tops[i][0], cz = tops[i][2];
+    if (hash(cx * 13 + 5, cz * 7 + 2) > 0.3) continue;      // sprinkle ~30% of grass blocks
+    var by = tops[i][1] + 1;
+    var quads = [
+      [[cx - s, by, cz], [cx + s, by, cz], [cx + s, by + hgt, cz], [cx - s, by + hgt, cz]],
+      [[cx, by, cz - s], [cx, by, cz + s], [cx, by + hgt, cz + s], [cx, by + hgt, cz - s]]
+    ];
+    for (var q = 0; q < 2; q++) {
+      for (var k = 0; k < 4; k++) pos.push(quads[q][k][0], quads[q][k][1], quads[q][k][2]);
+      uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+      idx.push(v, v + 1, v + 2, v, v + 2, v + 3); v += 4;
+    }
+    n++;
+  }
+  if (!n) return;
+  var nor = []; for (var m = 0; m < pos.length / 3; m++) nor.push(0, 1, 0);  // lit like the ground
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setIndex(idx);
+  var mat = new THREE.MeshLambertMaterial({ map: grassTuftTex(), alphaTest: 0.4, transparent: true, side: THREE.DoubleSide });
+  scene.add(new THREE.Mesh(geo, mat));
+}
+
+instanced(0x6cae3e, snow);                                    // grass caps
+instanced(0x86613a, dirt);                                    // dirt
+instanced(0x8a8f96, stone);                                   // stone
+instanced(0x6e4a28, wood);                                    // oak trunk
+instanced(0x4f9e33, leaf);                                    // oak leaves
+instanced(0x3f74d6, ice, { transparent: true, opacity: 0.86 }); // water
+buildGrassTufts(snow);
 
 /* ---------- player ---------- */
 var startX = 0, startZ = 0;
@@ -519,9 +589,9 @@ function jumpscare() {
   despawn(); Mod.cooldown = 20;
   // respawn back at spawn and lose a heart
   player.x = startX + 0.5; player.z = startZ + 0.5; player.y = surfaceY(startX, startZ); player.vy = 0;
-  Game.hearts--; updateHud();
+  Game.hearts = Math.max(0, Game.hearts - 2); updateHud();
   if (Game.hearts <= 0) lose();
-  else toast('😱 IT GOT YOU! ' + Game.hearts + ' ❤️ left');
+  else toast('😱 IT GOT YOU! ' + (Game.hearts / 2) + ' ❤️ left');
 }
 
 /* buttons */
@@ -609,14 +679,27 @@ function updateMod(dt) {
    GAME LAYER — objective, health, win/lose, restart
    Gather every glowing carrot while surviving the night rabbit.
    ========================================================================== */
-var Game = { hearts: 3, maxHearts: 3, carrots: 0, total: 10, nights: 0, prevNight: false, over: false, list: [] };
+var Game = { hearts: 10, maxHearts: 10, carrots: 0, total: 10, nights: 0, prevNight: false, over: false, list: [] };
+
+(function buildChrome() {                     // fill the hunger row + hotbar once
+  var hunger = ''; for (var i = 0; i < 10; i++) hunger += '🍗';
+  document.getElementById('hunger').textContent = hunger;
+  var hb = document.getElementById('hotbar');
+  for (var s = 0; s < 9; s++) {
+    var d = document.createElement('div');
+    d.className = 'slot' + (s === 0 ? ' sel' : '');
+    if (s === 0) d.innerHTML = '🥕<span class="ct"></span>';
+    hb.appendChild(d);
+  }
+})();
 
 function updateHud() {
   var h = '';
   for (var i = 0; i < Game.maxHearts; i++) h += i < Game.hearts ? '❤️' : '🖤';
-  document.getElementById('hp').textContent = h;
+  document.getElementById('hearts').textContent = h;
   document.getElementById('carrots').textContent = '🥕 ' + Game.carrots + '/' + Game.total;
-  document.getElementById('nights').textContent = 'Nights survived: ' + Game.nights;
+  document.getElementById('nights').textContent = 'Night ' + Game.nights;
+  var ct = document.querySelector('#hotbar .ct'); if (ct) ct.textContent = Game.carrots || '';
 }
 
 var _glowTex = null;
@@ -716,11 +799,14 @@ function startGame() {
   player.x = startX + 0.5; player.z = startZ + 0.5; player.y = surfaceY(startX, startZ); player.vy = 0;
   yaw = 0; pitch = 0;
   buildCarrots(); updateHud();
+  var hint = document.getElementById('hint');
+  hint.style.opacity = '1';
+  setTimeout(function () { hint.style.opacity = '0'; }, 7000);
   started = true;
 }
 
 /* ---------- movement + main loop ---------- */
-var GRAV = 26, SPEED = 5.6;
+var GRAV = 26, SPEED = 5.6, walkBob = 0;
 var vTmp = new THREE.Vector3(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
 function updatePlayer(dt) {
   // desired horizontal move
@@ -752,6 +838,11 @@ function updatePlayer(dt) {
 
   camera.rotation.y = yaw; camera.rotation.x = pitch;
   camera.position.set(player.x, player.y + EYE, player.z);
+
+  // bob the first-person arm while walking
+  if (mag > 0.05 && player.onGround) walkBob += dt * 9;
+  viewArm.position.y = -0.55 + Math.abs(Math.sin(walkBob)) * 0.04;
+  viewArm.rotation.x = 0.12 + Math.sin(walkBob) * 0.06;
 }
 
 var started = false, last = performance.now();
@@ -763,7 +854,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.__ec = { Mod: Mod, Game: Game, player: player, camera: camera, spawnMonster: spawnMonster, jumpscare: jumpscare, applySky: applySky, setStarted: function (v) { started = v; } };
+window.__ec = { Mod: Mod, Game: Game, player: player, camera: camera, spawnMonster: spawnMonster, jumpscare: jumpscare, applySky: applySky, setStarted: function (v) { started = v; }, setView: function (y, pi) { yaw = y; pitch = pi; } };
 
 /* ---------- start ---------- */
 document.getElementById('play').addEventListener('click', function () {
