@@ -55,6 +55,16 @@
   .adm .e { font-size: 24px; width: 30px; text-align: center; }
   .adm .n { flex: 1; font-weight: 800; font-size: 14px; }
   .adm .n small { display: block; font-weight: 700; font-size: 11px; opacity: .85; }
+  #spawnChoice { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%);
+    z-index: 16; background: rgba(8,12,18,.96); border: 2px solid #e53935; border-radius: 16px;
+    padding: 14px; display: none; text-align: center; width: min(320px, calc(100vw - 30px)); }
+  #spawnChoice.open { display: block; }
+  #spawnChoice .sc-title { color: #fff; font-weight: 900; font-size: 15px; margin-bottom: 10px; }
+  #spawnChoice button { display: block; width: 100%; margin: 6px 0; padding: 12px;
+    border: 0; border-radius: 12px; font-size: 16px; font-weight: 900; cursor: pointer; }
+  #scBelt { background: #e53935; color: #fff; }
+  #scBase { background: #ffd700; color: #123; }
+  #scCancel { background: rgba(255,255,255,.15); color: #fff; font-size: 13px !important; padding: 8px !important; }
 </style>
 </head>
 <body>
@@ -65,6 +75,12 @@
 <div id="rebirth"><span class="ico">🔄</span><span class="lbl">Rebirth</span></div>
 <div id="admin">🛠️ Admin</div>
 <div id="adminPanel"><h3>🛠️ Admin — spawn any brainrot</h3><div id="adminList"></div></div>
+<div id="spawnChoice">
+  <div class="sc-title">Spawn <span id="scName"></span> where?</div>
+  <button id="scBelt">🔴 Red Carpet (free to grab)</button>
+  <button id="scBase">🏠 My Base</button>
+  <button id="scCancel">Cancel</button>
+</div>
 <div id="toast"></div>
 <div id="start">
   <h1>ROBA EL BRAINROT 3D</h1>
@@ -284,7 +300,7 @@ function makeItemTexture(ch, showPrice) {
   x.strokeStyle = 'rgba(0,0,0,.8)'; x.lineWidth = 5;
   x.strokeText(ch.name, 128, 216); x.fillText(ch.name, 128, 216);
   x.font = 'bold 26px Arial'; x.fillStyle = '#fff';
-  var sub = showPrice ? fmt(ch.price) : '+' + fmt(ch.rate) + '/s';
+  var sub = showPrice ? (ch.price === 0 ? 'FREE' : fmt(ch.price)) : '+' + fmt(ch.rate) + '/s';
   x.strokeText(sub, 128, 248); x.fillText(sub, 128, 248);
   var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
@@ -304,7 +320,7 @@ function makeOgLabelTexture(ch) {
   x.fillStyle = '#fff'; x.fillText(ch.name, 128, 74);
   x.font = 'bold 26px Arial'; x.fillStyle = '#ff5252';
   x.fillText('+' + fmt(ch.rate) + '/s', 128, 112);
-  x.fillStyle = '#ffd700'; x.fillText(fmt(ch.price), 128, 150);
+  x.fillStyle = '#ffd700'; x.fillText(ch.price === 0 ? 'FREE' : fmt(ch.price), 128, 150);
   var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
@@ -478,6 +494,7 @@ var carrySprite = null;
 
 /* ---------- conveyor items ---------- */
 var beltItems = [];
+window.__game.belt = beltItems;
 var beltSpawnT = 0;
 function spawnBeltItem() {
   var ch = randomChar();
@@ -800,25 +817,60 @@ document.getElementById('admin').addEventListener('click', function () {
       '<span class="n" style="color:' + TIERS[ch.tier].color + '">' + ch.name +
       '<small>' + tierName + ' • +' + fmt(ch.rate) + '/s</small></span>';
     row.addEventListener('click', function () {
-      var p = freePad();
-      if (p) {
-        toast('🛠️ Spawned ' + ch.name + '!');
-      } else {
-        // base full: swap out the lowest earner so admin spawns always work
-        p = myBase.pads.reduce(function (best, q) {
-          return (!best || q.item.rate < best.item.rate) ? q : best;
-        }, null);
-        toast('🛠️ Swapped ' + p.item.name + ' → ' + ch.name + '!');
-      }
-      p.item = ch; padSpriteRefresh(p);
-      if (ch.id === 'strawelephant') {
-        try { strawSound.currentTime = 0; strawSound.play().catch(function () {}); } catch (e) {}
-      }
-      sfxBuy(); save();
+      pendingSpawn = ch;
+      document.getElementById('scName').textContent = ch.name;
+      adminPanel.classList.remove('open');
+      spawnChoice.classList.add('open');
     });
     list.appendChild(row);
   });
 })();
+var pendingSpawn = null;
+var spawnChoice = document.getElementById('spawnChoice');
+function playSpawnSound(ch) {
+  if (ch.id !== 'strawelephant') return;
+  try { strawSound.currentTime = 0; strawSound.play().catch(function () {}); } catch (e) {}
+}
+function spawnToBase(ch) {
+  var p = freePad();
+  if (p) {
+    toast('🛠️ Spawned ' + ch.name + ' in your base!');
+  } else {
+    // base full: swap out the lowest earner so admin spawns always work
+    p = myBase.pads.reduce(function (best, q) {
+      return (!best || q.item.rate < best.item.rate) ? q : best;
+    }, null);
+    toast('🛠️ Swapped ' + p.item.name + ' → ' + ch.name + '!');
+  }
+  p.item = ch; padSpriteRefresh(p);
+  playSpawnSound(ch);
+  sfxBuy(); save();
+}
+function spawnToBelt(ch) {
+  var free = Object.assign({}, ch, { price: 0 });
+  var z = Math.max(BELT.z1, Math.min(BELT.z2 - 30, player.z - 50));
+  var sp = makeItemSprite(free, true);
+  sp.position.set(BELT.x, FLOOR + 6.2, z);
+  scene.add(sp);
+  beltItems.push({ ch: free, z: z, sprite: sp });
+  toast('🛠️ ' + ch.name + ' is on the red carpet — go grab it FREE!');
+  playSpawnSound(ch);
+  sfxBuy();
+}
+document.getElementById('scBase').addEventListener('click', function () {
+  spawnChoice.classList.remove('open');
+  if (pendingSpawn) spawnToBase(pendingSpawn);
+  pendingSpawn = null;
+});
+document.getElementById('scBelt').addEventListener('click', function () {
+  spawnChoice.classList.remove('open');
+  if (pendingSpawn) spawnToBelt(pendingSpawn);
+  pendingSpawn = null;
+});
+document.getElementById('scCancel').addEventListener('click', function () {
+  spawnChoice.classList.remove('open');
+  pendingSpawn = null;
+});
 window.__game.rebirth = attemptRebirth;
 window.__game.give = function (id) {
   var p = freePad();
