@@ -201,6 +201,27 @@ npcBases.forEach(function (b) {
 });
 var BELT = { x: 0, halfW: 0.2 * S, z1: -2.4 * S, z2: 2.4 * S, speed: 11 };
 var PLOT_LIST = Object.keys(PLOTS).map(function (k) { return PLOTS[k]; });
+var WALL_T = 1.6;
+var WALLS = [];
+PLOT_LIST.forEach(function (r) {
+  var openWest = r.cx > 0; // right column opens toward the belt; left column mirrors
+  WALLS.push({ x1: r.x1 - WALL_T, x2: r.x2 + WALL_T, z1: r.z1 - WALL_T, z2: r.z1 + WALL_T }); // north
+  WALLS.push({ x1: r.x1 - WALL_T, x2: r.x2 + WALL_T, z1: r.z2 - WALL_T, z2: r.z2 + WALL_T }); // south
+  if (openWest) WALLS.push({ x1: r.x2 - WALL_T, x2: r.x2 + WALL_T, z1: r.z1, z2: r.z2 });     // east closed
+  else WALLS.push({ x1: r.x1 - WALL_T, x2: r.x1 + WALL_T, z1: r.z1, z2: r.z2 });              // west closed
+});
+function inWall(x, z) {
+  for (var i = 0; i < WALLS.length; i++) {
+    var w = WALLS[i];
+    if (x > w.x1 && x < w.x2 && z > w.z1 && z < w.z2) return true;
+  }
+  return false;
+}
+function moveWithWalls(o, nx, nz) {
+  if (inWall(o.x, o.z) || !inWall(nx, nz)) { o.x = nx; o.z = nz; }      // free move (or escaping a wall)
+  else if (!inWall(nx, o.z)) { o.x = nx; }                              // slide along z-wall
+  else if (!inWall(o.x, nz)) { o.z = nz; }                              // slide along x-wall
+}
 function groundY(x, z) {
   for (var i = 0; i < PLOT_LIST.length; i++) {
     var r = PLOT_LIST[i];
@@ -210,7 +231,7 @@ function groundY(x, z) {
 }
 
 var player = {
-  x: myBase.rect.cx, z: myBase.rect.z1 - 10,
+  x: myBase.rect.x1 - 10, z: myBase.rect.cz,
   speed: 42, carrying: null, carryFrom: null, stunT: 0, safeT: 0, walkT: 0
 };
 var state = { money: 50, started: false, rebirths: 0 };
@@ -642,10 +663,9 @@ function update(dt) {
     var mx = ix * cosY + iy * sinY;
     var mz = -ix * sinY + iy * cosY;
     var slow = player.carrying ? 0.95 : 1;
-    player.x += mx * player.speed * slow * dt;
-    player.z += mz * player.speed * slow * dt;
-    player.x = Math.max(BOUNDS.x1, Math.min(BOUNDS.x2, player.x));
-    player.z = Math.max(BOUNDS.z1, Math.min(BOUNDS.z2, player.z));
+    var nx = Math.max(BOUNDS.x1, Math.min(BOUNDS.x2, player.x + mx * player.speed * slow * dt));
+    var nz = Math.max(BOUNDS.z1, Math.min(BOUNDS.z2, player.z + mz * player.speed * slow * dt));
+    moveWithWalls(player, nx, nz);
     moving = Math.abs(mx) + Math.abs(mz) > 0.05;
     if (moving) playerAvatar.rotation.y = Math.atan2(mx, mz);
   }
@@ -715,7 +735,7 @@ function update(dt) {
     if (g.chasing && player.carrying && player.carryFrom === b) {
       var dx = player.x - g.x, dz = player.z - g.z;
       var d = Math.sqrt(dx * dx + dz * dz) || 1;
-      g.x += (dx / d) * 31 * dt; g.z += (dz / d) * 31 * dt;
+      moveWithWalls(g, g.x + (dx / d) * 31 * dt, g.z + (dz / d) * 31 * dt);
       g.avatar.rotation.y = Math.atan2(dx, dz);
       if (d < 5.6 && player.safeT <= 0) {
         var back = b.pads.filter(function (p) { return !p.item; })[0];
@@ -739,7 +759,7 @@ function update(dt) {
       var wx = g.tx - g.x, wz = g.tz - g.z;
       var wd = Math.sqrt(wx * wx + wz * wz);
       if (wd > 0.8) {
-        g.x += (wx / wd) * 14 * dt; g.z += (wz / wd) * 14 * dt;
+        moveWithWalls(g, g.x + (wx / wd) * 14 * dt, g.z + (wz / wd) * 14 * dt);
         g.avatar.rotation.y = Math.atan2(wx, wz);
       }
     }
@@ -749,9 +769,12 @@ function update(dt) {
   // bought brainrots walk themselves to the base
   for (var wI = walkers.length - 1; wI >= 0; wI--) {
     var wk = walkers[wI];
-    var wtx = myBase.rect.cx, wtz = myBase.rect.z1 + 6;
+    var wtx, wtz;
+    if (!wk.stage) { wtx = myBase.rect.x1 - 7; wtz = myBase.rect.cz; } // walk to the door first
+    else { wtx = myBase.rect.cx; wtz = myBase.rect.cz; }
     var wdx = wtx - wk.x, wdz = wtz - wk.z;
     var wd = Math.sqrt(wdx * wdx + wdz * wdz);
+    if (wd < 3.5 && !wk.stage) { wk.stage = 1; continue; }
     if (wd < 3.5) {
       disposeSprite(wk.sprite);
       walkers.splice(wI, 1);
