@@ -269,17 +269,21 @@ addEventListener('keydown', function (e) {
 });
 addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
 
-var locked = false;
+var locked = false, dragging = false, lastMX = 0, lastMY = 0;
 renderer.domElement.addEventListener('click', function () {
-  if (started && !isTouch) renderer.domElement.requestPointerLock();
+  if (started && !isTouch) { try { renderer.domElement.requestPointerLock(); } catch (e) {} }
 });
 document.addEventListener('pointerlockchange', function () {
   locked = document.pointerLockElement === renderer.domElement;
 });
+// drag-to-look fallback for when pointer lock is unavailable (e.g. in an iframe)
+renderer.domElement.addEventListener('mousedown', function (e) {
+  if (!locked) { dragging = true; lastMX = e.clientX; lastMY = e.clientY; }
+});
+addEventListener('mouseup', function () { dragging = false; });
 addEventListener('mousemove', function (e) {
-  if (!locked) return;
-  yaw -= e.movementX * 0.0022;
-  pitch -= e.movementY * 0.0022;
+  if (locked) { yaw -= e.movementX * 0.0022; pitch -= e.movementY * 0.0022; }
+  else if (dragging) { yaw -= (e.clientX - lastMX) * 0.004; pitch -= (e.clientY - lastMY) * 0.004; lastMX = e.clientX; lastMY = e.clientY; }
   pitch = Math.max(-1.4, Math.min(1.4, pitch));
 });
 
