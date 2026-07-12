@@ -36,6 +36,24 @@
   #rebirth .ico { font-size: 32px; line-height: 1.1; display: block; }
   #rebirth .lbl { font-size: 12px; margin-top: 2px; display: block; letter-spacing: .5px; }
   #rebirth:active { transform: translateY(-50%) scale(.93); }
+  #admin { position: fixed; left: 10px; bottom: 12px; z-index: 10;
+    padding: 10px 14px; background: rgba(8,12,18,.88); border: 2px solid #e53935;
+    border-radius: 14px; color: #fff; font-weight: 900; font-size: 14px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; user-select: none; }
+  #admin:active { transform: scale(.93); }
+  #adminPanel { position: fixed; left: 10px; bottom: 60px; z-index: 15;
+    width: min(320px, calc(100vw - 20px)); max-height: 62vh; overflow-y: auto;
+    background: rgba(8,12,18,.96); border: 2px solid #e53935; border-radius: 16px;
+    padding: 10px; display: none; }
+  #adminPanel.open { display: block; }
+  #adminPanel h3 { margin: 2px 6px 8px; color: #ff8a80; font-size: 15px;
+    letter-spacing: 1px; text-transform: uppercase; }
+  .adm { display: flex; align-items: center; gap: 10px; padding: 7px 8px; margin: 3px 0;
+    background: rgba(255,255,255,.07); border-radius: 10px; cursor: pointer; color: #fff; }
+  .adm:active { background: rgba(255,255,255,.18); }
+  .adm .e { font-size: 24px; width: 30px; text-align: center; }
+  .adm .n { flex: 1; font-weight: 800; font-size: 14px; }
+  .adm .n small { display: block; font-weight: 700; font-size: 11px; opacity: .85; }
 </style>
 </head>
 <body>
@@ -44,6 +62,8 @@
 <div class="hud" id="owned">🧠 0/16</div>
 <div class="hud" id="rb" style="top:36px;right:10px;font-size:14px;color:#8ef58e;text-align:right"></div>
 <div id="rebirth"><span class="ico">🔄</span><span class="lbl">Rebirth</span></div>
+<div id="admin">🛠️ Admin</div>
+<div id="adminPanel"><h3>🛠️ Admin — spawn any brainrot</h3><div id="adminList"></div></div>
 <div id="toast"></div>
 <div id="start">
   <h1>ROBA EL BRAINROT 3D</h1>
@@ -763,6 +783,34 @@ function attemptRebirth() {
   save();
 }
 document.getElementById('rebirth').addEventListener('click', attemptRebirth);
+
+/* ---------- admin commands ---------- */
+var adminPanel = document.getElementById('adminPanel');
+document.getElementById('admin').addEventListener('click', function () {
+  adminPanel.classList.toggle('open');
+});
+(function buildAdminList() {
+  var list = document.getElementById('adminList');
+  CHARS.forEach(function (ch) {
+    var row = document.createElement('div');
+    row.className = 'adm';
+    var tierName = ch.tier === 'og' ? 'OG' : ch.tier.charAt(0).toUpperCase() + ch.tier.slice(1);
+    row.innerHTML = '<span class="e">' + ch.emoji + '</span>' +
+      '<span class="n" style="color:' + TIERS[ch.tier].color + '">' + ch.name +
+      '<small>' + tierName + ' • +' + fmt(ch.rate) + '/s</small></span>';
+    row.addEventListener('click', function () {
+      var p = freePad();
+      if (!p) { toast('🧠 Base full! (' + myBase.pads.length + ' max) — Rebirth adds a floor!'); sfxDenied(); return; }
+      p.item = ch; padSpriteRefresh(p);
+      toast('🛠️ Spawned ' + ch.name + '!');
+      if (ch.id === 'strawelephant') {
+        try { strawSound.currentTime = 0; strawSound.play().catch(function () {}); } catch (e) {}
+      }
+      sfxBuy(); save();
+    });
+    list.appendChild(row);
+  });
+})();
 window.__game.rebirth = attemptRebirth;
 window.__game.give = function (id) {
   var p = freePad();
