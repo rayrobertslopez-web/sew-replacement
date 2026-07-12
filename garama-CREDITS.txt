@@ -1,0 +1,11 @@
+Model Information:
+* title:	Garama and Madundung
+* source:	https://sketchfab.com/3d-models/garama-and-madundung-394c02ac17e04b7abd366f7352c4696d
+* author:	pauloedward2013 (https://sketchfab.com/pauloedward2013)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Garama and Madundung" (https://sketchfab.com/3d-models/garama-and-madundung-394c02ac17e04b7abd366f7352c4696d) by pauloedward2013 (https://sketchfab.com/pauloedward2013) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

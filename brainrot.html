@@ -142,7 +142,7 @@ var CHARS = [
   { id: 'vaca',       name: 'La Vaca Saturno Saturnita',emoji: '🪐', tier: 'mythic',    price: 35000,  rate: 650 },
   { id: 'tralalita',  name: 'Tralalita Tralala',        emoji: '🐋', tier: 'god',       price: 90000,  rate: 1600 },
   { id: 'dragonfrut', name: 'Torrtuginni Dragonfrutini',emoji: '🐢', tier: 'god',       price: 150000, rate: 2400 },
-  { id: 'garama',     name: 'Garama and Madundung',     emoji: '🌀', tier: 'secret',    price: 500000, rate: 8000 },
+  { id: 'garama',     name: 'Garama and Madundung',     emoji: '🥁', tier: 'secret',    price: 45e6,   rate: 25e6 },
   { id: 'strawelephant', name: 'Strawberry Elephant',   emoji: '🍓', tier: 'og',        price: 500e9,  rate: 500e6 }
 ];
 var TIER_ODDS = [
@@ -239,12 +239,20 @@ var SAVED = null;
 try { SAVED = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
 
 /* ---------- audio ---------- */
-var strawSound = new Audio('strawberry-elephant.ogg');
-strawSound.preload = 'auto';
+var SOUNDS = {
+  strawelephant: new Audio('strawberry-elephant.ogg'),
+  garama: new Audio('garama-sound.mp3')
+};
+Object.keys(SOUNDS).forEach(function (k) { SOUNDS[k].preload = 'auto'; });
+function playSpawnSound(ch) {
+  var a = ch && SOUNDS[ch.id];
+  if (!a) return;
+  try { a.currentTime = 0; a.play().catch(function () {}); } catch (e) {}
+}
 function announceSpawn(ch) {
-  if (!ch || ch.id !== 'strawelephant' || !state.started) return;
-  toast('🍓⭐ A STRAWBERRY ELEPHANT SPAWNED!! ⭐🍓');
-  try { strawSound.currentTime = 0; strawSound.play().catch(function () {}); } catch (e) {}
+  if (!ch || !SOUNDS[ch.id] || !state.started) return;
+  toast('⭐ A ' + ch.name.toUpperCase() + ' SPAWNED!! ⭐');
+  playSpawnSound(ch);
 }
 var actx = null;
 function beep(freq, dur, type, vol) {
@@ -292,16 +300,25 @@ ground.rotation.x = -Math.PI / 2;
 ground.position.y = -1.5;
 scene.add(ground);
 
-/* ---------- Strawberry Elephant model ---------- */
-var strawModel = null;
-new GLTFLoader().load('./strawberry.glb', function (g) {
-  g.scene.traverse(function (o) {
-    if (o.isMesh) {
-      o.material = new THREE.MeshLambertMaterial({ map: o.material.map || null, color: o.material.color });
-    }
-  });
-  strawModel = g.scene;
-}, undefined, function () {});
+/* ---------- real 3D models for special brainrots ---------- */
+var MODELS = {
+  strawelephant: { url: './strawberry.glb', obj: null, scale: 1, minY: 0 },
+  garama: { url: './garama.glb', obj: null, scale: 1, minY: 0 }
+};
+Object.keys(MODELS).forEach(function (id) {
+  var md = MODELS[id];
+  new GLTFLoader().load(md.url, function (g) {
+    g.scene.traverse(function (o) {
+      if (o.isMesh) {
+        o.material = new THREE.MeshLambertMaterial({ map: o.material.map || null, color: o.material.color });
+      }
+    });
+    var bb = new THREE.Box3().setFromObject(g.scene);
+    md.scale = 9 / (bb.max.y - bb.min.y); // normalize to ~9 units tall
+    md.minY = bb.min.y;
+    md.obj = g.scene;
+  }, undefined, function () {});
+});
 
 /* ---------- sprites (emoji characters, labels) ---------- */
 function makeItemTexture(ch, showPrice) {
@@ -325,14 +342,14 @@ function makeItemTexture(ch, showPrice) {
   return t;
 }
 function makeOgLabelTexture(ch) {
-  // styled like the reference: name, red income, yellow price, yellow OG tag
+  // floating label for model brainrots: rarity tag, name, red income, yellow price
   var c = document.createElement('canvas'); c.width = 256; c.height = 170;
   var x = c.getContext('2d');
   x.fillStyle = 'rgba(0,0,0,.6)';
   x.beginPath(); x.roundRect(4, 4, 248, 162, 18); x.fill();
   x.textAlign = 'center';
-  x.font = 'bold 26px Arial'; x.fillStyle = '#ffd700';
-  x.fillText('OG', 128, 36);
+  x.font = 'bold 26px Arial'; x.fillStyle = TIERS[ch.tier].color;
+  x.fillText(ch.tier === 'og' ? 'OG' : ch.tier.charAt(0).toUpperCase() + ch.tier.slice(1), 128, 36);
   x.font = 'bold 24px Arial';
   var w = x.measureText(ch.name).width;
   if (w > 236) x.font = 'bold ' + Math.floor(24 * 236 / w) + 'px Arial';
@@ -344,13 +361,13 @@ function makeOgLabelTexture(ch) {
   return t;
 }
 function makeItemSprite(ch, showPrice) {
-  if (ch.tier === 'og' && strawModel) {
-    // real 3D model with a floating OG label
+  var md = MODELS[ch.id];
+  if (md && md.obj) {
+    // real 3D model with a floating rarity label
     var grp = new THREE.Group();
-    var m = strawModel.clone();
-    var sc = 4.5;
-    m.scale.setScalar(sc);
-    m.position.y = -6.2 + 0.9973 * sc; // feet on the ground (model min.y ≈ -1)
+    var m = md.obj.clone();
+    m.scale.setScalar(md.scale);
+    m.position.y = -6.2 - md.minY * md.scale; // feet on the ground
     grp.add(m);
     var lt = makeOgLabelTexture(ch);
     var lb = new THREE.Sprite(new THREE.SpriteMaterial({ map: lt, transparent: true }));
@@ -863,10 +880,6 @@ document.getElementById('admin').addEventListener('click', function () {
 })();
 var pendingSpawn = null;
 var spawnChoice = document.getElementById('spawnChoice');
-function playSpawnSound(ch) {
-  if (ch.id !== 'strawelephant') return;
-  try { strawSound.currentTime = 0; strawSound.play().catch(function () {}); } catch (e) {}
-}
 function spawnToBase(ch) {
   var p = freePad();
   if (p) {
