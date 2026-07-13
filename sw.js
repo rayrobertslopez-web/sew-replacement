@@ -1,5 +1,5 @@
-const CACHE='sew-v4';
-const CORE=['./','./index.html','./manifest.json','./icon.svg','./ocr/tesseract.min.js','./sew-data.js','./basketball.html','./three.min.js','./green.mp3'];
+const CACHE='sew-v5';
+const CORE=['./','./index.html','./manifest.json','./icon.svg','./ocr/tesseract.min.js','./sew-data.js','./basketball.html','./three.min.js','./green.mp3','./backrooms.html','./vendor/three.module.min.js','./vendor/utils/BufferGeometryUtils.js'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()).catch(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{
