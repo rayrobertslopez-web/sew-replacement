@@ -214,6 +214,10 @@ let pendingLevel1 = false, transitioning = false;
 const raycaster = new THREE.Raycaster();
 const _ro = new THREE.Vector3(), _rd = new THREE.Vector3();
 
+// wayfinding: black arrows painted on nearby walls, pointing to the nearest exit
+let arrowPool = [], guideTarget = null, guideT = -9, guideRefresh = -9;
+const _m4 = new THREE.Matrix4(), _vx = new THREE.Vector3(), _vy = new THREE.Vector3(), _vz = new THREE.Vector3(), _vp = new THREE.Vector3(), _vn = new THREE.Vector3();
+
 /* ---------------------------------------------------------------- hashing */
 function rand(i,j,salt){
   let h = (Math.imul(i|0, 73856093) ^ Math.imul(j|0, 19349663) ^ Math.imul(salt|0, 83492791) ^ seed) >>> 0;
@@ -566,6 +570,76 @@ function updateLightPoolL1(){
     L.color.setHex(0xcfe0ff); L.position.set(player.x+o[0], cy, player.z+o[1]); L.intensity=9; L.distance=24; }
 }
 
+/* ------------------------------------------- wayfinding arrows (to exit) */
+function arrowTexture(){
+  const s=128, c=makeCanvas(s), x=c.getContext('2d'); const cy=s/2;
+  x.clearRect(0,0,s,s); x.fillStyle='#000';
+  x.beginPath();                       // right-pointing arrow, tip at +X (vertically symmetric)
+  x.moveTo(12,cy-11); x.lineTo(72,cy-11); x.lineTo(72,cy-30);
+  x.lineTo(118,cy);   x.lineTo(72,cy+30); x.lineTo(72,cy+11); x.lineTo(12,cy+11);
+  x.closePath(); x.fill();
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+function initArrows(){
+  const geo=new THREE.PlaneGeometry(1,1);
+  const mat=new THREE.MeshBasicMaterial({map:arrowTexture(), transparent:true, fog:true, depthWrite:false, side:THREE.DoubleSide, opacity:0.92});
+  for(let i=0;i<14;i++){ const m=new THREE.Mesh(geo,mat); m.visible=false; m.matrixAutoUpdate=false; m.renderOrder=2; scene.add(m); arrowPool.push(m); }
+}
+function nearestExitL0(){
+  const pci=Math.floor(player.x/CELL), pcj=Math.floor(player.z/CELL), R=28;
+  let best=null, bd=1e18;
+  for(let i=pci-R;i<=pci+R;i++) for(let j=pcj-R;j<=pcj+R;j++){
+    if(!hasExit(i,j)) continue;
+    const x=i*CELL+CELL/2, z=j*CELL+CELL/2, d=(x-player.x)**2+(z-player.z)**2;
+    if(d<bd){ bd=d; best={x,z}; }
+  }
+  return best;
+}
+function gatherWalls(){ // {x,y,z, nx,nz, tx,tz, d} for nearby wall faces, nearest first
+  const out=[], y=floorAt(player.x,player.z)+1.5;
+  if(level===0){
+    const pci=Math.floor(player.x/CELL), pcj=Math.floor(player.z/CELL);
+    for(let i=pci-2;i<=pci+2;i++) for(let j=pcj-2;j<=pcj+2;j++){
+      if(hasWallV(i,j)){ const wx=i*CELL, wz=j*CELL+CELL/2, nx=Math.sign(player.x-wx)||1;
+        out.push({x:wx+nx*0.1,y,z:wz,nx,nz:0,tx:0,tz:1,d:(wx-player.x)**2+(wz-player.z)**2}); }
+      if(hasWallH(i,j)){ const wx=i*CELL+CELL/2, wz=j*CELL, nz=Math.sign(player.z-wz)||1;
+        out.push({x:wx,y,z:wz+nz*0.1,nx:0,nz,tx:1,tz:0,d:(wx-player.x)**2+(wz-player.z)**2}); }
+    }
+  } else if(l1Model){
+    for(let k=0;k<16;k++){ const a=k/16*Math.PI*2, dx=Math.cos(a), dz=Math.sin(a);
+      raycaster.set(_ro.set(player.x,y,player.z), _rd.set(dx,0,dz)); raycaster.far=34;
+      const h=raycaster.intersectObject(l1Model,true)[0]; if(!h) continue;
+      let nx=dx, nz=dz;
+      if(h.face){ _vn.copy(h.face.normal).transformDirection(h.object.matrixWorld); nx=_vn.x; nz=_vn.z; }
+      const nl=Math.hypot(nx,nz)||1; nx/=nl; nz/=nl;
+      if(nx*dx+nz*dz>0){ nx=-nx; nz=-nz; }        // face back toward the player
+      out.push({x:h.point.x+nx*0.06,y:h.point.y,z:h.point.z+nz*0.06,nx,nz,tx:-nz,tz:nx,d:h.distance*h.distance});
+    }
+  }
+  out.sort((a,b)=>a.d-b.d);
+  return out;
+}
+function updateGuide(){
+  if(elapsed-guideRefresh<0.1) return;       // ~10 Hz is plenty for static wall decals
+  guideRefresh=elapsed;
+  if(elapsed-guideT>0.4){ guideT=elapsed;
+    guideTarget = level===0 ? nearestExitL0() : (l1Exit?{x:l1Exit.position.x,z:l1Exit.position.z}:null);
+  }
+  const walls=gatherWalls(); let k=0;
+  if(guideTarget) for(const w of walls){
+    if(k>=arrowPool.length) break;
+    let ex=guideTarget.x-w.x, ez=guideTarget.z-w.z; const el=Math.hypot(ex,ez)||1; ex/=el; ez/=el;
+    let ax=w.tx, az=w.tz; if(ex*ax+ez*az<0){ ax=-ax; az=-az; }   // point along the wall toward the exit side
+    const dist=Math.sqrt(w.d);
+    const sizeM = level===0 ? 1.15 : Math.min(3.0, 0.8 + dist*0.06);   // scale up with distance so far arrows still read
+    _vx.set(ax,0,az); _vz.set(w.nx,0,w.nz); _vy.crossVectors(_vz,_vx);
+    _vx.multiplyScalar(sizeM); _vy.multiplyScalar(sizeM); _vz.multiplyScalar(sizeM);
+    _m4.makeBasis(_vx,_vy,_vz); _m4.setPosition(w.x,w.y,w.z);
+    const m=arrowPool[k]; m.matrix.copy(_m4); m.visible=true; k++;
+  }
+  for(;k<arrowPool.length;k++) arrowPool[k].visible=false;
+}
+
 /* ---------------------------------------------------------------- entity */
 function spawnEntity(){
   if(!entityProto){ pendingEntity=true; return; }   // model still loading
@@ -765,6 +839,8 @@ function initGraphics(){
   ceilMat=new THREE.MeshLambertMaterial({map:ceilTex, side:THREE.FrontSide});
   panelMat=new THREE.MeshBasicMaterial({color:0xfff3cf, fog:true});
 
+  initArrows();
+
   addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 }
 
@@ -780,7 +856,7 @@ function newGame(){
   if(l1Exit){ scene.remove(l1Exit); l1Exit=null; }
   level=0; transitioning=false; pendingLevel1=false; applyAtmosphere(0);
   document.getElementById('levelcard').classList.add('hide');
-  document.getElementById('obj').innerHTML='Find an <b style="color:#8ec98e">EXIT</b>. Drink almond water. Don\'t stop moving.';
+  document.getElementById('obj').innerHTML='Follow the <b>black arrows</b> to the <b style="color:#8ec98e">EXIT</b>. Drink almond water. Don\'t stop moving.';
 
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0; player.floorY=0;
   sanity=100; stamina=100; waters=0; elapsed=0; maxDist=0; localLight=1;
@@ -870,7 +946,7 @@ function resumeFromCard(){
   document.getElementById('hud').classList.add('show');
   document.getElementById('cross').classList.toggle('show', !isTouch);
   if(isTouch) document.getElementById('touch').classList.add('show');
-  document.getElementById('obj').innerHTML='LEVEL 1 · Reach the <b style="color:#8ec98e">EXIT</b> — it followed you down.';
+  document.getElementById('obj').innerHTML='LEVEL 1 · Follow the <b>arrows</b> to the <b style="color:#8ec98e">EXIT</b> — it followed you down.';
   transitioning=false; running=true; clock.getDelta();
   toast('Level 1 — Habitable Zone');
 }
@@ -923,6 +999,7 @@ function update(dt){
   else { updateLightPoolL1(); }
   updateEntity(dt);
   updatePickups(dt);
+  updateGuide();
 
   // ---- sanity ----
   const dark = localLight < 0.18;
