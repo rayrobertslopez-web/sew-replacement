@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Grow Your Garden</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #8ec9e8;
+    font-family: Arial, Helvetica, sans-serif; touch-action: none;
+    -webkit-user-select: none; user-select: none; }
+  canvas { display: block; }
+  .hud { position: fixed; z-index: 10; color: #fff; pointer-events: none;
+    text-shadow: 0 2px 3px rgba(0,0,0,.6); font-weight: 900; }
+  #money { top: 10px; left: 12px; font-size: 24px; }
+  #hint { top: 44px; left: 12px; font-size: 13px; color: #eaffea; max-width: 60vw; }
+  #selBar { top: 10px; left: 50%; transform: translateX(-50%); font-size: 15px;
+    background: rgba(20,40,20,.8); padding: 7px 14px; border-radius: 999px; display: none;
+    pointer-events: none; }
+  #toast { position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%);
+    z-index: 12; background: rgba(0,0,0,.78); color: #fff; padding: 10px 18px;
+    border-radius: 999px; font-size: 16px; font-weight: 700; display: none; max-width: 86vw; text-align: center; }
+  #shopBtn { position: fixed; left: 12px; bottom: 14px; z-index: 10; padding: 12px 20px;
+    background: #43a047; border: 3px solid #2e7d32; border-radius: 16px; color: #fff;
+    font-weight: 900; font-size: 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #shopBtn:active { transform: scale(.94); }
+  #sellBtn { position: fixed; right: 12px; bottom: 14px; z-index: 10; padding: 12px 20px;
+    background: #fbc02d; border: 3px solid #f9a825; border-radius: 16px; color: #3a2b00;
+    font-weight: 900; font-size: 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #sellBtn:active { transform: scale(.94); }
+  #shop { position: fixed; left: 50%; bottom: 66px; transform: translateX(-50%); z-index: 16;
+    width: min(400px, calc(100vw - 20px)); max-height: 64vh; overflow-y: auto;
+    touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    background: rgba(12,26,14,.97); border: 3px solid #66bb6a; border-radius: 18px;
+    padding: 12px; display: none; }
+  #shop.open { display: block; }
+  #shop h3 { margin: 2px 6px 10px; color: #a5d6a7; font-size: 16px; text-align: center;
+    letter-spacing: 1px; }
+  .seed { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin: 4px 0;
+    background: rgba(255,255,255,.06); border-radius: 12px; cursor: pointer; color: #fff;
+    border: 2px solid transparent; }
+  .seed:active { background: rgba(255,255,255,.16); }
+  .seed.sel { border-color: #ffd54f; background: rgba(255,213,79,.14); }
+  .seed .em { font-size: 30px; width: 38px; text-align: center; }
+  .seed .nm { flex: 1; font-weight: 800; font-size: 15px; }
+  .seed .nm small { display: block; font-weight: 700; font-size: 11px; opacity: .8; }
+  .seed .buy { font-weight: 900; font-size: 14px; color: #ffd54f; white-space: nowrap; }
+  .seed.locked { opacity: .45; }
+  #start { position: fixed; inset: 0; z-index: 20; background: rgba(10,40,16,.92);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; text-align: center; padding: 22px; }
+  #start h1 { font-size: clamp(34px, 9vw, 66px); margin: 0 0 6px; color: #a5ff9e;
+    text-shadow: 0 4px 0 #2e6d28, 0 8px 18px rgba(0,0,0,.6); letter-spacing: 1px; }
+  #start p { font-size: 15px; line-height: 1.7; margin: 6px 0; max-width: 440px; }
+  #play { margin-top: 18px; font-size: 26px; font-weight: 900; padding: 14px 56px;
+    border: 0; border-radius: 999px; background: #9e9e9e; color: #123; cursor: pointer;
+    box-shadow: 0 6px 0 #616161; }
+  #play.ready { background: #ffd54f; box-shadow: 0 6px 0 #c9a227; }
+  #play.ready:active { transform: translateY(4px); box-shadow: 0 2px 0 #c9a227; }
+</style>
+</head>
+<body>
+<div class="hud" id="money">🪙 20</div>
+<div class="hud" id="hint">Pick a seed 🛒, then tap a plot to plant. Tap ripe crops to harvest!</div>
+<div class="hud" id="selBar"></div>
+<div id="toast"></div>
+<div id="shopBtn">🛒 Seed Shop</div>
+<div id="sellBtn">🌾 Harvest All</div>
+<div id="shop"><h3>🌱 SEED SHOP — tap to select</h3><div id="seedList"></div></div>
+<div id="start">
+  <h1>GROW YOUR GARDEN</h1>
+  <p>🛒 Buy a seed from the Seed Shop<br>
+     🌍 Tap an empty brown plot to plant it<br>
+     ⏳ Wait for it to grow — then tap it to harvest for 🪙<br>
+     💰 Bigger crops take longer but pay way more<br>
+     ✨ Rare mutations (Gold, Rainbow) multiply your payout!</p>
+  <p>🕹️ Move: drag left side / WASD &nbsp;•&nbsp; 🎥 Camera: drag right side / mouse &nbsp;•&nbsp; 🔍 scroll to zoom</p>
+  <button id="play" disabled>LOADING GARDEN…</button>
+</div>
+
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+
+var EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';
+
+/* ---------- seeds ---------- */
+var SEEDS = [
+  { id: 'carrot',    name: 'Carrot',       emoji: '🥕', cost: 10,     grow: 15,  sell: 20 },
+  { id: 'strawberry',name: 'Strawberry',   emoji: '🍓', cost: 25,     grow: 22,  sell: 45 },
+  { id: 'blueberry', name: 'Blueberry',    emoji: '🫐', cost: 50,     grow: 30,  sell: 95 },
+  { id: 'tomato',    name: 'Tomato',       emoji: '🍅', cost: 100,    grow: 40,  sell: 190 },
+  { id: 'corn',      name: 'Corn',         emoji: '🌽', cost: 200,    grow: 55,  sell: 380 },
+  { id: 'potato',    name: 'Potato',       emoji: '🥔', cost: 350,    grow: 65,  sell: 680 },
+  { id: 'watermelon',name: 'Watermelon',   emoji: '🍉', cost: 600,    grow: 85,  sell: 1200 },
+  { id: 'pumpkin',   name: 'Pumpkin',      emoji: '🎃', cost: 1100,   grow: 110, sell: 2300 },
+  { id: 'pineapple', name: 'Pineapple',    emoji: '🍍', cost: 2200,   grow: 140, sell: 4800 },
+  { id: 'mango',     name: 'Mango',        emoji: '🥭', cost: 4500,   grow: 175, sell: 10000 },
+  { id: 'grape',     name: 'Grape',        emoji: '🍇', cost: 9000,   grow: 220, sell: 21000 },
+  { id: 'dragon',    name: 'Dragon Fruit', emoji: '🐉', cost: 20000,  grow: 280, sell: 48000 },
+  { id: 'mushroom',  name: 'Mushroom',     emoji: '🍄', cost: 45000,  grow: 340, sell: 110000 },
+  { id: 'cactus',    name: 'Cactus',       emoji: '🌵', cost: 100000, grow: 420, sell: 260000 }
+];
+function seedById(id) { for (var i = 0; i < SEEDS.length; i++) if (SEEDS[i].id === id) return SEEDS[i]; return null; }
+
+var MUTATIONS = [
+  { key: 'gold',    emoji: '🌟', mult: 2,  chance: 0.12, color: 0xffd700 },
+  { key: 'rainbow', emoji: '🌈', mult: 5,  chance: 0.03, color: 0xff4081 },
+  { key: 'cosmic',  emoji: '💫', mult: 15, chance: 0.005, color: 0xe040fb }
+];
+function rollMutation() {
+  for (var i = 0; i < MUTATIONS.length; i++) if (Math.random() < MUTATIONS[i].chance) return MUTATIONS[i];
+  return null;
+}
+
+/* ---------- state ---------- */
+var state = { money: 20, started: false, selected: null };
+var toastT = 0;
+window.__g = { state: state };
+
+var SAVE_KEY = 'grow-your-garden-save';
+var SAVED = null;
+try { SAVED = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
+if (SAVED && typeof SAVED.money === 'number') state.money = SAVED.money;
+
+/* ---------- scene ---------- */
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8ec9e8);
+scene.fog = new THREE.Fog(0x8ec9e8, 260, 700);
+var camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 1500);
+var renderer = new THREE.WebGLRenderer({ antialias: (devicePixelRatio || 1) <= 1, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', function () {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+scene.add(new THREE.HemisphereLight(0xffffff, 0x557a44, 1.7));
+var sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(120, 200, 80); scene.add(sun);
+
+/* ---------- map ---------- */
+var MS = 2.6;                 // map scale
+var GROUND_Y = 1.9 * MS;      // walkable top of the garden platform (map max.y * scale)
+var mapReady = false;
+new GLTFLoader().load('./garden-map.glb', function (g) {
+  g.scene.scale.setScalar(MS);
+  g.scene.updateMatrixWorld(true);
+  g.scene.traverse(function (o) {
+    if (o.isMesh) {
+      function lam(m) { return new THREE.MeshLambertMaterial({ map: m.map || null, color: m.color, side: THREE.DoubleSide }); }
+      o.material = Array.isArray(o.material) ? o.material.map(lam) : lam(o.material);
+      o.matrixAutoUpdate = false;
+    }
+  });
+  scene.add(g.scene);
+  mapReady = true;
+  var btn = document.getElementById('play'); btn.disabled = false; btn.textContent = 'PLAY'; btn.className = 'ready';
+}, undefined, function () {
+  document.getElementById('play').textContent = 'MAP FAILED TO LOAD';
+});
+
+/* ---------- plot tiles (aligned to the map's two soil clusters) ---------- */
+var TILE = 6.4;
+var plotXs = [-16, -12.5, -9, 1.5, 5, 8.5];   // 3 columns per cluster, central path skipped
+var plotZs = [-19, -13.5, -8, -2.5, 3, 8.5];  // 6 rows
+var tiles = [];
+var soilGeo = new THREE.BoxGeometry(TILE, 0.9, TILE);
+var soilMat = new THREE.MeshLambertMaterial({ color: 0x4e3220 });
+plotXs.forEach(function (mx) {
+  plotZs.forEach(function (mz) {
+    var x = mx * MS, z = mz * MS;
+    var mesh = new THREE.Mesh(soilGeo, soilMat);
+    mesh.position.set(x, GROUND_Y + 0.5, z);
+    var tile = { x: x, z: z, mesh: mesh, crop: null, plantedAt: 0, sprite: null };
+    mesh.userData.tile = tile;
+    scene.add(mesh);
+    tiles.push(tile);
+  });
+});
+window.__g.tiles = tiles;
+
+/* ---------- emoji sprites ---------- */
+function emojiTexture(emoji) {
+  var c = document.createElement('canvas'); c.width = c.height = 128;
+  var x = c.getContext('2d');
+  x.font = '104px ' + EMOJI; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(emoji, 64, 70);
+  var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function emojiSprite(emoji, size) {
+  var t = emojiTexture(emoji);
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
+  sp.scale.set(size, size, 1); sp.userData.disp = [t, sp.material];
+  return sp;
+}
+function disposeSprite(sp) { if (!sp) return; scene.remove(sp); (sp.userData.disp || []).forEach(function (d) { d.dispose(); }); }
+
+function tileSetSprite(tile, emoji, size) {
+  disposeSprite(tile.sprite); tile.sprite = null;
+  if (emoji) {
+    tile.sprite = emojiSprite(emoji, size);
+    tile.sprite.position.set(tile.x, GROUND_Y + 1.0 + size / 2, tile.z);
+    scene.add(tile.sprite);
+  }
+}
+
+/* ---------- planting / harvest ---------- */
+function fmt(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(n < 1e10 ? 1 : 0) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(n < 1e7 ? 1 : 0) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(n < 1e4 ? 1 : 0) + 'K';
+  return '' + Math.floor(n);
+}
+function toast(msg) { var el = document.getElementById('toast'); el.textContent = msg; el.style.display = 'block'; toastT = 2.2; }
+var nowMs = 0;
+function plant(tile) {
+  if (tile.crop) { harvest(tile); return; }
+  var s = state.selected;
+  if (!s) { toast('🛒 Pick a seed from the Seed Shop first!'); return; }
+  if (state.money < s.cost) { toast('🪙 Need ' + fmt(s.cost) + ' for a ' + s.name); return; }
+  state.money -= s.cost;
+  tile.crop = s.id; tile.plantedAt = nowMs; tile.mut = null; tile.ripe = false;
+  tileSetSprite(tile, '🌱', 3);
+  save();
+}
+function harvest(tile) {
+  if (!tile.crop) return;
+  var s = seedById(tile.crop);
+  var frac = (nowMs - tile.plantedAt) / (s.grow * 1000);
+  if (frac < 1) { toast('⏳ ' + s.emoji + ' ' + s.name + ' still growing… ' + Math.floor(frac * 100) + '%'); return; }
+  var payout = s.sell * (tile.mut ? tile.mut.mult : 1);
+  state.money += payout;
+  toast('🌾 Harvested ' + (tile.mut ? tile.mut.emoji + ' ' : '') + s.name + ' for 🪙 ' + fmt(payout) + '!');
+  spawnPop(tile.x, tile.z, tile.mut ? tile.mut.color : 0x8bc34a);
+  tile.crop = null; tile.ripe = false; tile.mut = null;
+  tileSetSprite(tile, null);
+  save();
+}
+function harvestAll() {
+  var got = 0, n = 0;
+  tiles.forEach(function (t) {
+    if (t.crop) {
+      var s = seedById(t.crop);
+      if ((nowMs - t.plantedAt) / (s.grow * 1000) >= 1) {
+        got += s.sell * (t.mut ? t.mut.mult : 1); n++;
+        t.crop = null; t.ripe = false; t.mut = null; tileSetSprite(t, null);
+      }
+    }
+  });
+  if (n) { state.money += got; toast('🌾 Harvested ' + n + ' crops for 🪙 ' + fmt(got) + '!'); save(); }
+  else toast('Nothing ripe yet — give them time to grow! 🌱');
+}
+
+var pops = [];
+function spawnPop(x, z, color) {
+  var m = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 6),
+    new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 }));
+  m.position.set(x, GROUND_Y + 4, z); m.userData.life = 1; scene.add(m); pops.push(m);
+}
+
+function updateCrops() {
+  for (var i = 0; i < tiles.length; i++) {
+    var t = tiles[i];
+    if (!t.crop) continue;
+    var s = seedById(t.crop);
+    var frac = (nowMs - t.plantedAt) / (s.grow * 1000);
+    var stage, size;
+    if (frac < 0.34) { stage = '🌱'; size = 3; }
+    else if (frac < 0.7) { stage = s.emoji; size = 4; }
+    else if (frac < 1) { stage = s.emoji; size = 5; }
+    else { stage = s.emoji; size = 6.5; }
+    // change sprite only when the stage emoji/size changes
+    if (t._stage !== stage + size) {
+      t._stage = stage + size;
+      tileSetSprite(t, stage, size);
+      if (frac >= 1 && !t.ripe) { t.ripe = true; t.mut = rollMutation(); }
+    }
+    if (t.sprite) {
+      var bob = frac >= 1 ? Math.sin(nowMs / 300 + i) * 0.7 : 0;
+      t.sprite.position.y = GROUND_Y + 1.0 + size / 2 + bob;
+    }
+  }
+}
+
+/* ---------- character ---------- */
+function makeAvatar() {
+  var g = new THREE.Group();
+  function box(w, h, d, color, x, y, z) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: color }));
+    m.position.set(x, y, z); g.add(m); return m;
+  }
+  box(1.1, 1.7, 0.7, 0x5d4037, -0.62, 0.85, 0);
+  box(1.1, 1.7, 0.7, 0x5d4037, 0.62, 0.85, 0);
+  box(2.4, 2.2, 1.2, 0x2e7d32, 0, 2.8, 0);
+  box(0.75, 2.0, 0.9, 0xffcc80, -1.65, 2.9, 0);
+  box(0.75, 2.0, 0.9, 0xffcc80, 1.65, 2.9, 0);
+  box(1.7, 1.6, 1.6, 0xffcc80, 0, 4.8, 0);
+  box(2.0, 0.5, 2.0, 0xffb300, 0, 5.75, 0); // straw hat brim
+  box(1.3, 0.7, 1.3, 0xffb300, 0, 6.1, 0);
+  return g;
+}
+var player = { x: 0, z: 14 * MS, speed: 34, walkT: 0 };
+var avatar = makeAvatar();
+avatar.position.set(player.x, GROUND_Y, player.z);
+scene.add(avatar);
+window.__g.player = player;
+
+/* ---------- save ---------- */
+function save() {
+  try {
+    var crops = tiles.map(function (t) {
+      return t.crop ? { c: t.crop, a: t.plantedAt - nowMs, m: t.mut ? t.mut.key : null } : null;
+    });
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, crops: crops }));
+  } catch (e) {}
+}
+function loadCrops() {
+  if (!SAVED || !SAVED.crops) return;
+  SAVED.crops.forEach(function (c, i) {
+    if (c && i < tiles.length && seedById(c.c)) {
+      tiles[i].crop = c.c;
+      tiles[i].plantedAt = nowMs + (c.a || 0); // a is negative elapsed offset
+      if (c.m) { for (var k = 0; k < MUTATIONS.length; k++) if (MUTATIONS[k].key === c.m) tiles[i].mut = MUTATIONS[k]; }
+    }
+  });
+}
+setInterval(save, 5000);
+
+/* ---------- input: camera orbit + move + tap-to-plant ---------- */
+var keys = {}, joy = { id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
+var cam = { yaw: 0.4, pitch: 0.9, dist: 46, dragId: null, lx: 0, ly: 0, mouse: false };
+window.__g.cam = cam;
+addEventListener('keydown', function (e) { keys[e.key.toLowerCase()] = true; });
+addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+var cv = renderer.domElement;
+var press = null; // {x,y,t} to distinguish tap from drag
+
+function eachTouch(e, fn) { for (var i = 0; i < e.changedTouches.length; i++) fn(e.changedTouches[i]); }
+cv.addEventListener('touchstart', function (e) {
+  e.preventDefault();
+  eachTouch(e, function (t) {
+    if (t.clientX < innerWidth / 2 && joy.id === null) {
+      joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joy.dx = 0; joy.dy = 0;
+    } else if (cam.dragId === null) {
+      cam.dragId = t.identifier; cam.lx = t.clientX; cam.ly = t.clientY;
+      press = { x: t.clientX, y: t.clientY, t: nowMs };
+    }
+  });
+}, { passive: false });
+cv.addEventListener('touchmove', function (e) {
+  e.preventDefault();
+  eachTouch(e, function (t) {
+    if (t.identifier === joy.id) {
+      var dx = t.clientX - joy.ox, dy = t.clientY - joy.oy;
+      var d = Math.sqrt(dx * dx + dy * dy) || 1, max = 60, k = Math.min(d, max) / max;
+      joy.dx = (dx / d) * k; joy.dy = (dy / d) * k;
+    } else if (t.identifier === cam.dragId) {
+      cam.yaw -= (t.clientX - cam.lx) * 0.006;
+      cam.pitch = Math.max(0.3, Math.min(1.4, cam.pitch + (t.clientY - cam.ly) * 0.004));
+      cam.lx = t.clientX; cam.ly = t.clientY;
+      if (press && Math.hypot(t.clientX - press.x, t.clientY - press.y) > 10) press = null;
+    }
+  });
+}, { passive: false });
+function endTouch(e) {
+  e.preventDefault();
+  eachTouch(e, function (t) {
+    if (t.identifier === joy.id) { joy.id = null; joy.dx = 0; joy.dy = 0; }
+    if (t.identifier === cam.dragId) {
+      cam.dragId = null;
+      if (press && Math.hypot(t.clientX - press.x, t.clientY - press.y) < 10) tapAt(t.clientX, t.clientY);
+      press = null;
+    }
+  });
+}
+cv.addEventListener('touchend', endTouch, { passive: false });
+cv.addEventListener('touchcancel', endTouch, { passive: false });
+cv.addEventListener('mousedown', function (e) { cam.mouse = true; cam.lx = e.clientX; cam.ly = e.clientY; press = { x: e.clientX, y: e.clientY, t: nowMs }; });
+addEventListener('mousemove', function (e) {
+  if (!cam.mouse) return;
+  cam.yaw -= (e.clientX - cam.lx) * 0.006;
+  cam.pitch = Math.max(0.3, Math.min(1.4, cam.pitch + (e.clientY - cam.ly) * 0.004));
+  cam.lx = e.clientX; cam.ly = e.clientY;
+  if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) press = null;
+});
+addEventListener('mouseup', function (e) {
+  cam.mouse = false;
+  if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 8) tapAt(e.clientX, e.clientY);
+  press = null;
+});
+cv.addEventListener('wheel', function (e) { cam.dist = Math.max(16, Math.min(110, cam.dist + e.deltaY * 0.04)); }, { passive: true });
+
+var raycaster = new THREE.Raycaster();
+function tapAt(px, py) {
+  if (!state.started) return;
+  var ndc = new THREE.Vector2((px / innerWidth) * 2 - 1, -(py / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  var meshes = tiles.map(function (t) { return t.mesh; });
+  var hit = raycaster.intersectObjects(meshes, false)[0];
+  if (hit && hit.object.userData.tile) plant(hit.object.userData.tile);
+}
+window.__g.plantTile = function (i) { plant(tiles[i]); };
+window.__g.harvestTile = function (i) { harvest(tiles[i]); };
+
+/* ---------- seed shop UI ---------- */
+var shopEl = document.getElementById('shop');
+function buildShop() {
+  var list = document.getElementById('seedList');
+  list.innerHTML = '';
+  SEEDS.forEach(function (s) {
+    var row = document.createElement('div');
+    row.className = 'seed' + (state.selected === s ? ' sel' : '') + (state.money < s.cost ? ' locked' : '');
+    row.innerHTML = '<span class="em">' + s.emoji + '</span>' +
+      '<span class="nm">' + s.name + '<small>grows ' + s.grow + 's • sells 🪙 ' + fmt(s.sell) + '</small></span>' +
+      '<span class="buy">🪙 ' + fmt(s.cost) + '</span>';
+    row.addEventListener('click', function () {
+      state.selected = s;
+      updateSelBar();
+      buildShop();
+    });
+    list.appendChild(row);
+  });
+}
+function updateSelBar() {
+  var el = document.getElementById('selBar');
+  if (state.selected) {
+    el.style.display = 'block';
+    el.textContent = 'Planting: ' + state.selected.emoji + ' ' + state.selected.name + ' (🪙 ' + fmt(state.selected.cost) + ') — tap a plot';
+  } else el.style.display = 'none';
+}
+document.getElementById('shopBtn').addEventListener('click', function () {
+  var opening = !shopEl.classList.contains('open');
+  shopEl.classList.toggle('open');
+  if (opening) buildShop();
+});
+document.getElementById('sellBtn').addEventListener('click', harvestAll);
+
+/* ---------- loop ---------- */
+var clock = new THREE.Clock();
+renderer.setAnimationLoop(function () {
+  var dt = Math.min(clock.getDelta(), 0.1);
+  nowMs += dt * 1000;
+  if (state.started) {
+    // move (camera-relative)
+    var ix = 0, iy = 0;
+    if (keys['w'] || keys['arrowup']) iy -= 1;
+    if (keys['s'] || keys['arrowdown']) iy += 1;
+    if (keys['a'] || keys['arrowleft']) ix -= 1;
+    if (keys['d'] || keys['arrowright']) ix += 1;
+    var kd = Math.sqrt(ix * ix + iy * iy); if (kd > 0) { ix /= kd; iy /= kd; }
+    ix += joy.dx; iy += joy.dy;
+    var cs = Math.cos(cam.yaw), sn = Math.sin(cam.yaw);
+    var mx = ix * cs + iy * sn, mz = -ix * sn + iy * cs;
+    var moving = Math.abs(mx) + Math.abs(mz) > 0.05;
+    player.x += mx * player.speed * dt;
+    player.z += mz * player.speed * dt;
+    player.x = Math.max(-52, Math.min(38, player.x));
+    player.z = Math.max(-70, Math.min(44, player.z));
+    if (moving) { avatar.rotation.y = Math.atan2(mx, mz); player.walkT += dt * 10; }
+    avatar.position.set(player.x, GROUND_Y + (moving ? Math.abs(Math.sin(player.walkT)) * 0.5 : 0), player.z);
+    updateCrops();
+    // pops
+    for (var i = pops.length - 1; i >= 0; i--) {
+      var pm = pops[i]; pm.userData.life -= dt; pm.scale.multiplyScalar(1 + dt * 4);
+      pm.material.opacity = Math.max(0, pm.userData.life);
+      if (pm.userData.life <= 0) { scene.remove(pm); pm.material.dispose(); pops.splice(i, 1); }
+    }
+    if (toastT > 0) { toastT -= dt; if (toastT <= 0) document.getElementById('toast').style.display = 'none'; }
+    document.getElementById('money').textContent = '🪙 ' + fmt(state.money);
+  }
+  var cosP = Math.cos(cam.pitch);
+  camera.position.set(
+    player.x + Math.sin(cam.yaw) * cosP * cam.dist,
+    GROUND_Y + Math.sin(cam.pitch) * cam.dist + 3,
+    player.z + Math.cos(cam.yaw) * cosP * cam.dist
+  );
+  camera.lookAt(player.x, GROUND_Y + 4, player.z);
+  renderer.render(scene, camera);
+});
+
+document.getElementById('play').addEventListener('click', function () {
+  if (!mapReady) return;
+  loadCrops();
+  tiles.forEach(function (t) { if (t.crop) { t._stage = ''; } });
+  document.getElementById('start').style.display = 'none';
+  state.started = true;
+});
+</script>
+</body>
+</html>
