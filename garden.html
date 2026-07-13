@@ -152,6 +152,10 @@ new GLTFLoader().load('./garden-map.glb', function (g) {
       function lam(m) { return new THREE.MeshLambertMaterial({ map: m.map || null, color: m.color, side: THREE.DoubleSide }); }
       o.material = Array.isArray(o.material) ? o.material.map(lam) : lam(o.material);
       o.matrixAutoUpdate = false;
+      // the map's dirt plots are under a node named "Plots" — tag them for planting
+      var a = o, isPlot = false;
+      while (a) { if (/Plots/i.test(a.name || '')) { isPlot = true; break; } a = a.parent; }
+      if (isPlot) plotMeshes.push(o);
     }
   });
   scene.add(g.scene);
@@ -161,25 +165,12 @@ new GLTFLoader().load('./garden-map.glb', function (g) {
   document.getElementById('play').textContent = 'MAP FAILED TO LOAD';
 });
 
-/* ---------- plot tiles (aligned to the map's two soil clusters) ---------- */
-var TILE = 6.4;
-var plotXs = [-16, -12.5, -9, 1.5, 5, 8.5];   // 3 columns per cluster, central path skipped
-var plotZs = [-19, -13.5, -8, -2.5, 3, 8.5];  // 6 rows
-var tiles = [];
-var soilGeo = new THREE.BoxGeometry(TILE, 0.9, TILE);
-var soilMat = new THREE.MeshLambertMaterial({ color: 0x4e3220 });
-plotXs.forEach(function (mx) {
-  plotZs.forEach(function (mz) {
-    var x = mx * MS, z = mz * MS;
-    var mesh = new THREE.Mesh(soilGeo, soilMat);
-    mesh.position.set(x, GROUND_Y + 0.5, z);
-    var tile = { x: x, z: z, mesh: mesh, crop: null, plantedAt: 0, sprite: null };
-    mesh.userData.tile = tile;
-    scene.add(mesh);
-    tiles.push(tile);
-  });
-});
-window.__g.tiles = tiles;
+/* ---------- crops grow directly on the map's own brown plots ---------- */
+var plotMeshes = [];   // the map's dirt-plot meshes (raycast planting targets)
+var crops = [];        // dynamic list of planted crops
+var GRID = 3.0;        // snap spacing so crops line up in neat rows on a plot
+window.__g.crops = crops;
+window.__g.plotMeshes = plotMeshes;
 
 /* ---------- emoji sprites ---------- */
 function emojiTexture(emoji) {
@@ -197,16 +188,17 @@ function emojiSprite(emoji, size) {
 }
 function disposeSprite(sp) { if (!sp) return; scene.remove(sp); (sp.userData.disp || []).forEach(function (d) { d.dispose(); }); }
 
-function tileSetSprite(tile, emoji, size) {
-  disposeSprite(tile.sprite); tile.sprite = null;
+function cropSetSprite(c, emoji, size) {
+  disposeSprite(c.sprite); c.sprite = null;
   if (emoji) {
-    tile.sprite = emojiSprite(emoji, size);
-    tile.sprite.position.set(tile.x, GROUND_Y + 1.0 + size / 2, tile.z);
-    scene.add(tile.sprite);
+    c.sprite = emojiSprite(emoji, size);
+    c.sprite.position.set(c.x, c.y + 0.4 + size / 2, c.z);
+    c.sprite.userData.crop = c;
+    scene.add(c.sprite);
   }
 }
 
-/* ---------- planting / harvest ---------- */
+/* ---------- planting / harvest (on the map's brown plots) ---------- */
 function fmt(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(n < 1e10 ? 1 : 0) + 'B';
   if (n >= 1e6) return (n / 1e6).toFixed(n < 1e7 ? 1 : 0) + 'M';
@@ -215,71 +207,72 @@ function fmt(n) {
 }
 function toast(msg) { var el = document.getElementById('toast'); el.textContent = msg; el.style.display = 'block'; toastT = 2.2; }
 var nowMs = 0;
-function plant(tile) {
-  if (tile.crop) { harvest(tile); return; }
+function cellKey(x, z) { return Math.round(x / GRID) + '_' + Math.round(z / GRID); }
+function cropAtCell(k) { for (var i = 0; i < crops.length; i++) if (crops[i].key === k) return crops[i]; return null; }
+function plantAtPoint(x, z, y) {
+  var sx = Math.round(x / GRID) * GRID, sz = Math.round(z / GRID) * GRID;
+  var k = cellKey(sx, sz);
+  var existing = cropAtCell(k);
+  if (existing) { harvest(existing); return; }
   var s = state.selected;
   if (!s) { toast('🛒 Pick a seed from the Seed Shop first!'); return; }
   if (state.money < s.cost) { toast('🪙 Need ' + fmt(s.cost) + ' for a ' + s.name); return; }
   state.money -= s.cost;
-  tile.crop = s.id; tile.plantedAt = nowMs; tile.mut = null; tile.ripe = false;
-  tileSetSprite(tile, '🌱', 3);
+  var c = { key: k, x: sx, z: sz, y: y, crop: s.id, plantedAt: nowMs, ripe: false, mut: null, sprite: null, _stage: '' };
+  crops.push(c);
   save();
 }
-function harvest(tile) {
-  if (!tile.crop) return;
-  var s = seedById(tile.crop);
-  var frac = (nowMs - tile.plantedAt) / (s.grow * 1000);
+function harvest(c) {
+  var s = seedById(c.crop);
+  var frac = (nowMs - c.plantedAt) / (s.grow * 1000);
   if (frac < 1) { toast('⏳ ' + s.emoji + ' ' + s.name + ' still growing… ' + Math.floor(frac * 100) + '%'); return; }
-  var payout = s.sell * (tile.mut ? tile.mut.mult : 1);
+  var payout = s.sell * (c.mut ? c.mut.mult : 1);
   state.money += payout;
-  toast('🌾 Harvested ' + (tile.mut ? tile.mut.emoji + ' ' : '') + s.name + ' for 🪙 ' + fmt(payout) + '!');
-  spawnPop(tile.x, tile.z, tile.mut ? tile.mut.color : 0x8bc34a);
-  tile.crop = null; tile.ripe = false; tile.mut = null;
-  tileSetSprite(tile, null);
+  toast('🌾 Harvested ' + (c.mut ? c.mut.emoji + ' ' : '') + s.name + ' for 🪙 ' + fmt(payout) + '!');
+  spawnPop(c.x, c.y, c.z, c.mut ? c.mut.color : 0x8bc34a);
+  disposeSprite(c.sprite);
+  var i = crops.indexOf(c); if (i >= 0) crops.splice(i, 1);
   save();
 }
 function harvestAll() {
   var got = 0, n = 0;
-  tiles.forEach(function (t) {
-    if (t.crop) {
-      var s = seedById(t.crop);
-      if ((nowMs - t.plantedAt) / (s.grow * 1000) >= 1) {
-        got += s.sell * (t.mut ? t.mut.mult : 1); n++;
-        t.crop = null; t.ripe = false; t.mut = null; tileSetSprite(t, null);
-      }
+  for (var i = crops.length - 1; i >= 0; i--) {
+    var c = crops[i], s = seedById(c.crop);
+    if ((nowMs - c.plantedAt) / (s.grow * 1000) >= 1) {
+      got += s.sell * (c.mut ? c.mut.mult : 1); n++;
+      disposeSprite(c.sprite); crops.splice(i, 1);
     }
-  });
+  }
   if (n) { state.money += got; toast('🌾 Harvested ' + n + ' crops for 🪙 ' + fmt(got) + '!'); save(); }
   else toast('Nothing ripe yet — give them time to grow! 🌱');
 }
 
 var pops = [];
-function spawnPop(x, z, color) {
-  var m = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 6),
+function spawnPop(x, y, z, color) {
+  var m = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6),
     new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 }));
-  m.position.set(x, GROUND_Y + 4, z); m.userData.life = 1; scene.add(m); pops.push(m);
+  m.position.set(x, y + 3, z); m.userData.life = 1; scene.add(m); pops.push(m);
 }
 
 function updateCrops() {
-  for (var i = 0; i < tiles.length; i++) {
-    var t = tiles[i];
-    if (!t.crop) continue;
-    var s = seedById(t.crop);
-    var frac = (nowMs - t.plantedAt) / (s.grow * 1000);
+  for (var i = 0; i < crops.length; i++) {
+    var c = crops[i];
+    var s = seedById(c.crop);
+    var frac = (nowMs - c.plantedAt) / (s.grow * 1000);
     var stage, size;
-    if (frac < 0.34) { stage = '🌱'; size = 3; }
-    else if (frac < 0.7) { stage = s.emoji; size = 4; }
-    else if (frac < 1) { stage = s.emoji; size = 5; }
-    else { stage = s.emoji; size = 6.5; }
-    // change sprite only when the stage emoji/size changes
-    if (t._stage !== stage + size) {
-      t._stage = stage + size;
-      tileSetSprite(t, stage, size);
-      if (frac >= 1 && !t.ripe) { t.ripe = true; t.mut = rollMutation(); }
+    if (frac < 0.34) { stage = '🌱'; size = 2.2; }
+    else if (frac < 0.7) { stage = s.emoji; size = 2.8; }
+    else if (frac < 1) { stage = s.emoji; size = 3.4; }
+    else { stage = s.emoji; size = 4.2; }
+    if (c._stage !== stage + size) {
+      c._stage = stage + size;
+      cropSetSprite(c, stage, size);
+      if (frac >= 1 && !c.ripe) { c.ripe = true; c.mut = rollMutation();
+        if (c.mut && c.sprite) c.sprite.material.color.setHex(c.mut.color); }
     }
-    if (t.sprite) {
-      var bob = frac >= 1 ? Math.sin(nowMs / 300 + i) * 0.7 : 0;
-      t.sprite.position.y = GROUND_Y + 1.0 + size / 2 + bob;
+    if (c.sprite) {
+      var bob = frac >= 1 ? Math.sin(nowMs / 300 + i) * 0.5 : 0;
+      c.sprite.position.y = c.y + 0.4 + size / 2 + bob;
     }
   }
 }
@@ -301,8 +294,9 @@ function makeAvatar() {
   box(1.3, 0.7, 1.3, 0xffb300, 0, 6.1, 0);
   return g;
 }
-var player = { x: 0, z: 14 * MS, speed: 34, walkT: 0 };
+var player = { x: 0, z: 14 * MS, speed: 26, walkT: 0 };
 var avatar = makeAvatar();
+avatar.scale.setScalar(0.42);  // small farmer so it fits the map
 avatar.position.set(player.x, GROUND_Y, player.z);
 scene.add(avatar);
 window.__g.player = player;
@@ -310,20 +304,19 @@ window.__g.player = player;
 /* ---------- save ---------- */
 function save() {
   try {
-    var crops = tiles.map(function (t) {
-      return t.crop ? { c: t.crop, a: t.plantedAt - nowMs, m: t.mut ? t.mut.key : null } : null;
+    var cs = crops.map(function (c) {
+      return { x: c.x, y: c.y, z: c.z, k: c.key, c: c.crop, a: c.plantedAt - nowMs, m: c.mut ? c.mut.key : null };
     });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, crops: crops }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ money: state.money, crops: cs }));
   } catch (e) {}
 }
 function loadCrops() {
   if (!SAVED || !SAVED.crops) return;
-  SAVED.crops.forEach(function (c, i) {
-    if (c && i < tiles.length && seedById(c.c)) {
-      tiles[i].crop = c.c;
-      tiles[i].plantedAt = nowMs + (c.a || 0); // a is negative elapsed offset
-      if (c.m) { for (var k = 0; k < MUTATIONS.length; k++) if (MUTATIONS[k].key === c.m) tiles[i].mut = MUTATIONS[k]; }
-    }
+  SAVED.crops.forEach(function (d) {
+    if (!d || !seedById(d.c)) return;
+    var mut = null;
+    if (d.m) for (var k = 0; k < MUTATIONS.length; k++) if (MUTATIONS[k].key === d.m) mut = MUTATIONS[k];
+    crops.push({ key: d.k, x: d.x, y: d.y, z: d.z, crop: d.c, plantedAt: nowMs + (d.a || 0), ripe: false, mut: mut, sprite: null, _stage: '' });
   });
 }
 setInterval(save, 5000);
@@ -397,12 +390,18 @@ function tapAt(px, py) {
   if (!state.started) return;
   var ndc = new THREE.Vector2((px / innerWidth) * 2 - 1, -(py / innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  var meshes = tiles.map(function (t) { return t.mesh; });
-  var hit = raycaster.intersectObjects(meshes, false)[0];
-  if (hit && hit.object.userData.tile) plant(hit.object.userData.tile);
+  // first try to harvest a crop you tapped on
+  var sprites = [];
+  for (var i = 0; i < crops.length; i++) if (crops[i].sprite) sprites.push(crops[i].sprite);
+  var ch = raycaster.intersectObjects(sprites, false)[0];
+  if (ch && ch.object.userData.crop) { harvest(ch.object.userData.crop); return; }
+  // otherwise plant on the brown plot you tapped
+  var ph = raycaster.intersectObjects(plotMeshes, false)[0];
+  if (ph) plantAtPoint(ph.point.x, ph.point.z, ph.point.y);
+  else toast('🟫 Tap on a brown plot to plant!');
 }
-window.__g.plantTile = function (i) { plant(tiles[i]); };
-window.__g.harvestTile = function (i) { harvest(tiles[i]); };
+window.__g.plantAt = function (x, z, y) { plantAtPoint(x, z, y); };
+window.__g.tapAt = tapAt;
 
 /* ---------- seed shop UI ---------- */
 var shopEl = document.getElementById('shop');
@@ -483,7 +482,6 @@ renderer.setAnimationLoop(function () {
 document.getElementById('play').addEventListener('click', function () {
   if (!mapReady) return;
   loadCrops();
-  tiles.forEach(function (t) { if (t.crop) { t._stage = ''; } });
   document.getElementById('start').style.display = 'none';
   state.started = true;
 });
