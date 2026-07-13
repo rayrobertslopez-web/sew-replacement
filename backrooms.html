@@ -161,7 +161,8 @@ import { mergeGeometries } from './vendor/utils/BufferGeometryUtils.js';
 // ---- world constants ----
 const CELL = 5;            // size of one "bay"
 const WALL_H = 3.3;        // wall / ceiling height
-const WALL_T = 0.14;       // half thickness used for collision
+const WALL_TH = 0.4;       // wall thickness — solid, like real backrooms drywall partitions
+const WALL_T = WALL_TH/2;  // half thickness used for collision
 const TILE = 2.6;          // texture world-tile size
 const CHUNK = 6;           // cells per chunk edge
 const CHUNK_W = CHUNK * CELL;
@@ -320,14 +321,14 @@ function buildChunk(cx,cz){
     for(let dj=0; dj<CHUNK; dj++){
       const i=i0+di, j=j0+dj;
       const cxw=i*CELL, czw=j*CELL;
-      // vertical wall (west edge of this cell)
+      // vertical wall (west edge of this cell) — solid box with real thickness
       if(hasWallV(i,j)){
-        const g=new THREE.PlaneGeometry(CELL,WALL_H); g.rotateY(Math.PI/2);
+        const g=new THREE.BoxGeometry(WALL_TH, WALL_H, CELL);
         g.translate(cxw, WALL_H/2, czw+CELL/2); scaleUV(g,CELL/TILE,WALL_H/TILE); struct.push(g);
       }
-      // horizontal wall (south edge of this cell)
+      // horizontal wall (south edge of this cell) — solid box with real thickness
       if(hasWallH(i,j)){
-        const g=new THREE.PlaneGeometry(CELL,WALL_H);
+        const g=new THREE.BoxGeometry(CELL, WALL_H, WALL_TH);
         g.translate(cxw+CELL/2, WALL_H/2, czw); scaleUV(g,CELL/TILE,WALL_H/TILE); struct.push(g);
       }
       // pillar (at the SW corner point of this cell)
@@ -679,7 +680,7 @@ function initGraphics(){
   fillLight=new THREE.PointLight(0xd8cf9a, 2.1, 7, 2.2); scene.add(fillLight);
 
   wallpaperTex=wallpaperTexture(); carpetTex=carpetTexture(); ceilTex=ceilingTexture();
-  structMatWall=new THREE.MeshLambertMaterial({map:wallpaperTex, side:THREE.DoubleSide});
+  structMatWall=new THREE.MeshLambertMaterial({map:wallpaperTex, side:THREE.FrontSide});
   floorMat=new THREE.MeshLambertMaterial({map:carpetTex});
   ceilMat=new THREE.MeshLambertMaterial({map:ceilTex, side:THREE.FrontSide});
   panelMat=new THREE.MeshBasicMaterial({color:0xfff3cf, fog:true});
