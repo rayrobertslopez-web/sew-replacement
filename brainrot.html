@@ -149,7 +149,7 @@ var TIERS = {
   common:    { color: '#c9c9c9' }, rare:   { color: '#4fc3f7' },
   epic:      { color: '#ba68c8' }, legendary: { color: '#ffb300' },
   mythic:    { color: '#ff5252' }, god:    { color: '#fff176' },
-  secret:    { color: '#69f0ae' }, og:     { color: '#ffd700' }
+  secret:    { color: '#69f0ae' }, divine: { color: '#ff6d00' }, og: { color: '#ffd700' }
 };
 var CHARS = [
   { id: 'noobini',    name: 'Noobini Pizzanini',        emoji: '🍕', tier: 'common',    price: 25,     rate: 1 },
@@ -219,10 +219,12 @@ var CHARS = [
   { id: 'sec47', name: 'Urubini Flamingini', emoji: '🦩', tier: 'secret', price: 17247789056905, rate: 10061210283195 },
   { id: 'sec48', name: 'Spioniro Golubiro', emoji: '🕊️', tier: 'secret', price: 24491860460806, rate: 14286918602137 },
   { id: 'sec49', name: 'Job Job Job Sahur', emoji: '🔨', tier: 'secret', price: 34778441854344, rate: 20287424415034 },
+  { id: 'dragoncannelloni', name: 'Dragon Cannelloni',  emoji: '🐉', tier: 'divine',    price: 100e9,  rate: 100e6 },
   { id: 'strawelephant', name: 'Strawberry Elephant',   emoji: '🍓', tier: 'og',        price: 500e9,  rate: 500e6 }
 ];
 var TIER_ODDS = [
-  ['og', 0.00001], // 0.00001% — must be first so the sliver is reachable
+  ['og', 0.00001],   // 0.00001% — must be first so the sliver is reachable
+  ['divine', 0.001], // Dragon Cannelloni — 0.001% chance
   ['common', 42], ['rare', 27], ['epic', 16], ['legendary', 9],
   ['mythic', 4], ['god', 1.6], ['secret', 0.4]
 ];
@@ -339,7 +341,8 @@ try { SAVED = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
 /* ---------- audio ---------- */
 var SOUNDS = {
   strawelephant: new Audio('strawberry-elephant.ogg'),
-  garama: new Audio('garama-sound.mp3')
+  garama: new Audio('garama-sound.mp3'),
+  dragoncannelloni: new Audio('dragon-sound.mp3')
 };
 Object.keys(SOUNDS).forEach(function (k) { SOUNDS[k].preload = 'auto'; });
 function playSpawnSound(ch) {
@@ -401,7 +404,8 @@ scene.add(ground);
 /* ---------- real 3D models for special brainrots ---------- */
 var MODELS = {
   strawelephant: { url: './strawberry.glb', obj: null, scale: 1, minY: 0 },
-  garama: { url: './garama.glb', obj: null, scale: 1, minY: 0 }
+  garama: { url: './garama.glb', obj: null, scale: 1, minY: 0 },
+  dragoncannelloni: { url: './dragon.glb', obj: null, scale: 1, minY: 0 }
 };
 Object.keys(MODELS).forEach(function (id) {
   var md = MODELS[id];
@@ -964,8 +968,8 @@ function update(dt) {
 
   // conveyor
   beltSpawnT -= dt;
-  if (beltSpawnT <= 0 && beltItems.length < 6) {
-    beltSpawnT = 6 + Math.random() * 4;
+  if (beltSpawnT <= 0 && beltItems.length < 10) {
+    beltSpawnT = 4;
     spawnBeltItem();
   }
   for (var i = beltItems.length - 1; i >= 0; i--) {
