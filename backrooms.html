@@ -151,6 +151,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from './vendor/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 
 /* ============================================================================
    THE BACKROOMS — Level 0
@@ -192,7 +193,10 @@ let sanity = 100, stamina = 100, waters = 0, elapsed = 0, maxDist = 0;
 let localLight = 1;
 
 // entity
-let entity = null;   // {sprite, x, z, dir, state, lastSeen, speed}
+let entity = null;        // {obj, x, z, dir, state, lastSeen, speed, foot}
+let entityProto = null;   // loaded GLB scene (the "howler" model)
+let entityFoot = 0;       // y offset so the model's feet rest on the floor
+let pendingEntity = false; // spawn requested before the model finished loading
 
 /* ---------------------------------------------------------------- hashing */
 function rand(i,j,salt){
@@ -272,24 +276,24 @@ function ceilingTexture(){
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.SRGBColorSpace;
   t.anisotropy=maxAniso(); return t;
 }
-function smilerTexture(){
-  const s=256, c=makeCanvas(s), x=c.getContext('2d');
-  x.clearRect(0,0,s,s);
-  // dark body blob
-  const g=x.createRadialGradient(s/2,s*0.55,10,s/2,s*0.55,s*0.55);
-  g.addColorStop(0,'rgba(8,7,3,0.96)'); g.addColorStop(0.7,'rgba(6,6,2,0.85)'); g.addColorStop(1,'rgba(0,0,0,0)');
-  x.fillStyle=g; x.fillRect(0,0,s,s);
-  // eyes
-  x.fillStyle='#f2ecc0'; x.shadowColor='#fff4c0'; x.shadowBlur=22;
-  x.beginPath(); x.ellipse(s*0.38,s*0.42,10,15,0,0,7); x.fill();
-  x.beginPath(); x.ellipse(s*0.62,s*0.42,10,15,0,0,7); x.fill();
-  // wide grin
-  x.shadowBlur=16; x.strokeStyle='#efe8ba'; x.lineWidth=9; x.lineCap='round';
-  x.beginPath(); x.arc(s/2,s*0.52,46,0.15*Math.PI,0.85*Math.PI); x.stroke();
-  // teeth
-  x.shadowBlur=0; x.strokeStyle='rgba(30,28,14,.9)'; x.lineWidth=3;
-  for(let i=-3;i<=3;i++){ const a=Math.PI*(0.5+i*0.09); x.beginPath(); x.moveTo(s/2+Math.cos(a)*40,s*0.52+Math.sin(a)*40); x.lineTo(s/2+Math.cos(a)*52,s*0.52+Math.sin(a)*52); x.stroke(); }
-  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+const ENTITY_H = 2.95;   // target in-game height (metres); ceiling is WALL_H=3.3
+function loadEntityModel(){
+  new GLTFLoader().load('./backrooms-entity.glb', (gltf)=>{
+    const root=gltf.scene;
+    // dark, palette-fitting material with a faint self-glow so its tangled form reads in the haze
+    const mat=new THREE.MeshStandardMaterial({ color:0x15130c, roughness:0.85, metalness:0.0,
+      emissive:0x14100a, emissiveIntensity:0.95, side:THREE.DoubleSide });
+    root.traverse(o=>{ if(o.isMesh){ o.material=mat; o.frustumCulled=false; o.castShadow=false; } });
+    // normalise scale + rest feet on floor + face the model's snout down local -Z
+    let box=new THREE.Box3().setFromObject(root);
+    const s=ENTITY_H/(box.max.y-box.min.y); root.scale.setScalar(s);
+    root.rotation.y=-Math.PI/2;              // model faces -X natively -> align to group -Z
+    root.updateMatrixWorld(true);
+    box=new THREE.Box3().setFromObject(root);
+    entityFoot=-box.min.y;                    // lift so feet touch y=0
+    entityProto=root;
+    if(pendingEntity){ pendingEntity=false; spawnEntity(); }
+  }, undefined, (err)=>{ console.warn('entity model failed to load', err); });
 }
 let _aniso=1; function maxAniso(){ return _aniso; }
 
@@ -499,11 +503,9 @@ function updateLightPool(){
 
 /* ---------------------------------------------------------------- entity */
 function spawnEntity(){
-  const tex=smilerTexture();
-  const mat=new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false, fog:true, opacity:0.98});
-  const sp=new THREE.Sprite(mat); sp.scale.set(1.7,2.4,1); sp.center.set(0.5,0);
-  scene.add(sp);
-  entity={sprite:sp, x:0, z:0, dir:Math.random()*7, state:'wander', lastSeen:-99, speed:3.0, turn:0, growl:0};
+  if(!entityProto){ pendingEntity=true; return; }   // model still loading
+  scene.add(entityProto);
+  entity={obj:entityProto, x:0, z:0, dir:Math.random()*7, state:'wander', lastSeen:-99, speed:3.0, turn:0, faceYaw:0};
   placeEntityFar();
 }
 function placeEntityFar(){
@@ -534,12 +536,21 @@ function updateEntity(dt){
   [nx,nz]=collide(nx,nz,0.4);
   if(Math.abs(nx-e.x)<0.001 && Math.abs(nz-e.z)<0.001 && e.state!=='chase'){ e.dir+=2.0; e.turn=0.3; }
   e.x=nx; e.z=nz;
-  e.sprite.position.set(e.x, 0.05, e.z);
+
+  // face the direction of travel (chase -> straight at you), smoothed
+  const targetYaw = Math.atan2(hx, hz);
+  let d0=targetYaw-e.faceYaw; while(d0>Math.PI)d0-=2*Math.PI; while(d0<-Math.PI)d0+=2*Math.PI;
+  e.faceYaw += d0 * Math.min(1, dt*(e.state==='chase'?8:3));
+  // procedural life: lurching bob + sway (no baked animation in the model)
+  const gait = e.state==='chase'?12:5, amp = e.state==='chase'?0.10:0.05;
+  const bob = Math.abs(Math.sin(elapsed*gait))*amp;
+  e.obj.position.set(e.x, entityFoot + bob, e.z);
+  e.obj.rotation.set(Math.sin(elapsed*gait*0.5)*0.04, e.faceYaw, Math.sin(elapsed*gait)*0.05);
 
   // audio dread + caught
   const near=Math.max(0,1-dist/22);
   audio.setGrowl((e.state==='chase'?0.6:0.15)*near + (e.state==='chase'?0.2:0));
-  if(dist<0.85){ die("it found you","CAUGHT"); }
+  if(dist<1.0){ die("it found you","CAUGHT"); }
 }
 
 /* ---------------------------------------------------------------- audio */
@@ -694,7 +705,7 @@ function newGame(){
   // clear world
   for(const key of [...chunks.keys()]) unloadChunk(key);
   buildQueue.length=0; pickups.length=0; collected.clear();
-  if(entity){ scene.remove(entity.sprite); entity.sprite.material.map.dispose(); entity.sprite.material.dispose(); entity=null; }
+  if(entity){ scene.remove(entity.obj); entity=null; pendingEntity=false; }
 
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0;
   sanity=100; stamina=100; waters=0; elapsed=0; maxDist=0; localLight=1;
@@ -852,6 +863,7 @@ function updateHUD(){
 
 /* ---------------------------------------------------------------- boot */
 initGraphics();
+loadEntityModel();
 setupDesktop();
 setupTouch();
 if(isTouch){ document.getElementById('ctrlsDesk').innerHTML='Left thumb — move &nbsp;·&nbsp; right — look &nbsp;·&nbsp; <b>RUN</b> to sprint'; }
