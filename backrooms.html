@@ -77,6 +77,19 @@
     border:2px solid #b7a03f; border-radius:14px; background:rgba(201,178,74,.14); color:#f0e6a8;
     cursor:pointer; pointer-events:auto; text-shadow:0 0 12px rgba(201,178,74,.5); }
   .btn:active{ transform:translateY(2px); background:rgba(201,178,74,.28); }
+  .btn2{ margin-top:12px; font-size:14px; font-weight:800; letter-spacing:2px; padding:10px 30px;
+    border:1px solid #6b6337; border-radius:11px; background:rgba(201,178,74,.06); color:#cabf86;
+    cursor:pointer; pointer-events:auto; }
+  .btn2:active{ transform:translateY(1px); background:rgba(201,178,74,.16); }
+  #levelsList{ margin-top:18px; width:min(420px,calc(100vw - 40px)); display:flex; flex-direction:column; gap:10px; }
+  .lvBtn{ display:flex; align-items:center; gap:12px; text-align:left; padding:14px 18px; cursor:pointer;
+    pointer-events:auto; border:1px solid #6b6337; border-radius:12px; background:rgba(201,178,74,.08); color:#f0e6a8; }
+  .lvBtn:active{ background:rgba(201,178,74,.2); }
+  .lvBtn .lvNum{ font-size:11px; letter-spacing:2px; color:#b7ad84; font-weight:800; width:64px; flex:none; }
+  .lvBtn .lvName{ flex:1; font-size:17px; font-weight:800; }
+  .lvBtn .lvGo{ color:var(--amber); font-size:16px; }
+  .lvEmpty{ margin-top:18px; max-width:420px; font-size:14px; line-height:1.7; color:#9a916a; }
+  .lvEmpty b{ color:var(--amber); }
   .ctrls{ margin-top:22px; font-size:12px; color:#8f875f; line-height:1.9; letter-spacing:.4px; }
   .ctrls kbd{ background:#26220f; border:1px solid #4a4320; border-radius:5px; padding:1px 7px; color:#d8cf9a; font-size:11px; }
   .stats{ margin-top:16px; font-size:14px; color:#cbc39a; line-height:1.9; }
@@ -124,9 +137,18 @@
     Keep your <b>sanity</b> up, find an <b>exit</b>, and pray it doesn't find you first.
   </div>
   <button class="btn" id="playBtn">ENTER</button>
+  <button class="btn2" id="levelsBtn">LEVELS</button>
   <div class="ctrls" id="ctrlsDesk">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
+</div>
+
+<!-- Level select (only completed levels) -->
+<div id="levels" class="screen hide">
+  <div class="sub">Completed Levels</div>
+  <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">LEVELS</h1>
+  <div id="levelsList"></div>
+  <button class="btn2" id="levelsBack">BACK</button>
 </div>
 
 <!-- Death screen -->
@@ -135,6 +157,7 @@
   <div class="sub" id="deadSub">it found you</div>
   <div class="stats" id="deadStats"></div>
   <button class="btn" id="retryBtn">TRY AGAIN</button>
+  <button class="btn2" id="deadMenuBtn">MAIN MENU</button>
 </div>
 
 <!-- Win screen -->
@@ -143,6 +166,7 @@
   <div class="sub">out of the habitable zone — for now</div>
   <div class="stats" id="winStats"></div>
   <button class="btn" id="againBtn">START OVER</button>
+  <button class="btn2" id="winMenuBtn">MAIN MENU</button>
 </div>
 
 <!-- Level transition card -->
@@ -207,6 +231,10 @@ let entityFoot = 0;       // y offset so the model's feet rest on the floor
 let pendingEntity = false; // spawn requested before the model finished loading
 
 // levels: 0 = infinite procedural Lobby, 1 = Habitable Zone (GLB)
+const LEVELS = [{n:'Level 0', t:'The Lobby'}, {n:'Level 1', t:'Habitable Zone'}];
+let completed = loadCompleted();      // Set of level indices the player has escaped
+function loadCompleted(){ try{ return new Set(JSON.parse(localStorage.getItem('backrooms_completed')||'[]')); }catch(e){ return new Set(); } }
+function markComplete(i){ completed.add(i); try{ localStorage.setItem('backrooms_completed', JSON.stringify([...completed])); }catch(e){} }
 let level = 0;
 let fogFarBase = FOG_FAR;
 let l1Model = null, l1Ready = false, l1FloorY = 0, l1Half = 26, l1Exit = null;
@@ -891,6 +919,7 @@ function die(reason,title){
 }
 function winGame(){
   if(!running) return; running=false;
+  markComplete(0); markComplete(1);   // reaching the Level 1 exit means both are cleared
   audio.setGrowl(0); audio.pickup();
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
@@ -925,6 +954,7 @@ function applyAtmosphere(lv){
 function enterLevel1(){
   if(transitioning) return;
   if(!l1Ready){ pendingLevel1=true; toast('The floor gives way…'); return; }
+  markComplete(0);   // escaping the Lobby completes Level 0
   transitioning=true; running=false; audio.setGrowl(0);
   if(locked) document.exitPointerLock();
   for(const key of [...chunks.keys()]) unloadChunk(key);
@@ -949,6 +979,37 @@ function resumeFromCard(){
   document.getElementById('obj').innerHTML='LEVEL 1 · Follow the <b>arrows</b> to the <b style="color:#8ec98e">EXIT</b> — it followed you down.';
   transitioning=false; running=true; clock.getDelta();
   toast('Level 1 — Habitable Zone');
+}
+/* ------------------------------------------------- menu / level select */
+function showStart(){
+  ['dead','win','levels','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('cross').classList.remove('show');
+  document.getElementById('touch').classList.remove('show');
+  document.getElementById('start').classList.remove('hide');
+  running=false; transitioning=false;
+  if(locked) document.exitPointerLock();
+}
+function openLevels(){
+  renderLevels();
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('levels').classList.remove('hide');
+}
+function renderLevels(){
+  const list=document.getElementById('levelsList');
+  const done=[...completed].filter(i=>i>=0 && i<LEVELS.length).sort((a,b)=>a-b);
+  if(!done.length){ list.innerHTML='<div class="lvEmpty">No levels completed yet.<br>Escape a level and it appears here to replay.</div>'; return; }
+  list.innerHTML=done.map(i=>`<button class="lvBtn" data-lvl="${i}"><span class="lvNum">${LEVELS[i].n}</span><span class="lvName">${LEVELS[i].t}</span><span class="lvGo">▶</span></button>`).join('');
+  list.querySelectorAll('.lvBtn').forEach(b=>b.addEventListener('click',()=>startAtLevel(+b.dataset.lvl)));
+}
+function startAtLevel(idx){
+  document.getElementById('levels').classList.add('hide');
+  audio.ensure();
+  newGame();                       // sets up Level 0 first
+  if(idx>=1){
+    if(l1Ready){ enterLevel1(); resumeFromCard(); }   // jump straight into Level 1
+    else pendingLevel1=true;                          // model still loading -> transition on load
+  }
 }
 
 /* ---------------------------------------------------------------- loop */
@@ -1067,6 +1128,10 @@ document.getElementById('playBtn').addEventListener('click',()=>{ audio.ensure()
 document.getElementById('retryBtn').addEventListener('click',()=>{ newGame(); });
 document.getElementById('againBtn').addEventListener('click',()=>{ newGame(); });
 document.getElementById('lcBtn').addEventListener('click',()=>{ resumeFromCard(); if(!isTouch) renderer.domElement.requestPointerLock(); });
+document.getElementById('levelsBtn').addEventListener('click', openLevels);
+document.getElementById('levelsBack').addEventListener('click', showStart);
+document.getElementById('deadMenuBtn').addEventListener('click', showStart);
+document.getElementById('winMenuBtn').addEventListener('click', showStart);
 tick();
 </script>
 </body>
