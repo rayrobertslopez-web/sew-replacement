@@ -97,6 +97,30 @@
   #deadTitle{ color:#c94a4a; text-shadow:0 0 26px rgba(201,74,74,.5), 0 3px 0 #3a1010; }
   #winTitle{ color:#7fd07f; text-shadow:0 0 26px rgba(120,208,120,.5), 0 3px 0 #14371a; }
   #loadNote{ margin-top:20px; font-size:12px; color:#8f875f; letter-spacing:2px; }
+  /* killing-blow blackout */
+  #blackout{ position:fixed; inset:0; z-index:19; background:#000; opacity:0; pointer-events:none; }
+  /* Game Over screen (retro, white) */
+  #gameover{ position:fixed; inset:0; z-index:24; display:none; background:#050506; overflow:hidden; }
+  #gameover.show{ display:block; }
+  #gameover::before{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 3px); }
+  #gameover .go-title{ position:absolute; top:24%; left:0; right:0; text-align:center;
+    font-family:"Courier New",ui-monospace,monospace; font-weight:900;
+    font-size:clamp(44px,13vw,104px); letter-spacing:3px; color:#fff;
+    text-shadow:0 0 4px #fff, 0 0 14px rgba(255,255,255,.85), 0 0 34px rgba(255,255,255,.55), 0 0 70px rgba(255,255,255,.35);
+    animation:goflick 4.5s infinite; }
+  @keyframes goflick{ 0%,96%,100%{opacity:1} 96.5%{opacity:.55} 97%{opacity:1} 98%{opacity:.7} 98.4%{opacity:1} }
+  #gameover .go-underline{ position:absolute; top:calc(24% + clamp(56px,15vw,128px)); left:50%; transform:translateX(-50%);
+    width:min(58%,520px); height:5px; border-radius:3px; background:#fff;
+    box-shadow:0 0 6px #fff, 0 0 18px rgba(255,255,255,.8), 0 0 40px rgba(255,255,255,.5); }
+  #gameover .go-btn{ position:absolute; bottom:calc(env(safe-area-inset-bottom) + 7%); left:5%;
+    font-family:"Courier New",ui-monospace,monospace; font-weight:800; font-size:clamp(16px,4.6vw,26px);
+    letter-spacing:1px; padding:11px 26px; border:2px solid rgba(255,255,255,.55); border-radius:8px;
+    background:rgba(255,255,255,.05); color:#fff; cursor:pointer; pointer-events:auto;
+    text-shadow:0 0 8px rgba(255,255,255,.8); box-shadow:0 0 12px rgba(255,255,255,.18) inset; }
+  #gameover .go-btn.go-right{ left:auto; right:5%; }
+  #gameover .go-btn:hover{ background:rgba(255,255,255,.14); box-shadow:0 0 18px rgba(255,255,255,.35); }
+  #gameover .go-btn:active{ transform:translateY(2px); }
 </style>
 </head>
 <body>
@@ -151,13 +175,15 @@
   <button class="btn2" id="levelsBack">BACK</button>
 </div>
 
-<!-- Death screen -->
-<div id="dead" class="screen hide">
-  <h1 id="deadTitle">CAUGHT</h1>
-  <div class="sub" id="deadSub">it found you</div>
-  <div class="stats" id="deadStats"></div>
-  <button class="btn" id="retryBtn">TRY AGAIN</button>
-  <button class="btn2" id="deadMenuBtn">MAIN MENU</button>
+<!-- Killing-blow blackout -->
+<div id="blackout"></div>
+
+<!-- Game Over screen -->
+<div id="gameover">
+  <div class="go-title">Game Over</div>
+  <div class="go-underline"></div>
+  <button class="go-btn" id="goRetry">Try again</button>
+  <button class="go-btn go-right" id="goQuit">Quit</button>
 </div>
 
 <!-- Win screen -->
@@ -241,6 +267,9 @@ let l1Model = null, l1Ready = false, l1FloorY = 0, l1Half = 26, l1Exit = null;
 let pendingLevel1 = false, transitioning = false;
 const raycaster = new THREE.Raycaster();
 const _ro = new THREE.Vector3(), _rd = new THREE.Vector3();
+
+// death cinematic (entity catch) + game over
+let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0;
 
 // wayfinding: black arrows painted on nearby walls, pointing to the nearest exit
 let arrowPool = [], guideTarget = null, guideT = -9, guideRefresh = -9;
@@ -598,6 +627,41 @@ function updateLightPoolL1(){
     L.color.setHex(0xcfe0ff); L.position.set(player.x+o[0], cy, player.z+o[1]); L.intensity=9; L.distance=24; }
 }
 
+/* -------------------------------------------- death cinematic (the catch) */
+function startCatch(){
+  if(caught) return;
+  caught=true; caughtT=0; catchBlack=false;
+  catchYaw=player.yaw; catchPitch=player.pitch; catchFloorY=floorAt(player.x,player.z);
+  audio.setGrowl(0.5); audio.grab();
+}
+const smooth01=(t,a,b)=>{ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(3-2*u); };
+function updateCatch(dt){
+  caughtT+=dt; const t=caughtT;
+  const fwdX=-Math.sin(catchYaw), fwdZ=-Math.cos(catchYaw);
+  const lift = smooth01(t,0.5,1.25)*1.35;                       // hauled up off the floor
+  let d = t<0.5 ? 1.05 : t<1.2 ? 1.05-smooth01(t,0.5,1.2)*0.35  // reeled in
+                                : 0.7-smooth01(t,1.2,1.55)*0.62; // lunge / stab
+  d=Math.max(0.1,d);
+  if(entity){
+    entity.obj.position.set(player.x+fwdX*d, catchFloorY+entityFoot, player.z+fwdZ*d);
+    entity.faceYaw=Math.atan2(-fwdX,-fwdZ);                     // skull turned to your face
+    const s = t>1.2 ? (Math.random()-0.5)*0.12 : 0;
+    entity.obj.rotation.set(s*0.6, entity.faceYaw, s);
+  }
+  const amp = t<0.5?0.03 : t<1.2?0.015 : 0.09;                  // camera shake, violent on the stab
+  camera.position.set(player.x+(Math.random()-0.5)*amp, catchFloorY+EYE+lift+(Math.random()-0.5)*amp, player.z+(Math.random()-0.5)*amp);
+  camera.rotation.set(catchPitch+smooth01(t,0.5,1.25)*0.3, catchYaw, t>1.2?(Math.random()-0.5)*0.09:0, 'YXZ');
+  fillLight.position.copy(camera.position);
+  const flash = t<1.2 ? smooth01(t,0.55,1.2)*0.5 : 0.55+smooth01(t,1.2,1.55)*0.35;
+  if(!catchBlack) document.getElementById('dread').style.opacity=Math.min(0.9,flash).toFixed(2);
+  if(t>=1.55 && !catchBlack){                                   // arm hits the face -> instant black
+    catchBlack=true; document.getElementById('blackout').style.opacity='1';
+    document.getElementById('dread').style.opacity='0'; audio.stab();
+  }
+  if(t>=1.95) finishCatch();
+}
+function finishCatch(){ caught=false; deathLevel=level; gameOver(); }
+
 /* ------------------------------------------- wayfinding arrows (to exit) */
 function arrowTexture(){
   const s=128, c=makeCanvas(s), x=c.getContext('2d'); const cy=s/2;
@@ -721,7 +785,7 @@ function updateEntity(dt){
   // audio dread + caught
   const near=Math.max(0,1-dist/22);
   audio.setGrowl((e.state==='chase'?0.6:0.15)*near + (e.state==='chase'?0.2:0));
-  if(dist<1.0){ die("it found you","CAUGHT"); }
+  if(dist<1.1){ startCatch(); }
 }
 
 /* ---------------------------------------------------------------- audio */
@@ -766,8 +830,24 @@ const audio = (function(){
     const g=ctx.createGain(); g.gain.value=0.12; o.connect(g); g.connect(master);
     const t=ctx.currentTime; g.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.start(t); o.stop(t+0.31);
   }
+  function grab(){ if(!ctx) return;                 // whoosh of being seized & lifted
+    const o=ctx.createOscillator(); o.type='sawtooth'; const t=ctx.currentTime;
+    o.frequency.setValueAtTime(70,t); o.frequency.exponentialRampToValueAtTime(240,t+0.5);
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=520;
+    const g=ctx.createGain(); g.gain.value=0.22; o.connect(lp); lp.connect(g); g.connect(master);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.55); o.start(t); o.stop(t+0.57);
+  }
+  function stab(){ if(!ctx) return;                 // wet impact on the killing blow
+    const t=ctx.currentTime;
+    const src=ctx.createBufferSource(); src.buffer=noiseBuf;
+    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1100; bp.Q.value=0.7;
+    const g=ctx.createGain(); g.gain.value=0.34; src.connect(bp); bp.connect(g); g.connect(master);
+    g.gain.setValueAtTime(0.34,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.24); src.start(t); src.stop(t+0.26);
+    const o=ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(180,t); o.frequency.exponentialRampToValueAtTime(38,t+0.3);
+    const g2=ctx.createGain(); g2.gain.value=0.4; o.connect(g2); g2.connect(master); g2.gain.exponentialRampToValueAtTime(0.001,t+0.36); o.start(t); o.stop(t+0.38);
+  }
   return {
-    ensure, step, zap, pickup,
+    ensure, step, zap, pickup, grab, stab,
     resume(){ if(ctx&&ctx.state==='suspended') ctx.resume(); },
     setGrowl(v){ if(growlGain) growlGain.gain.value += (Math.min(0.5,v)-growlGain.gain.value)*0.1; },
     get ctx(){ return ctx; }
@@ -892,8 +972,11 @@ function newGame(){
   updateChunks(); processQueue(999);   // build initial rings synchronously
   spawnEntity();
 
+  caught=false; catchBlack=false;
+  document.getElementById('blackout').style.opacity='0';
+  document.getElementById('dread').style.opacity='0';
+  document.getElementById('gameover').classList.remove('show');
   document.getElementById('start').classList.add('hide');
-  document.getElementById('dead').classList.add('hide');
   document.getElementById('win').classList.add('hide');
   document.getElementById('hud').classList.add('show');
   document.getElementById('cross').classList.toggle('show', !isTouch);
@@ -905,16 +988,17 @@ function newGame(){
   toast("Level 0 — keep moving.");
 }
 
-function die(reason,title){
-  if(!running) return; running=false;
+function die(reason,title){          // non-catch deaths (e.g. sanity) -> straight to Game Over
+  if(!running || caught) return;
+  deathLevel=level; gameOver();
+}
+function gameOver(){
+  running=false; caught=false;
   audio.setGrowl(0);
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
   document.getElementById('hud').classList.remove('show');
-  document.getElementById('deadTitle').textContent=title||"LOST";
-  document.getElementById('deadSub').textContent=reason;
-  document.getElementById('deadStats').innerHTML=statsHTML();
-  document.getElementById('dead').classList.remove('hide');
+  document.getElementById('gameover').classList.add('show');
   if(locked) document.exitPointerLock();
 }
 function winGame(){
@@ -982,12 +1066,15 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['dead','win','levels','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('blackout').style.opacity='0';
+  document.getElementById('dread').style.opacity='0';
   document.getElementById('hud').classList.remove('show');
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
   document.getElementById('start').classList.remove('hide');
-  running=false; transitioning=false;
+  running=false; transitioning=false; caught=false;
   if(locked) document.exitPointerLock();
 }
 function openLevels(){
@@ -1021,6 +1108,7 @@ function tick(){
 }
 
 function update(dt){
+  if(caught){ updateCatch(dt); return; }
   elapsed+=dt;
   if(!isTouch) readKeys();
 
@@ -1125,12 +1213,12 @@ setupDesktop();
 setupTouch();
 if(isTouch){ document.getElementById('ctrlsDesk').innerHTML='Left thumb — move &nbsp;·&nbsp; right — look &nbsp;·&nbsp; <b>RUN</b> to sprint'; }
 document.getElementById('playBtn').addEventListener('click',()=>{ audio.ensure(); newGame(); });
-document.getElementById('retryBtn').addEventListener('click',()=>{ newGame(); });
+document.getElementById('goRetry').addEventListener('click',()=>{ startAtLevel(deathLevel); });   // retry the level you died on
+document.getElementById('goQuit').addEventListener('click', showStart);
 document.getElementById('againBtn').addEventListener('click',()=>{ newGame(); });
 document.getElementById('lcBtn').addEventListener('click',()=>{ resumeFromCard(); if(!isTouch) renderer.domElement.requestPointerLock(); });
 document.getElementById('levelsBtn').addEventListener('click', openLevels);
 document.getElementById('levelsBack').addEventListener('click', showStart);
-document.getElementById('deadMenuBtn').addEventListener('click', showStart);
 document.getElementById('winMenuBtn').addEventListener('click', showStart);
 tick();
 </script>
