@@ -24,7 +24,7 @@
   /* ---- HUD ---- */
   #hud{ position:fixed; inset:0; z-index:8; pointer-events:none; display:none; }
   #hud.show{ display:block; }
-  .bars{ position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:14px; width:min(210px,42vw); }
+  .bars{ position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:calc(env(safe-area-inset-left) + 14px); width:min(210px,42vw); }
   .bar{ margin-bottom:9px; }
   .bar .lab{ font-size:10px; letter-spacing:1.6px; font-weight:800; text-transform:uppercase;
     color:#b7ad84; text-shadow:0 1px 2px #000; margin-bottom:3px; display:flex; justify-content:space-between; }
@@ -32,7 +32,7 @@
   .bar .fill{ height:100%; width:100%; border-radius:6px; transition:width .18s linear; }
   #sanFill{ background:linear-gradient(90deg,#8e2b2b,#d8c24e 55%,#e7d874); }
   #staFill{ background:linear-gradient(90deg,#3a6ea5,#6fb0e0); }
-  #tr{ position:fixed; top:calc(env(safe-area-inset-top) + 12px); right:14px; text-align:right;
+  #tr{ position:fixed; top:calc(env(safe-area-inset-top) + 12px); right:calc(env(safe-area-inset-right) + 14px); text-align:right;
     text-shadow:0 1px 3px #000; }
   #tr .big{ font-size:18px; font-weight:900; color:var(--amber); }
   #tr .sm{ font-size:11px; color:#b7ad84; letter-spacing:.5px; }
@@ -55,7 +55,7 @@
     border:2px solid rgba(220,200,110,.28); background:rgba(0,0,0,.22); display:none; }
   #joy .stick{ position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px;
     border-radius:50%; background:rgba(220,200,110,.4); border:2px solid rgba(240,230,160,.6); }
-  #sprintBtn{ position:absolute; right:22px; bottom:calc(env(safe-area-inset-bottom) + 34px);
+  #sprintBtn{ position:absolute; right:calc(env(safe-area-inset-right) + 22px); bottom:calc(env(safe-area-inset-bottom) + 34px);
     width:84px; height:84px; border-radius:50%; background:rgba(180,60,60,.28);
     border:2px solid rgba(230,120,120,.5); color:#f2d8d8; font-weight:900; font-size:13px;
     display:flex; align-items:center; justify-content:center; letter-spacing:1px; pointer-events:auto; }
@@ -63,7 +63,9 @@
 
   /* ---- screens ---- */
   .screen{ position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; text-align:center; padding:26px;
+    align-items:center; justify-content:center; text-align:center;
+    padding:26px calc(env(safe-area-inset-right) + 26px) calc(env(safe-area-inset-bottom) + 26px) calc(env(safe-area-inset-left) + 26px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
     background:radial-gradient(ellipse at center, rgba(30,26,8,.94), rgba(6,5,1,.98)); }
   .screen.hide{ display:none; }
   .flick{ color:var(--yellow); text-shadow:0 0 22px rgba(201,178,74,.55); }
@@ -136,14 +138,35 @@
   #gameover .go-underline{ position:absolute; top:calc(24% + clamp(56px,15vw,128px)); left:50%; transform:translateX(-50%);
     width:min(58%,520px); height:5px; border-radius:3px; background:#fff;
     box-shadow:0 0 6px #fff, 0 0 18px rgba(255,255,255,.8), 0 0 40px rgba(255,255,255,.5); }
-  #gameover .go-btn{ position:absolute; bottom:calc(env(safe-area-inset-bottom) + 7%); left:5%;
+  #gameover .go-btn{ position:absolute; bottom:calc(env(safe-area-inset-bottom) + 7%); left:calc(env(safe-area-inset-left) + 5%);
     font-family:"Courier New",ui-monospace,monospace; font-weight:800; font-size:clamp(16px,4.6vw,26px);
     letter-spacing:1px; padding:11px 26px; border:2px solid rgba(255,255,255,.55); border-radius:8px;
     background:rgba(255,255,255,.05); color:#fff; cursor:pointer; pointer-events:auto;
     text-shadow:0 0 8px rgba(255,255,255,.8); box-shadow:0 0 12px rgba(255,255,255,.18) inset; }
-  #gameover .go-btn.go-right{ left:auto; right:5%; }
+  #gameover .go-btn.go-right{ left:auto; right:calc(env(safe-area-inset-right) + 5%); }
   #gameover .go-btn:hover{ background:rgba(255,255,255,.14); box-shadow:0 0 18px rgba(255,255,255,.35); }
   #gameover .go-btn:active{ transform:translateY(2px); }
+  /* compact layout for landscape phones (short viewport height) so nothing clips off-screen */
+  @media (orientation:landscape) and (max-height:520px){
+    .screen{ justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 14px); padding-bottom:14px; }
+    h1{ font-size:clamp(24px,6vw,42px); }
+    .sub{ margin-top:5px; font-size:11px; }
+    .lore{ margin:8px 0 2px; font-size:12.5px; line-height:1.5; max-width:640px; }
+    .btn{ margin-top:10px; padding:9px 38px; font-size:17px; }
+    .menuRow{ margin-top:2px; }
+    .btn2{ margin-top:8px; padding:7px 20px; font-size:12px; }
+    .ctrls{ margin-top:8px; }
+    .stats{ margin-top:8px; font-size:12.5px; }
+    #levelsList, #threatList{ margin-top:10px; gap:8px; }
+    .lvBtn{ padding:9px 14px; }
+    .tcard .tc-head{ padding:7px 90px 7px 12px; }
+    .tcard .tc-head b{ font-size:15px; }
+    .tcard .tc-body{ padding:8px 14px 10px; }
+    .tcard .tc-trait{ font-size:13px; padding:2px 0; }
+    .tc-hex{ width:58px; height:66px; right:12px; }
+    #gameover .go-title{ top:12%; font-size:clamp(32px,9vw,64px); }
+    #gameover .go-underline{ top:calc(12% + clamp(44px,11vw,76px)); }
+  }
 </style>
 </head>
 <body>
@@ -990,7 +1013,17 @@ function initGraphics(){
 
   initArrows();
 
-  addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+  // follow the device through rotation (portrait <-> landscape) and toolbar show/hide.
+  // mobile browsers can fire 'resize'/'orientationchange' before layout has settled to the
+  // new dimensions, so re-sync on visualViewport too and re-check shortly after the flip.
+  function syncViewport(){
+    const w=(window.visualViewport&&window.visualViewport.width)||innerWidth;
+    const h=(window.visualViewport&&window.visualViewport.height)||innerHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h);
+  }
+  addEventListener('resize', syncViewport);
+  addEventListener('orientationchange', ()=>{ syncViewport(); setTimeout(syncViewport,60); setTimeout(syncViewport,300); });
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', syncViewport);
 }
 
 /* ---------------------------------------------------------------- game flow */
