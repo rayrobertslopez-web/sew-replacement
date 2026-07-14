@@ -106,6 +106,10 @@
     cursor:pointer; pointer-events:auto; }
   .btn2:active{ transform:translateY(1px); background:rgba(201,178,74,.16); }
   .menuRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .modeRow .btn{ margin-top:0; }
+  /* content warning */
+  .warnIcon{ font-size:52px; line-height:1; color:#e05a4a; text-shadow:0 0 22px rgba(224,90,74,.55); margin-bottom:2px; }
+  #warnTitle{ animation:none; color:#e05a4a; text-shadow:0 0 24px rgba(224,90,74,.5), 0 3px 0 #3a1010; }
   #levelsList{ margin-top:18px; width:min(420px,calc(100vw - 40px)); display:flex; flex-direction:column; gap:10px; }
   .lvBtn{ display:flex; align-items:center; gap:12px; text-align:left; padding:14px 18px; cursor:pointer;
     pointer-events:auto; border:1px solid #6b6337; border-radius:12px; background:rgba(201,178,74,.08); color:#f0e6a8; }
@@ -144,6 +148,38 @@
   #deadTitle{ color:#c94a4a; text-shadow:0 0 26px rgba(201,74,74,.5), 0 3px 0 #3a1010; }
   #winTitle{ color:#7fd07f; text-shadow:0 0 26px rgba(120,208,120,.5), 0 3px 0 #14371a; }
   #loadNote{ margin-top:20px; font-size:12px; color:#8f875f; letter-spacing:2px; }
+  /* online chat */
+  #onNick{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
+    color:#f0e6a8; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center; outline:none; pointer-events:auto; }
+  #onNick:focus{ border-color:var(--yellow); }
+  #chatRoom{ position:fixed; inset:0; z-index:21; display:none; flex-direction:column; background:#0c0b04; pointer-events:auto; }
+  #chatRoom.show{ display:flex; }
+  #chatHead{ display:flex; align-items:center; gap:8px; flex:none;
+    padding:calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 14px) 10px calc(env(safe-area-inset-left) + 14px);
+    border-bottom:1px solid rgba(200,180,90,.18); background:#12100a; }
+  .chatDot{ width:9px; height:9px; border-radius:50%; background:#666; flex:none; }
+  .chatDot.on{ background:#3ecb62; box-shadow:0 0 6px #3ecb62; }
+  .chatDot.off{ background:#c94a4a; }
+  #chatStatusTxt{ font-size:12px; color:#b7ad84; font-weight:700; letter-spacing:.5px; }
+  #chatCount{ margin-left:auto; font-size:11px; color:#8f875f; }
+  #chatLeave{ margin-left:8px; font-size:11px; font-weight:800; letter-spacing:1px; padding:6px 14px;
+    border:1px solid #6b6337; border-radius:8px; background:rgba(201,178,74,.08); color:#cabf86; cursor:pointer; }
+  #chatLeave:active{ background:rgba(201,178,74,.2); }
+  #chatLog{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+  .chatMsg{ max-width:min(560px,88%); font-size:13.5px; line-height:1.45; color:#eae6cf; word-wrap:break-word; }
+  .chatMsg .nk{ font-weight:800; color:var(--amber); margin-right:6px; }
+  .chatMsg .ts{ font-size:10px; color:#6b6455; margin-left:7px; }
+  .chatMsg.sys{ align-self:center; color:#8f875f; font-size:11.5px; font-style:italic; }
+  #chatInputBar{ display:flex; gap:8px; flex:none;
+    padding:10px calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + 12px);
+    border-top:1px solid rgba(200,180,90,.18); background:#12100a; }
+  #chatInput{ flex:1; background:#1c1a10; border:1px solid #4a4320; border-radius:10px; color:#f0e6a8;
+    padding:11px 12px; font-size:14px; font-family:inherit; outline:none; min-width:0; }
+  #chatInput:focus{ border-color:var(--yellow); }
+  #chatSend{ font-weight:800; letter-spacing:1px; padding:0 18px; border:1px solid #b7a03f; border-radius:10px;
+    background:rgba(201,178,74,.14); color:#f0e6a8; cursor:pointer; flex:none; }
+  #chatSend:active{ background:rgba(201,178,74,.28); }
+  #chatSend:disabled{ opacity:.4; }
   /* killing-blow blackout */
   #blackout{ position:fixed; inset:0; z-index:19; background:#000; opacity:0; pointer-events:none; }
   /* Game Over screen (retro, white) */
@@ -227,8 +263,20 @@
   <div id="sprintBtn">RUN</div>
 </div>
 
+<!-- Content warning -->
+<div id="warning" class="screen">
+  <div class="warnIcon">&#9888;</div>
+  <h1 id="warnTitle">CONTENT<br>WARNING</h1>
+  <div class="lore">
+    This game contains <b>flashing / strobing lights</b>, <b>disturbing imagery</b>, and
+    <b>depictions of gore &amp; violence</b>. It may not be suitable for players sensitive to
+    photosensitive epilepsy or graphic/scary content. Player discretion is advised.
+  </div>
+  <button class="btn" id="warnBtn">I UNDERSTAND — CONTINUE</button>
+</div>
+
 <!-- Start screen -->
-<div id="start" class="screen">
+<div id="start" class="screen hide">
   <h1>THE<br>BACKROOMS</h1>
   <div class="sub">Level&nbsp;0 — “The&nbsp;Lobby”</div>
   <div class="lore">
@@ -237,7 +285,10 @@
     maximum buzz. Something else is in here with you, and it has learned your footsteps.
     Keep your <b>sanity</b> up, find an <b>exit</b>, and pray it doesn't find you first.
   </div>
-  <button class="btn" id="playBtn">ENTER</button>
+  <div class="menuRow modeRow">
+    <button class="btn" id="playBtn">OFFLINE</button>
+    <button class="btn" id="onlineBtn">ONLINE</button>
+  </div>
   <div class="menuRow">
     <button class="btn2" id="levelsBtn">LEVELS</button>
     <button class="btn2" id="threatBtn">THREAT INDEX</button>
@@ -261,6 +312,32 @@
   <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">THREAT INDEX</h1>
   <div id="threatList"></div>
   <button class="btn2" id="threatBack">BACK</button>
+</div>
+
+<!-- Online chat: nickname / join -->
+<div id="online" class="screen hide">
+  <div class="sub">Online</div>
+  <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">THE CHANNEL</h1>
+  <div class="lore">Real players, live, unmoderated. Be decent — nobody's watching but each other.</div>
+  <input id="onNick" maxlength="20" placeholder="Pick a nickname" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+  <button class="btn" id="onJoinBtn">JOIN CHAT</button>
+  <div id="onNoBackend" class="lvEmpty hide">Online chat isn't connected yet — check back soon.</div>
+  <button class="btn2" id="onlineBack">BACK</button>
+</div>
+
+<!-- Live chat room -->
+<div id="chatRoom">
+  <div id="chatHead">
+    <span id="chatStatus" class="chatDot off"></span>
+    <span id="chatStatusTxt">connecting…</span>
+    <span id="chatCount"></span>
+    <button id="chatLeave">LEAVE</button>
+  </div>
+  <div id="chatLog"></div>
+  <div id="chatInputBar">
+    <input id="chatInput" maxlength="300" placeholder="Say something…" autocomplete="off" autocorrect="off">
+    <button id="chatSend">SEND</button>
+  </div>
 </div>
 
 <!-- Killing-blow blackout -->
@@ -1081,7 +1158,10 @@ function newGame(){
   document.getElementById('blackout').style.opacity='0';
   document.getElementById('dread').style.opacity='0';
   document.getElementById('gameover').classList.remove('show');
+  document.getElementById('chatRoom').classList.remove('show');
+  disconnectChat();
   document.getElementById('start').classList.add('hide');
+  document.getElementById('online').classList.add('hide');
   document.getElementById('win').classList.add('hide');
   document.getElementById('hud').classList.add('show');
   document.getElementById('cross').classList.toggle('show', !isTouch);
@@ -1171,8 +1251,10 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['win','levels','threat','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','threat','online','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('gameover').classList.remove('show');
+  document.getElementById('chatRoom').classList.remove('show');
+  disconnectChat();
   document.getElementById('blackout').style.opacity='0';
   document.getElementById('dread').style.opacity='0';
   document.getElementById('hud').classList.remove('show');
@@ -1221,6 +1303,99 @@ function startAtLevel(idx){
     else pendingLevel1=true;                          // model still loading -> transition on load
   }
 }
+
+/* -------------------------------------------------------------- online chat
+   Backend: Supabase (fill these in once you create a free project at
+   supabase.com — Settings -> API gives you the Project URL and anon public
+   key; both are safe to expose client-side, access is governed by the RLS
+   policies below, not by keeping the key secret).
+
+   SQL to run once in the Supabase SQL editor:
+     create table public.chat_messages (
+       id bigint generated always as identity primary key,
+       nickname text not null check (char_length(nickname) <= 20),
+       body text not null check (char_length(body) <= 300),
+       created_at timestamptz not null default now()
+     );
+     alter table public.chat_messages enable row level security;
+     create policy "public read" on public.chat_messages for select using (true);
+     create policy "public insert" on public.chat_messages for insert with check (true);
+     alter publication supabase_realtime add table public.chat_messages;
+------------------------------------------------------------------------- */
+const SUPABASE_URL='', SUPABASE_ANON_KEY='';
+let sb=null, chatChannel=null, presenceChannel=null, chatClientId=null, lastSendAt=0;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function loadSupabaseSDK(){
+  return new Promise((resolve,reject)=>{
+    if(window.supabase){ resolve(); return; }
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+    s.onload=resolve; s.onerror=()=>reject(new Error('offline'));
+    document.head.appendChild(s);
+  });
+}
+function openOnline(){
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('online').classList.remove('hide');
+  document.getElementById('onNick').value=localStorage.getItem('backrooms_nick')||'';
+  document.getElementById('onNoBackend').classList.toggle('hide', !!(SUPABASE_URL && SUPABASE_ANON_KEY));
+}
+function setChatStatus(on,txt){
+  const d=document.getElementById('chatStatus');
+  d.classList.toggle('on',on); d.classList.toggle('off',!on);
+  document.getElementById('chatStatusTxt').textContent=txt;
+}
+function appendMsg(nick,body,ts){
+  const log=document.getElementById('chatLog'); const d=document.createElement('div'); d.className='chatMsg';
+  const t=ts? new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  d.innerHTML=`<span class="nk">${esc(nick)}</span>${esc(body)}${t?`<span class="ts">${t}</span>`:''}`;
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function appendSys(txt){
+  const log=document.getElementById('chatLog'); const d=document.createElement('div'); d.className='chatMsg sys';
+  d.textContent=txt; log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+async function joinChat(){
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY){ toast('Online chat is not connected yet.'); return; }
+  const nick=(document.getElementById('onNick').value||'').trim().slice(0,20) || ('Wanderer'+Math.floor(Math.random()*1000));
+  localStorage.setItem('backrooms_nick', nick);
+  document.getElementById('online').classList.add('hide');
+  document.getElementById('chatRoom').classList.add('show');
+  document.getElementById('chatLog').innerHTML='';
+  document.getElementById('chatSend').disabled=true;
+  setChatStatus(false,'connecting…');
+  try{
+    await loadSupabaseSDK();
+    if(!sb) sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    chatClientId = chatClientId || (Math.random().toString(36).slice(2)+Date.now().toString(36));
+    const {data,error}=await sb.from('chat_messages').select('*').order('created_at',{ascending:false}).limit(50);
+    if(!error && data) data.reverse().forEach(m=>appendMsg(m.nickname,m.body,m.created_at));
+    chatChannel=sb.channel('public:chat_messages')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages'}, payload=>{
+        appendMsg(payload.new.nickname, payload.new.body, payload.new.created_at);
+      }).subscribe(status=>{ if(status==='SUBSCRIBED'){ setChatStatus(true,'live'); document.getElementById('chatSend').disabled=false; } });
+    presenceChannel=sb.channel('presence:lobby',{config:{presence:{key:chatClientId}}});
+    presenceChannel.on('presence',{event:'sync'},()=>{
+      const n=Object.keys(presenceChannel.presenceState()).length;
+      document.getElementById('chatCount').textContent=n+' online';
+    }).subscribe(async status=>{ if(status==='SUBSCRIBED') await presenceChannel.track({nickname:nick}); });
+    appendSys(nick+' joined the channel');
+  }catch(e){ setChatStatus(false,'offline'); toast('Could not reach the chat server.'); }
+}
+async function sendChat(){
+  const input=document.getElementById('chatInput'); const body=input.value.trim();
+  if(!body || !sb) return;
+  const now=performance.now(); if(now-lastSendAt<1200) return;   // flood guard (protects the DB quota, not content)
+  lastSendAt=now; input.value='';
+  const nick=localStorage.getItem('backrooms_nick')||'Wanderer';
+  const {error}=await sb.from('chat_messages').insert({nickname:nick, body:body.slice(0,300)});
+  if(error) appendSys('message failed to send');
+}
+function disconnectChat(){
+  if(sb){ if(chatChannel){ sb.removeChannel(chatChannel); } if(presenceChannel){ sb.removeChannel(presenceChannel); } }
+  chatChannel=null; presenceChannel=null;
+}
+function leaveChat(){ disconnectChat(); document.getElementById('chatRoom').classList.remove('show'); showStart(); }
 
 /* ---------------------------------------------------------------- loop */
 function tick(){
@@ -1353,6 +1528,17 @@ document.getElementById('levelsBack').addEventListener('click', showStart);
 document.getElementById('threatBtn').addEventListener('click', openThreat);
 document.getElementById('threatBack').addEventListener('click', showStart);
 document.getElementById('winMenuBtn').addEventListener('click', showStart);
+document.getElementById('warnBtn').addEventListener('click',()=>{
+  document.getElementById('warning').classList.add('hide');
+  document.getElementById('start').classList.remove('hide');
+});
+document.getElementById('onlineBtn').addEventListener('click', openOnline);
+document.getElementById('onlineBack').addEventListener('click', showStart);
+document.getElementById('onJoinBtn').addEventListener('click', joinChat);
+document.getElementById('onNick').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); joinChat(); } });
+document.getElementById('chatLeave').addEventListener('click', leaveChat);
+document.getElementById('chatSend').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); } });
 tick();
 </script>
 </body>
