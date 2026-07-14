@@ -81,6 +81,7 @@
     border:1px solid #6b6337; border-radius:11px; background:rgba(201,178,74,.06); color:#cabf86;
     cursor:pointer; pointer-events:auto; }
   .btn2:active{ transform:translateY(1px); background:rgba(201,178,74,.16); }
+  .menuRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   #levelsList{ margin-top:18px; width:min(420px,calc(100vw - 40px)); display:flex; flex-direction:column; gap:10px; }
   .lvBtn{ display:flex; align-items:center; gap:12px; text-align:left; padding:14px 18px; cursor:pointer;
     pointer-events:auto; border:1px solid #6b6337; border-radius:12px; background:rgba(201,178,74,.08); color:#f0e6a8; }
@@ -90,6 +91,28 @@
   .lvBtn .lvGo{ color:var(--amber); font-size:16px; }
   .lvEmpty{ margin-top:18px; max-width:420px; font-size:14px; line-height:1.7; color:#9a916a; }
   .lvEmpty b{ color:var(--amber); }
+  /* wiki-style threat classification cards */
+  #threatList{ margin-top:18px; width:min(560px,calc(100vw - 32px)); display:flex; flex-direction:column; gap:16px; }
+  .tcard{ position:relative; border:3px solid #23200f; border-radius:3px; background-color:#d7cf6c;
+    background-image:repeating-linear-gradient(45deg, rgba(35,32,15,.11) 0 2px, transparent 2px 22px),
+      repeating-linear-gradient(-45deg, rgba(35,32,15,.11) 0 2px, transparent 2px 22px);
+    box-shadow:0 8px 22px rgba(0,0,0,.45); overflow:visible;
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; text-align:left; }
+  .tcard .tc-head{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 100px 10px 14px; border-bottom:3px solid #23200f; }
+  .tcard .tc-head b{ font-size:17px; color:#1c1908; letter-spacing:.2px; }
+  .tcard .tc-body{ padding:12px 16px 16px; }
+  .tcard .tc-trait{ display:flex; align-items:baseline; gap:8px; color:#221f0e; font-weight:700; font-size:14.5px; padding:3px 0; }
+  .tcard .tc-trait .chev{ color:#221f0e; font-weight:900; }
+  .tc-hex{ position:absolute; top:50%; right:14px; transform:translateY(-50%); width:80px; height:90px; }
+  .tc-hex svg{ display:block; width:100%; height:100%; overflow:visible; }
+  .tcard.locked{ background:#2a2717; }
+  .tcard.locked .tc-head{ border-color:#4a4426; }
+  .tcard.locked .tc-head b{ color:#8a8258; }
+  .tcard.locked .tc-body{ color:#6b6642; font-size:13px; font-style:italic; padding:14px 16px 16px; }
+  .tcard.locked .tc-hex{ background:#2a2717; border-color:#4a4426; }
+  .tcard.locked .tc-hex .num{ color:#5a5636; }
+  .tcard.locked .tc-hex .ring{ border-color:#4a4426; }
   .ctrls{ margin-top:22px; font-size:12px; color:#8f875f; line-height:1.9; letter-spacing:.4px; }
   .ctrls kbd{ background:#26220f; border:1px solid #4a4320; border-radius:5px; padding:1px 7px; color:#d8cf9a; font-size:11px; }
   .stats{ margin-top:16px; font-size:14px; color:#cbc39a; line-height:1.9; }
@@ -161,7 +184,10 @@
     Keep your <b>sanity</b> up, find an <b>exit</b>, and pray it doesn't find you first.
   </div>
   <button class="btn" id="playBtn">ENTER</button>
-  <button class="btn2" id="levelsBtn">LEVELS</button>
+  <div class="menuRow">
+    <button class="btn2" id="levelsBtn">LEVELS</button>
+    <button class="btn2" id="threatBtn">THREAT INDEX</button>
+  </div>
   <div class="ctrls" id="ctrlsDesk">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
@@ -173,6 +199,14 @@
   <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">LEVELS</h1>
   <div id="levelsList"></div>
   <button class="btn2" id="levelsBack">BACK</button>
+</div>
+
+<!-- Threat index (wiki-style classification cards) -->
+<div id="threat" class="screen hide">
+  <div class="sub">Field Classification</div>
+  <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">THREAT INDEX</h1>
+  <div id="threatList"></div>
+  <button class="btn2" id="threatBack">BACK</button>
 </div>
 
 <!-- Killing-blow blackout -->
@@ -258,9 +292,16 @@ let pendingEntity = false; // spawn requested before the model finished loading
 
 // levels: 0 = infinite procedural Lobby, 1 = Habitable Zone (GLB)
 const LEVELS = [{n:'Level 0', t:'The Lobby'}, {n:'Level 1', t:'Habitable Zone'}];
+const THREAT = [
+  { cls:'3', traits:['Unstable','Entity Presence Confirmed','Severe Sanity Hazard'] },
+  { cls:'2', traits:['Semi-Stable','Entity Presence Confirmed','Breathable Atmosphere'] },
+];
 let completed = loadCompleted();      // Set of level indices the player has escaped
 function loadCompleted(){ try{ return new Set(JSON.parse(localStorage.getItem('backrooms_completed')||'[]')); }catch(e){ return new Set(); } }
 function markComplete(i){ completed.add(i); try{ localStorage.setItem('backrooms_completed', JSON.stringify([...completed])); }catch(e){} }
+let discovered = loadDiscovered();    // Set of level indices the player has set foot in (0 is always known)
+function loadDiscovered(){ try{ const s=new Set(JSON.parse(localStorage.getItem('backrooms_discovered')||'[]')); s.add(0); return s; }catch(e){ return new Set([0]); } }
+function markDiscovered(i){ discovered.add(i); try{ localStorage.setItem('backrooms_discovered', JSON.stringify([...discovered])); }catch(e){} }
 let level = 0;
 let fogFarBase = FOG_FAR;
 let l1Model = null, l1Ready = false, l1FloorY = 0, l1Half = 26, l1Exit = null;
@@ -1038,7 +1079,7 @@ function applyAtmosphere(lv){
 function enterLevel1(){
   if(transitioning) return;
   if(!l1Ready){ pendingLevel1=true; toast('The floor gives way…'); return; }
-  markComplete(0);   // escaping the Lobby completes Level 0
+  markComplete(0); markDiscovered(1);   // escaping the Lobby completes Level 0 and reveals Level 1
   transitioning=true; running=false; audio.setGrowl(0);
   if(locked) document.exitPointerLock();
   for(const key of [...chunks.keys()]) unloadChunk(key);
@@ -1066,7 +1107,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['win','levels','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','threat','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('gameover').classList.remove('show');
   document.getElementById('blackout').style.opacity='0';
   document.getElementById('dread').style.opacity='0';
@@ -1088,6 +1129,24 @@ function renderLevels(){
   if(!done.length){ list.innerHTML='<div class="lvEmpty">No levels completed yet.<br>Escape a level and it appears here to replay.</div>'; return; }
   list.innerHTML=done.map(i=>`<button class="lvBtn" data-lvl="${i}"><span class="lvNum">${LEVELS[i].n}</span><span class="lvName">${LEVELS[i].t}</span><span class="lvGo">▶</span></button>`).join('');
   list.querySelectorAll('.lvBtn').forEach(b=>b.addEventListener('click',()=>startAtLevel(+b.dataset.lvl)));
+}
+function openThreat(){
+  renderThreat();
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('threat').classList.remove('hide');
+}
+function renderThreat(){
+  const list=document.getElementById('threatList');
+  list.innerHTML=LEVELS.map((lv,i)=>{
+    if(!discovered.has(i)){
+      return `<div class="tcard locked"><div class="tc-head"><b>${lv.n} — Threat Index: ???</b></div><div class="tc-body">Not yet encountered. Reach this level to declassify its entry.</div></div>`;
+    }
+    const th=THREAT[i]||{cls:'?',traits:[]};
+    const hexSvg=`<svg viewBox="0 0 100 112"><polygon points="50,3 96,28 96,84 50,109 4,84 4,28" fill="#d7cf6c" stroke="#23200f" stroke-width="6" stroke-linejoin="round"/><circle cx="50" cy="56" r="27" fill="none" stroke="#3a3419" stroke-width="7"/><text x="50" y="60" text-anchor="middle" font-size="48" font-weight="900" fill="#1c1908" font-family="Georgia,'Times New Roman',serif">${th.cls}</text></svg>`;
+    return `<div class="tcard"><div class="tc-head"><b>${lv.n} — "${lv.t}"<br><span style="font-size:13px;font-weight:700">Threat Index: Class ${th.cls}</span></b></div>
+      <div class="tc-body">${th.traits.map(t=>`<div class="tc-trait"><span class="chev">&raquo;</span>${t}</div>`).join('')}</div>
+      <div class="tc-hex">${hexSvg}</div></div>`;
+  }).join('');
 }
 function startAtLevel(idx){
   document.getElementById('levels').classList.add('hide');
@@ -1219,6 +1278,8 @@ document.getElementById('againBtn').addEventListener('click',()=>{ newGame(); })
 document.getElementById('lcBtn').addEventListener('click',()=>{ resumeFromCard(); if(!isTouch) renderer.domElement.requestPointerLock(); });
 document.getElementById('levelsBtn').addEventListener('click', openLevels);
 document.getElementById('levelsBack').addEventListener('click', showStart);
+document.getElementById('threatBtn').addEventListener('click', openThreat);
+document.getElementById('threatBack').addEventListener('click', showStart);
 document.getElementById('winMenuBtn').addEventListener('click', showStart);
 tick();
 </script>
