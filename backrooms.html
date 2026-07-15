@@ -321,6 +321,28 @@
   #gameover .go-btn.go-right{ left:auto; right:calc(env(safe-area-inset-right) + 5%); }
   #gameover .go-btn:hover{ background:rgba(255,255,255,.14); box-shadow:0 0 18px rgba(255,255,255,.35); }
   #gameover .go-btn:active{ transform:translateY(2px); }
+  /* -------------------------------------------------- 3PM intro cinematic + Level 4 */
+  #introCine{ position:fixed; inset:0; z-index:42; pointer-events:none; display:none; }
+  #introCine.show{ display:block; }
+  #introFade{ position:fixed; inset:0; background:#000; opacity:1; }
+  #introCaption{ position:fixed; left:0; right:0; bottom:9%; text-align:center; padding:0 8vw;
+    font-family:"Courier New",ui-monospace,monospace; font-size:clamp(14px,2.6vw,20px); line-height:1.6;
+    color:#f0e6a8; text-shadow:0 2px 10px #000, 0 0 20px rgba(0,0,0,.9); opacity:0; transition:opacity 1s ease; }
+  #introCaption.show{ opacity:1; }
+  #cineBanner{ position:fixed; left:0; right:0; top:calc(env(safe-area-inset-top) + 100px); text-align:center;
+    font-family:"Courier New",ui-monospace,monospace; font-size:clamp(13px,2.2vw,16px); color:#f0e6a8;
+    text-shadow:0 2px 8px #000; padding:0 8vw; opacity:0; transition:opacity .8s ease; z-index:31; pointer-events:none; }
+  #cineBanner.show{ opacity:1; }
+  #runBanner{ position:fixed; inset:0; z-index:33; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; opacity:0; transition:opacity .3s ease; }
+  #runBanner.show{ opacity:1; }
+  #runBanner span{ font-family:"Courier New",ui-monospace,monospace; font-weight:900; font-size:clamp(60px,16vw,160px);
+    color:#e0342a; letter-spacing:6px; text-shadow:0 0 20px rgba(224,52,42,.9), 0 0 60px rgba(224,52,42,.6); }
+  #toBeContinued{ position:fixed; inset:0; z-index:44; background:#000; display:none; align-items:center; justify-content:center; }
+  #toBeContinued.show{ display:flex; }
+  #toBeContinued span{ font-family:"Courier New",ui-monospace,monospace; font-weight:700; font-size:clamp(20px,4.4vw,34px);
+    color:#eae6cf; letter-spacing:2px; opacity:0; transition:opacity 1.6s ease; }
+  #toBeContinued.show span{ opacity:1; }
   /* compact layout for landscape phones (short viewport height) so nothing clips off-screen */
   @media (orientation:landscape) and (max-height:520px){
     .screen{ justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 14px); padding-bottom:14px; }
@@ -561,6 +583,12 @@
 <!-- Killing-blow blackout -->
 <div id="blackout"></div>
 
+<!-- 3PM intro cinematic + Level 4 overlays -->
+<div id="introCine"><div id="introFade"></div><div id="introCaption"></div></div>
+<div id="cineBanner"></div>
+<div id="runBanner"><span>RUN</span></div>
+<div id="toBeContinued"><span>to be continued...</span></div>
+
 <!-- Game Over screen -->
 <div id="gameover">
   <div class="go-title">Game Over</div>
@@ -660,12 +688,14 @@ let pendingEntity = false; // spawn requested before the model finished loading
 // since the model is a skinned rig and plain Object3D.clone() doesn't rebind skeletons correctly)
 let chasers = [];   // {obj, x, z, foot, faceYaw}
 
-// levels: 0 = infinite procedural Lobby, 1 = Habitable Zone (GLB), 2 = Backstage of Reality (GLB, run/chase)
-const LEVELS = [{n:'Level 0', t:'The Lobby'}, {n:'Level 1', t:'Habitable Zone'}, {n:'Level 2', t:'Backstage of Reality'}];
+// levels: 0 = infinite procedural Lobby, 1 = Habitable Zone (GLB), 2 = Backstage of Reality (GLB, run/chase),
+// 3 = Endless Road (displayed as "Level 4" — reached through the portal that appears after the 3PM event)
+const LEVELS = [{n:'Level 0', t:'The Lobby'}, {n:'Level 1', t:'Habitable Zone'}, {n:'Level 2', t:'Backstage of Reality'}, {n:'Level 4', t:'Endless Road'}];
 const THREAT = [
   { cls:'3', traits:['Unstable','Entity Presence Confirmed','Severe Sanity Hazard'] },
   { cls:'2', traits:['Semi-Stable','Entity Presence Confirmed','Breathable Atmosphere'] },
   { cls:'6', traits:['Extremely Hostile','Multiple Entities Confirmed','No Known Safe Rooms — Do Not Stop'] },
+  { cls:'?', traits:['Non-Euclidean','No Known Exit','Do Not Stop Moving'] },
 ];
 let completed = loadCompleted();      // Set of level indices the player has escaped
 function loadCompleted(){ try{ return new Set(JSON.parse(localStorage.getItem('backrooms_completed')||'[]')); }catch(e){ return new Set(); } }
@@ -685,6 +715,18 @@ let l2Group = null, l2Ready = false, l2Loading = false, l2Exit = null;
 let l2Bounds = { minX:-217, maxX:229, minZ:-384, maxZ:416 };   // real (non-outlier) map extent, safety clamp
 const L2_SPAWN = { x:-206.8, z:-201.1 }, L2_EXIT = { x:-206.8, z:-67.5 };  // verified-walkable corridor run
 let pendingLevel2 = false;
+
+// level 3 "Endless Road" (shown as "Level 4") — straight dark road, flashlight, timed wall chase
+let l3Group = null, l3T = 0, l3Phase = 'calm', wallZ = 0, wallObj = null, flashlight = null;
+let holeObj = null, holeTriggered = false, holeUsed = false;
+const L3_WIDTH = 4.2, L3_LEN = 700, L3_WALL_SPEED = 5.1, L3_RUN_AT = 20, L3_HOLE_AT = 60;
+const PORTAL_POS = { x: CELL/2 + 3.4, z: CELL/2 + 3.4 };   // inside Level 0's guaranteed-open spawn safe-zone
+let portalSpawned = false, portalObj = null;
+
+// 3PM event: a one-time cinematic (played once per browser) + the portal it unlocks permanently afterward
+const EVENT_TARGET = new Date(2026,6,15,15,0,0).getTime();
+function eventPassed(){ return Date.now() >= EVENT_TARGET; }
+let cineActive = false, cineRunningBefore = false, cineVisibleScreen = null;
 
 // death cinematic (entity catch) + game over
 let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0, lastDeathByEntity = false;
@@ -1029,7 +1071,7 @@ function loadLevel1(){
 function curRaycastModel(){ return level===1 ? l1Model : level===2 ? l2Group : null; }
 let l2LastFloorY=1.3;   // level 2's floor height varies across the map, unlike level 1's flat room
 function floorAt(x,z){
-  if(level===0) return 0;
+  if(level===0 || level===3) return 0;   // level 3 "Endless Road" is a flat strip, same as level 0's floor
   if(level===1) return l1FloorY;
   // level 2: live downward raycast (uneven multi-structure map); fall back to last-known on a miss
   raycaster.set(_ro.set(x,l2LastFloorY+20,z), _rd.set(0,-1,0)); raycaster.far=40;
@@ -1039,6 +1081,7 @@ function floorAt(x,z){
 }
 function collideLevel(x,z,r){
   if(level===0) return collide(x,z,r);
+  if(level===3) return [Math.max(-L3_WIDTH/2+r, Math.min(L3_WIDTH/2-r, x)), z];   // just clamp to the road's width
   const m=curRaycastModel(); if(!m) return [x,z];
   const y=floorAt(x,z)+1.1;
   for(let iter=0; iter<2; iter++){
@@ -1056,6 +1099,7 @@ function collideLevel(x,z,r){
 }
 function losClear(x0,z0,x1,z1){
   if(level===0) return lineClear(x0,z0,x1,z1);
+  if(level===3) return true;   // no maze walls to block line of sight on the road
   const m=curRaycastModel(); if(!m) return true;
   const y=floorAt(x0,z0)+1.3; _rd.set(x1-x0,0,z1-z0); const len=_rd.length()||0.001; _rd.multiplyScalar(1/len);
   raycaster.set(_ro.set(x0,y,z0), _rd); raycaster.far=len;
@@ -1119,6 +1163,145 @@ function loadLevel2(){
     console.warn('level 2 model failed to load', e); l2Loading=false;
     if(pendingLevel2){ pendingLevel2=false; document.getElementById('loadcard').classList.add('hide'); showStart(); toast('Could not load Level 2 — check your connection and try again.'); }
   });
+}
+
+/* ------------------------------------------------ level 3 "Endless Road" (shown as "Level 4")
+   A straight, flat, unbranching road — much simpler than Level 0/1/2's real geometry, on purpose:
+   this is a fixed 80s scripted setpiece (calm -> RUN -> hole), not another explorable level. */
+function buildLevel3Road(){
+  const grp=new THREE.Group();
+  const road=new THREE.Mesh(
+    (()=>{ const g=new THREE.PlaneGeometry(L3_WIDTH,L3_LEN); g.rotateX(-Math.PI/2); return g; })(),
+    new THREE.MeshLambertMaterial({color:0x121218}));
+  road.position.set(0,0,-L3_LEN/2+8); grp.add(road);
+  const line=new THREE.Mesh(
+    (()=>{ const g=new THREE.PlaneGeometry(0.12,L3_LEN); g.rotateX(-Math.PI/2); return g; })(),
+    new THREE.MeshBasicMaterial({color:0x3c3c46}));
+  line.position.set(0,0.01,-L3_LEN/2+8); grp.add(line);
+  return grp;
+}
+function makeWallMesh(){
+  return new THREE.Mesh(
+    new THREE.BoxGeometry(L3_WIDTH+3, 9, 1.6),
+    new THREE.MeshStandardMaterial({color:0x030303, roughness:1, emissive:0x2a0000, emissiveIntensity:0.7}));
+}
+function makeHoleMesh(){
+  const g=new THREE.CircleGeometry(1.3,28); g.rotateX(-Math.PI/2);
+  const m=new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:0x000000}));
+  m.position.y=0.02; return m;
+}
+// Level 0's portal -> Endless Road. Only spawned in Level 0 (see maybeSpawnPortal) since that's the
+// one place we can guarantee an open, walkable spot without live-testing the Level 1/2 GLB meshes.
+function maybeSpawnPortal(){
+  if(portalSpawned || level!==0 || !eventPassed()) return;
+  portalObj=makeExit();   // reuse the exit-frame visual, just recoloured/relabelled below
+  portalObj.traverse(o=>{ if(o.material && o.material.color) o.material.color.setHex(0x1a0d24); });
+  if(portalObj.userData.sign){
+    const c=document.createElement('canvas'); c.width=c.height=128; const cx=c.getContext('2d');
+    cx.fillStyle='#0a0414'; cx.fillRect(0,0,128,128);
+    cx.fillStyle='#b98ef2'; cx.shadowColor='#b98ef2'; cx.shadowBlur=18; cx.font='bold 30px Arial';
+    cx.textAlign='center'; cx.textBaseline='middle'; cx.fillText('PORTAL',64,64);
+    portalObj.userData.sign.material.map=new THREE.CanvasTexture(c);
+    portalObj.userData.sign.material.needsUpdate=true;
+  }
+  if(portalObj.userData.light) portalObj.userData.light.color.setHex(0xb98ef2);
+  portalObj.position.set(PORTAL_POS.x, 0, PORTAL_POS.z);
+  scene.add(portalObj);
+  pickups.push({mesh:portalObj, key:'portal', kind:'portal'});
+  portalSpawned=true;
+}
+function enterLevel3(){
+  if(transitioning) return;
+  transitioning=true; running=false; audio.setGrowl(0);
+  if(locked) document.exitPointerLock();
+  for(const key of [...chunks.keys()]) unloadChunk(key);
+  buildQueue.length=0; pickups.length=0; portalSpawned=false; portalObj=null;
+  if(entity){ scene.remove(entity.obj); entity=null; }
+  clearChasers(); clearBots();
+  level=3; applyAtmosphere(3);
+  if(!l3Group) l3Group=buildLevel3Road();
+  scene.add(l3Group);
+  player.x=0; player.z=0; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.floorY=0;
+  spawnOrigin={x:0,z:0};
+  l3T=0; l3Phase='calm'; wallZ=0; holeTriggered=false; holeUsed=false;
+  if(wallObj){ scene.remove(wallObj); wallObj=null; }
+  if(holeObj){ scene.remove(holeObj); holeObj=null; }
+  if(!flashlight){
+    flashlight=new THREE.SpotLight(0xfff6df, 6.5, 32, Math.PI/7.5, 0.45, 1.3);
+    flashlight.target=new THREE.Object3D();
+    scene.add(flashlight); scene.add(flashlight.target);
+  }
+  flashlight.visible=true;
+  markDiscovered(3);
+  document.getElementById('lcNum').textContent='Level 4';
+  document.getElementById('lcTitle').innerHTML='ENDLESS<br>ROAD';
+  document.getElementById('lcLore').innerHTML='The portal drops you onto a road that goes nowhere and everywhere — just your flashlight and the dark ahead. <b>Keep walking.</b>';
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('cross').classList.remove('show');
+  document.getElementById('touch').classList.remove('show');
+  document.getElementById('levelcard').classList.remove('hide');
+}
+function updateLevel3(dt){
+  localLight=0.35;   // dim but not pitch-black — flashlight does the actual seeing
+  l3T+=dt;
+  // flashlight follows the camera's look direction every frame
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  flashlight.position.set(player.x, player.floorY+EYE, player.z);
+  flashlight.target.position.set(player.x+fwdX*10, player.floorY+EYE-1, player.z+fwdZ*10);
+
+  if(l3Phase==='calm' && l3T>=L3_RUN_AT){
+    l3Phase='run';
+    wallZ=player.z+34;
+    wallObj=makeWallMesh(); wallObj.position.set(player.x,4.4,wallZ); scene.add(wallObj);
+    const bg=new THREE.Color(0x000000), red=new THREE.Color(0x3a0808);
+    let t=0; const dur=2.2;
+    (function lerpSky(){
+      t+=1/60; const u=Math.min(1,t/dur);
+      const c=bg.clone().lerp(red,u);
+      scene.background.copy(c); scene.fog.color.copy(c);
+      if(u<1) requestAnimationFrame(lerpSky);
+    })();
+    document.getElementById('runBanner').classList.add('show');
+    setTimeout(()=>document.getElementById('runBanner').classList.remove('show'), 1800);
+    audio.setGrowl(0.35);
+    toast("Something is coming. RUN.");
+  }
+  if(l3Phase==='run'){
+    wallZ -= L3_WALL_SPEED*dt;
+    if(wallObj) wallObj.position.set(player.x, 4.4, wallZ);
+    audio.setGrowl(Math.max(0.2, Math.min(0.9, 1-(wallZ-player.z)/34)));
+    if(wallZ <= player.z+1.2){ die("swallowed by the dark","GONE"); return; }
+  }
+  if(!holeTriggered && l3T>=L3_HOLE_AT){
+    holeTriggered=true;
+    holeObj=makeHoleMesh(); holeObj.position.set(player.x, 0.02, player.z-6); scene.add(holeObj);
+    toast("The road splits open ahead.");
+  }
+  if(holeTriggered && !holeUsed && holeObj){
+    const d=Math.hypot(holeObj.position.x-player.x, holeObj.position.z-player.z);
+    if(d<1.4){ holeUsed=true; endLevel3(); }
+  }
+}
+function endLevel3(){
+  running=false; audio.setGrowl(0);
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('cross').classList.remove('show');
+  document.getElementById('touch').classList.remove('show');
+  document.getElementById('blackout').style.opacity='1';
+  markComplete(3);
+  unlockAchievement('endlessroad');
+  setTimeout(()=>{
+    document.getElementById('toBeContinued').classList.add('show');
+  }, 900);
+  setTimeout(()=>{
+    document.getElementById('toBeContinued').classList.remove('show');
+    document.getElementById('blackout').style.opacity='0';
+    if(flashlight) flashlight.visible=false;
+    if(l3Group && l3Group.parent) scene.remove(l3Group);
+    if(wallObj){ scene.remove(wallObj); wallObj=null; }
+    if(holeObj){ scene.remove(holeObj); holeObj=null; }
+    showStart();
+  }, 5200);
 }
 
 /* -------------------------------------------- death cinematic (the catch) */
@@ -1208,6 +1391,7 @@ function gatherWalls(){ // {x,y,z, nx,nz, tx,tz, d} for nearby wall faces, neare
   return out;
 }
 function updateGuide(){
+  if(level===3){ for(const a of arrowPool) a.visible=false; return; }   // no maze/exit to point toward on the road
   if(elapsed-guideRefresh<0.1) return;       // ~10 Hz is plenty for static wall decals
   guideRefresh=elapsed;
   if(elapsed-guideT>0.4){ guideT=elapsed;
@@ -1612,6 +1796,12 @@ function newGame(){
   if(l1Exit){ scene.remove(l1Exit); l1Exit=null; }
   if(l2Group && l2Group.parent) scene.remove(l2Group);
   if(l2Exit){ scene.remove(l2Exit); l2Exit=null; }
+  if(l3Group && l3Group.parent) scene.remove(l3Group);
+  if(wallObj){ scene.remove(wallObj); wallObj=null; }
+  if(holeObj){ scene.remove(holeObj); holeObj=null; }
+  if(flashlight) flashlight.visible=false;
+  if(portalObj){ scene.remove(portalObj); portalObj=null; }
+  portalSpawned=false; l3T=0; l3Phase='calm'; holeTriggered=false; holeUsed=false;
   level=0; transitioning=false; pendingLevel1=false; pendingLevel2=false; applyAtmosphere(0);
   document.getElementById('levelcard').classList.add('hide');
   document.getElementById('obj').innerHTML='Follow the <b>black arrows</b> to the <b style="color:#8ec98e">EXIT</b>. Drink almond water. Don\'t stop moving.';
@@ -1622,6 +1812,7 @@ function newGame(){
 
   updateChunks(); processQueue(999);   // build initial rings synchronously
   spawnEntity();
+  maybeSpawnPortal();
 
   caught=false; catchBlack=false;
   document.getElementById('blackout').style.opacity='0';
@@ -1646,6 +1837,7 @@ function newGame(){
 const ACHIEVEMENTS = {
   firstdeath:   { icon:'&#128128;', title:'FIRST DEATH!', sub:'congrats on your first death!' },
   meetbacteria: { icon:'&#129440;', title:'MEET THE BACTERIA', sub:"you got killed by the entity bacteria! don't let him catch you next time!" },
+  endlessroad:  { icon:'&#128308;', title:'TO BE CONTINUED', sub:'you found the hole and jumped. the road is still out there.' },
 };
 let achQueue=[], achShowing=false;
 function unlockAchievement(key){
@@ -1715,12 +1907,19 @@ function applyAtmosphere(lv){
     ambient.color.setHex(0x2b3138); ambient.intensity=0.9;
     hemi.color.setHex(0xb3bec9); hemi.groundColor.setHex(0x20252b); hemi.intensity=0.75;
     fillLight.color.setHex(0xbcc6d2);
-  } else {
+  } else if(lv===2){
     // harsher, redder emergency-light tone; tighter fog so the chase feels close
     scene.background.setHex(0x120806); scene.fog.color.setHex(0x120806); scene.fog.near=2.5; fogFarBase=26;
     ambient.color.setHex(0x3a1f18); ambient.intensity=0.75;
     hemi.color.setHex(0xd98a6a); hemi.groundColor.setHex(0x1a0f0c); hemi.intensity=0.7;
     fillLight.color.setHex(0xe0a888);
+  } else {
+    // level 3 "Endless Road" — near-black, almost no ambient; the flashlight does the work
+    scene.background.setHex(0x000000); scene.fog.color.setHex(0x000000); scene.fog.near=2.0; fogFarBase=22;
+    ambient.color.setHex(0x0a0a0c); ambient.intensity=0.18;
+    hemi.color.setHex(0x1a1a20); hemi.groundColor.setHex(0x000000); hemi.intensity=0.15;
+    fillLight.color.setHex(0x9aa0aa);
+    for(const L of lightPool) L.intensity=0;
   }
 }
 // Level 0 exit -> descend into Level 1 (Habitable Zone)
@@ -1798,7 +1997,10 @@ function resumeFromCard(){
   document.getElementById('hud').classList.add('show');
   document.getElementById('cross').classList.toggle('show', !isTouch);
   if(isTouch) document.getElementById('touch').classList.add('show');
-  if(level===2){
+  if(level===3){
+    document.getElementById('obj').innerHTML='LEVEL 4 · Just keep walking. <b style="color:#8ec98e">Stay calm</b> — for now.';
+    toast('Level 4 — Endless Road');
+  } else if(level===2){
     document.getElementById('obj').innerHTML='LEVEL 2 · <b style="color:#e05a4a">RUN</b> — follow the arrows to the EXIT. Don\'t stop.';
     toast('Level 2 — Backstage of Reality');
   } else {
@@ -1882,11 +2084,12 @@ function startAtLevel(idx){
     if(l1Ready){ enterLevel1(); resumeFromCard(); }   // jump straight into Level 1
     else pendingLevel1=true;                          // model still loading -> transition on load
   }
-  if(idx>=2){
+  if(idx>=2 && idx<3){
     loadLevel2();                                     // make sure a fetch is in flight
     if(l2Ready){ enterLevel2(); resumeFromCard(); }
     else pendingLevel2=true;                          // asset still loading -> transition on load
   }
+  if(idx>=3){ enterLevel3(); resumeFromCard(); }       // Level 4 is self-contained, no asset to await
 }
 
 /* -------------------------------------------------------------- online chat
@@ -2107,7 +2310,8 @@ function leaveChat(){ disconnectChat(); document.getElementById('chatRoom').clas
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
-  if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); }
+  if(cineActive){ updateCine(dt); }
+  else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); }
   renderer.render(scene,camera);
 }
 
@@ -2123,9 +2327,13 @@ function update(dt){
   if(mag>1){ mx/=mag; mz/=mag; }
   const moving=mag>0.08;
 
-  const wantSprint = input.sprint && stamina>2 && moving;
+  const wantSprint = input.sprint && (stamina>2 || level===3) && moving;
   const speed = wantSprint ? 4.8 : 2.7;
-  if(wantSprint){ stamina=Math.max(0, stamina-24*dt); } else { stamina=Math.min(100, stamina+14*dt); }
+  // level 3's wall chase needs sustained sprinting for its full 40s — normal stamina limits (~4s bursts)
+  // would make it nearly unwinnable, so adrenaline overrides fatigue for this one scripted setpiece
+  if(level===3) stamina=100;
+  else if(wantSprint) stamina=Math.max(0, stamina-24*dt);
+  else stamina=Math.min(100, stamina+14*dt);
 
   // camera basis from yaw
   const sinY=Math.sin(player.yaw), cosY=Math.cos(player.yaw);
@@ -2150,18 +2358,21 @@ function update(dt){
 
   if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); if(botServerActive) updateBots(dt); }
   else if(level===1){ updateLightPoolL1(); updateEntity(dt); }
-  else { updateLightPoolL2(); updateChasers(dt); }
+  else if(level===2){ updateLightPoolL2(); updateChasers(dt); }
+  else { updateLevel3(dt); }
   updatePickups(dt);
   updateGuide();
 
-  // ---- sanity ----
+  // ---- sanity ---- (level 3 is a scripted setpiece — the wall is the only threat there, not sanity)
   const dark = localLight < 0.18;
-  let drain = 0.5 + (dark?2.6:0);
-  if(!moving) drain += 0.3;
-  if(entity && entity.state==='chase') drain += 1.4;
-  if(level===2 && chasers.length) drain += 1.6;   // constant pursuit, constant dread
-  sanity=Math.max(0, sanity - drain*dt);
-  if(sanity<=0){ die("your mind stayed behind","YOU BROKE"); return; }
+  if(level!==3){
+    let drain = 0.5 + (dark?2.6:0);
+    if(!moving) drain += 0.3;
+    if(entity && entity.state==='chase') drain += 1.4;
+    if(level===2 && chasers.length) drain += 1.6;   // constant pursuit, constant dread
+    sanity=Math.max(0, sanity - drain*dt);
+    if(sanity<=0){ die("your mind stayed behind","YOU BROKE"); return; }
+  }
 
   // occasional flicker zap when a near light is strobing
   if(localLight>0 && localLight<0.4 && Math.random()<0.02) audio.zap();
@@ -2193,6 +2404,10 @@ function updatePickups(dt){
       const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
       if(p.mesh.userData.light) p.mesh.userData.light.intensity = d<14 ? Math.max(0, 3-(d/14)*3) : 0;
       if(d<1.6){ if(level===0) enterLevel1(); else if(level===1) enterLevel2(); else winGame(); return; }
+    } else if(p.kind==='portal'){
+      const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
+      if(p.mesh.userData.light) p.mesh.userData.light.intensity = d<14 ? Math.max(0, 3-(d/14)*3) : 0;
+      if(d<1.6){ pickups.splice(i,1); enterLevel3(); return; }
     }
   }
 }
@@ -2216,6 +2431,129 @@ function updateHUD(){
   const t=Math.max(0,elapsed), hh=Math.floor(t/3600), mm=Math.floor((t%3600)/60), ss=Math.floor(t%60), ff=Math.floor((t%1)*30);
   const p2=n=>('0'+n).slice(-2);
   document.getElementById('tcode').textContent=p2(hh)+':'+p2(mm)+':'+p2(ss)+':'+p2(ff);
+}
+
+/* ---------------------------------------------------------------- 3PM intro cinematic
+   Plays once per browser, the moment the countdown reaches zero (or on the first load
+   afterward). Reuses whichever level assets happen to be loaded — it never tears down or
+   rebuilds real gameplay state, only borrows the camera and scene for ~19 seconds. */
+const CINE_LORE = [
+  'Long ago, the Backrooms was just nothing but darkness. But all of that changed when a man named "Clark" fell in.',
+  'Clark had nowhere to go, so he just kept walking through the Backrooms, alone. But one day, he got killed by an unknown entity.',
+  'Now, the Backrooms waits for another victim to kill.'
+];
+const CINE_SHOT_DUR=6.2, CINE_FADE=0.8;
+let cineT=0, cineShot=0, cineShotElapsed=0, cineCam={sx:0,y:0.3,sz:0,ex:0,ez:0};
+let cineL1WasAttached=false, cineL2WasAttached=false;
+
+function cineFloorY(model,x,z,fallback){
+  raycaster.set(_ro.set(x,fallback+20,z), _rd.set(0,-1,0)); raycaster.far=40;
+  const hits=raycaster.intersectObject(model,true);
+  return hits.length ? hits[0].point.y : fallback;
+}
+function setupCineShot(idx){
+  if(idx===0){
+    updateChunks(); processQueue(999);
+    applyAtmosphere(0);
+    cineCam={sx:-4.2, y:0.32, sz:CELL*1.5, ex:4.2, ez:CELL*1.5};
+  } else if(idx===1){
+    if(l1Ready){
+      if(l1Model.parent!==scene) scene.add(l1Model);
+      applyAtmosphere(1);
+      cineCam={sx:-4.2, y:cineFloorY(l1Model,0,0,l1FloorY||0)+0.34, sz:0, ex:4.2, ez:0};
+    } else {
+      applyAtmosphere(1);
+      cineCam={sx:-4.2, y:0.32, sz:CELL*1.5, ex:4.2, ez:CELL*1.5};
+    }
+  } else {
+    if(l2Ready){
+      if(l2Group.parent!==scene) scene.add(l2Group);
+      applyAtmosphere(2);
+      cineCam={sx:L2_SPAWN.x-4.2, y:cineFloorY(l2Group,L2_SPAWN.x,L2_SPAWN.z,1.3)+0.34, sz:L2_SPAWN.z, ex:L2_SPAWN.x+4.2, ez:L2_SPAWN.z};
+    } else {
+      applyAtmosphere(2);   // reddish, harsher tone even though the geometry on screen is still Level 0's
+      cineCam={sx:-4.2, y:0.32, sz:CELL*1.5, ex:4.2, ez:CELL*1.5};
+    }
+  }
+}
+function updateCine(dt){
+  cineT+=dt; cineShotElapsed+=dt;
+  const t=cineShotElapsed, dur=CINE_SHOT_DUR;
+  const fadeEl=document.getElementById('introFade'), capEl=document.getElementById('introCaption');
+
+  const u=Math.min(1,t/dur);
+  camera.position.set(cineCam.sx+(cineCam.ex-cineCam.sx)*u, cineCam.y, cineCam.sz+(cineCam.ez-cineCam.sz)*u);
+  camera.rotation.set(-0.28,0,0,'YXZ');
+  fillLight.position.copy(camera.position);
+
+  if(t<CINE_FADE) fadeEl.style.opacity=(1-t/CINE_FADE).toFixed(2);
+  else if(t>dur-CINE_FADE) fadeEl.style.opacity=Math.min(1,(t-(dur-CINE_FADE))/CINE_FADE).toFixed(2);
+  else fadeEl.style.opacity='0';
+
+  if(t>CINE_FADE+0.2 && t<dur-CINE_FADE-0.3){
+    if(capEl.textContent!==CINE_LORE[cineShot]) capEl.textContent=CINE_LORE[cineShot];
+    capEl.classList.add('show');
+  } else capEl.classList.remove('show');
+
+  if(t>=dur){
+    cineShot++;
+    if(cineShot<3){ cineShotElapsed=0; setupCineShot(cineShot); }
+    else finishCine();
+  }
+}
+function playIntroCutscene(){
+  if(cineActive) return;
+  cineActive=true;
+  cineRunningBefore=running;
+  cineVisibleScreen=document.querySelector('.screen:not(.hide)');
+  cineL1WasAttached=!!(l1Model && l1Model.parent===scene);
+  cineL2WasAttached=!!(l2Group && l2Group.parent===scene);
+  running=false;
+  if(locked) document.exitPointerLock();
+  for(const L of lightPool) L.intensity=0;
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('cross').classList.remove('show');
+  document.getElementById('touch').classList.remove('show');
+  document.getElementById('botChat').classList.add('hide');
+  document.getElementById('settingsBtn').classList.add('hide');
+  hideOnlineCount();
+  if(cineVisibleScreen) cineVisibleScreen.classList.add('hide');
+  document.getElementById('introFade').style.opacity='1';
+  document.getElementById('introCine').classList.add('show');
+  cineT=0; cineShot=0; cineShotElapsed=0;
+  setupCineShot(0);
+}
+function showCineBanner(){
+  const b=document.getElementById('cineBanner');
+  b.innerHTML='Find the <b style="color:#b98ef2">portal</b>. It leads to <b>Level 4 — Endless Road</b>.';
+  b.classList.add('show');
+  setTimeout(()=>b.classList.remove('show'), 7000);
+}
+function finishCine(){
+  cineActive=false;
+  document.getElementById('introCine').classList.remove('show');
+  document.getElementById('introCaption').classList.remove('show');
+  if(l1Model && l1Model.parent===scene && !cineL1WasAttached) scene.remove(l1Model);
+  if(l2Group && l2Group.parent===scene && !cineL2WasAttached) scene.remove(l2Group);
+  applyAtmosphere(level);   // restore the correct look for wherever the player actually is
+  document.getElementById('settingsBtn').classList.remove('hide');
+  if(cineRunningBefore){
+    running=true; clock.getDelta();
+    document.getElementById('hud').classList.add('show');
+    document.getElementById('cross').classList.toggle('show', !isTouch);
+    if(isTouch) document.getElementById('touch').classList.add('show');
+    maybeSpawnPortal();
+    showCineBanner();
+  } else if(cineVisibleScreen){
+    cineVisibleScreen.classList.remove('hide');
+  } else {
+    showStart();
+  }
+}
+function maybeStartIntroCutscene(){
+  if(!eventPassed()) return;
+  try{ if(localStorage.getItem('backrooms_intro_played')) return; localStorage.setItem('backrooms_intro_played','1'); }catch(e){}
+  playIntroCutscene();
 }
 
 /* ---------------------------------------------------------------- boot */
@@ -2282,11 +2620,10 @@ document.getElementById('botChatInput').addEventListener('keydown', e=>{
 
 /* ---------------------------------------------------------------- countdown */
 (function(){
-  const target=new Date(2026,6,15,15,0,0).getTime();   // today (2026-07-15) at 3:00 PM local time
   const elT=document.getElementById('cdTime'), elBox=document.getElementById('countdown');
   function tickCountdown(){
-    const rem=target-Date.now();
-    if(rem<=0){ elT.textContent='00:00:00'; elBox.classList.add('done'); return; }
+    const rem=EVENT_TARGET-Date.now();
+    if(rem<=0){ elT.textContent='00:00:00'; elBox.classList.add('done'); maybeStartIntroCutscene(); return; }
     const s=Math.floor(rem/1000), d=Math.floor(s/86400), h=Math.floor((s%86400)/3600), m=Math.floor((s%3600)/60), sec=s%60;
     const p2=n=>('0'+n).slice(-2);
     elT.textContent=(d>0?d+'d ':'')+p2(h)+':'+p2(m)+':'+p2(sec);
