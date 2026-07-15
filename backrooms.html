@@ -7,6 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0c0b04">
 <title>The Backrooms — Level 0</title>
+<link rel="icon" href="./backrooms-logo.png">
+<link rel="apple-touch-icon" href="./backrooms-logo.png">
 <style>
   :root{ --yellow:#c9b24a; --amber:#e7cf6a; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -91,6 +93,8 @@
     background:radial-gradient(ellipse at center, rgba(30,26,8,.94), rgba(6,5,1,.98)); }
   .screen.hide{ display:none; }
   .flick{ color:var(--yellow); text-shadow:0 0 22px rgba(201,178,74,.55); }
+  #logoImg{ width:220px; max-width:56vw; height:auto; margin:0 0 14px; border-radius:16px;
+    box-shadow:0 0 34px rgba(201,178,74,.35), 0 6px 18px rgba(0,0,0,.6); border:1px solid rgba(201,178,74,.35); }
   h1{ font-size:clamp(38px,11vw,82px); margin:0; font-weight:900; letter-spacing:3px; line-height:.98;
     color:#e9d873; text-shadow:0 0 30px rgba(201,178,74,.45), 0 3px 0 #4a3f14; animation:buzz 5s infinite; }
   @keyframes buzz{ 0%,97%,100%{opacity:1} 97.6%{opacity:.35} 98.2%{opacity:1} 98.5%{opacity:.5} 99%{opacity:1} }
@@ -222,6 +226,7 @@
   /* compact layout for landscape phones (short viewport height) so nothing clips off-screen */
   @media (orientation:landscape) and (max-height:520px){
     .screen{ justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 14px); padding-bottom:14px; }
+    #logoImg{ width:120px; margin-bottom:8px; }
     h1{ font-size:clamp(24px,6vw,42px); }
     .sub{ margin-top:5px; font-size:11px; }
     .lore{ margin:8px 0 2px; font-size:12.5px; line-height:1.5; max-width:640px; }
@@ -294,6 +299,7 @@
 
 <!-- Start screen -->
 <div id="start" class="screen hide">
+  <img src="./backrooms-logo.png" alt="The Backrooms logo" id="logoImg">
   <h1>THE<br>BACKROOMS</h1>
   <div class="sub">Level&nbsp;0 — “The&nbsp;Lobby”</div>
   <div class="lore">
