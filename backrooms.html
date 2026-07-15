@@ -371,7 +371,7 @@
 <div id="onlineCount" class="hide">
   <span id="onlineDot" class="onlineDot"></span>
   <span id="onlineCountVal">--</span>
-  <span class="onlineCountLabel">BOTS ONLINE</span>
+  <span class="onlineCountLabel">PLAYERS ONLINE</span>
 </div>
 
 <div id="achieveToast">
@@ -522,7 +522,6 @@
     <div class="lore">Pick a server to connect to.</div>
     <div id="serverList">
       <button class="svrBtn" id="svrBoyinBtn"><span class="svrDot"></span><span class="svrName">BOYINdev server</span><span class="svrGo">▶</span></button>
-      <button class="svrBtn" id="svrBotBtn"><span class="svrDot"></span><span class="svrName">Bot Server<br><span class="svrSub">no password — 31 bots online</span></span><span class="svrGo">▶</span></button>
     </div>
   </div>
 
@@ -1325,7 +1324,7 @@ function updateChasers(dt){
 
 /* -------------------------------------------------- bot server (Level 0) */
 let bots=[], botServerActive=false;
-const BOT_NAMES=['Wanderer_07','Pixel_Ghost','Yellow_Static','Lost_Kev','Moist_Carpet','No_Exit_99','Buzzin','Flicker_22','Hallway_Sam','Static_Nyx'];
+const BOT_NAMES=['Alex','Jordan','Sam','Riley','Taylor','Casey','Morgan','Jamie','Drew','Avery'];
 function makeBotNameSprite(name){
   const cnv=document.createElement('canvas'); cnv.width=256; cnv.height=64;
   const cx=cnv.getContext('2d');
@@ -1350,13 +1349,12 @@ function createBotAvatar(name,hue){
   g.add(makeBotNameSprite(name));
   return g;
 }
-function spawnBots(n){
+function spawnBots(names){
   clearBots();
-  for(let i=0;i<n;i++){
-    const name=BOT_NAMES[i%BOT_NAMES.length];
+  for(const name of names){
     const hue=Math.random();
     const obj=createBotAvatar(name,hue);
-    const ang=Math.random()*Math.PI*2, dist=4+Math.random()*10;
+    const ang=Math.random()*Math.PI*2, dist=3+Math.random()*5;
     const x=player.x+Math.sin(ang)*dist, z=player.z+Math.cos(ang)*dist;
     obj.position.set(x, floorAt(x,z), z);
     scene.add(obj);
@@ -2006,15 +2004,25 @@ function openOnline(){
   showServerStep();
   showOnlineCount();
 }
-function joinBotServer(){
+function joinBotServer(name){
   document.getElementById('online').classList.add('hide');
   hideOnlineCount();
   document.getElementById('botChatLog').innerHTML='';
   audio.ensure();
   newGame();
-  spawnBots(8);
+  spawnBots([name]);
   document.getElementById('botChat').classList.remove('hide');
-  appendBotMsg('Server', 'connected — 31 online, showing bots nearby.');
+  appendBotMsg('Server', 'connected to '+name+'’s server.');
+}
+function renderBotServers(){
+  const list=document.getElementById('serverList');
+  for(const name of BOT_NAMES){
+    const btn=document.createElement('button');
+    btn.className='svrBtn';
+    btn.innerHTML=`<span class="svrDot"></span><span class="svrName">${esc(name)}<br><span class="svrSub">no password</span></span><span class="svrGo">▶</span>`;
+    btn.addEventListener('click',()=>joinBotServer(name));
+    list.appendChild(btn);
+  }
 }
 function showServerStep(){
   document.getElementById('serverStep').classList.remove('hide');
@@ -2255,7 +2263,7 @@ connectAdminChannel();
 document.getElementById('onlineBtn').addEventListener('click', openOnline);
 document.getElementById('onlineBack').addEventListener('click', showStart);
 document.getElementById('svrBoyinBtn').addEventListener('click', showPassStep);
-document.getElementById('svrBotBtn').addEventListener('click', joinBotServer);
+renderBotServers();
 document.getElementById('svrPassBack').addEventListener('click', showServerStep);
 document.getElementById('svrPassBtn').addEventListener('click', tryServerPassword);
 document.getElementById('svrPass').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryServerPassword(); } });
