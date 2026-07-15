@@ -72,6 +72,23 @@
     text-shadow:0 1px 2px #000; max-width:80vw; text-align:center; }
   #toast.show{ opacity:1; }
 
+  /* ---- bot server chat overlay (in-game, non-blocking) ---- */
+  #botChat{ position:fixed; z-index:15; pointer-events:none;
+    left:calc(env(safe-area-inset-left) + 14px); bottom:calc(env(safe-area-inset-bottom) + 14px);
+    width:min(300px,calc(100vw - 28px)); flex-direction:column; gap:6px; }
+  #botChat:not(.hide){ display:flex; }
+  #botChatLog{ max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; pointer-events:auto; }
+  .botMsg{ background:rgba(8,7,2,.62); border:1px solid rgba(200,180,90,.2); border-radius:8px;
+    padding:6px 10px; font-size:12.5px; color:#e8e2c8; max-width:88%; }
+  .botMsg.self{ align-self:flex-end; background:rgba(201,178,74,.18); border-color:rgba(200,180,90,.35); }
+  .bmName{ font-weight:800; color:var(--amber); margin-right:6px; }
+  #botChatBar{ display:flex; gap:6px; pointer-events:auto; }
+  #botChatInput{ flex:1; min-width:0; background:#1c1a10; border:1px solid #4a4320; border-radius:8px; color:#f0e6a8;
+    padding:9px 12px; font-size:13px; font-family:inherit; outline:none; }
+  #botChatInput:focus{ border-color:var(--yellow); }
+  #botChatSend{ font-size:12px; font-weight:800; letter-spacing:1px; padding:9px 14px; border-radius:8px;
+    border:1px solid #b7a03f; background:rgba(201,178,74,.14); color:#f0e6a8; cursor:pointer; pointer-events:auto; font-family:inherit; }
+
   /* ---- mobile controls ---- */
   #touch{ position:fixed; inset:0; z-index:7; display:none; }
   #touch.show{ display:block; }
@@ -246,6 +263,7 @@
   .svrBtn:active{ background:rgba(201,178,74,.2); }
   .svrDot{ width:10px; height:10px; border-radius:50%; flex:none; background:#5cc95c; box-shadow:0 0 8px rgba(92,201,92,.8); }
   .svrName{ flex:1; font-size:16px; font-weight:800; }
+  .svrSub{ display:block; font-size:11px; font-weight:600; color:#9a916a; letter-spacing:.3px; margin-top:2px; }
   .svrGo{ color:var(--amber); font-size:16px; }
   #onNick, #svrPass{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
     color:#f0e6a8; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center; outline:none; pointer-events:auto; }
@@ -353,7 +371,7 @@
 <div id="onlineCount" class="hide">
   <span id="onlineDot" class="onlineDot"></span>
   <span id="onlineCountVal">--</span>
-  <span class="onlineCountLabel">ONLINE</span>
+  <span class="onlineCountLabel">BOTS ONLINE</span>
 </div>
 
 <div id="achieveToast">
@@ -400,6 +418,15 @@
 <div id="leaveProgress" class="hide">
   <div id="leaveBarTrack"><div id="leaveBarFill"></div></div>
   <div id="leavePctText">0%</div>
+</div>
+
+<!-- bot server chat, shown only while playing on the Bot Server -->
+<div id="botChat" class="hide">
+  <div id="botChatLog"></div>
+  <div id="botChatBar">
+    <input id="botChatInput" maxlength="200" placeholder="Say something…" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="botChatSend">SEND</button>
+  </div>
 </div>
 
 <!-- HUD (camcorder viewfinder) -->
@@ -495,6 +522,7 @@
     <div class="lore">Pick a server to connect to.</div>
     <div id="serverList">
       <button class="svrBtn" id="svrBoyinBtn"><span class="svrDot"></span><span class="svrName">BOYINdev server</span><span class="svrGo">▶</span></button>
+      <button class="svrBtn" id="svrBotBtn"><span class="svrDot"></span><span class="svrName">Bot Server<br><span class="svrSub">no password — 31 bots online</span></span><span class="svrGo">▶</span></button>
     </div>
   </div>
 
@@ -1295,6 +1323,95 @@ function updateChasers(dt){
   audio.setGrowl(Math.max(0,1-nearest/20));
 }
 
+/* -------------------------------------------------- bot server (Level 0) */
+let bots=[], botServerActive=false;
+const BOT_NAMES=['Wanderer_07','Pixel_Ghost','Yellow_Static','Lost_Kev','Moist_Carpet','No_Exit_99','Buzzin','Flicker_22','Hallway_Sam','Static_Nyx'];
+function makeBotNameSprite(name){
+  const cnv=document.createElement('canvas'); cnv.width=256; cnv.height=64;
+  const cx=cnv.getContext('2d');
+  cx.fillStyle='rgba(8,7,2,0.6)'; cx.fillRect(0,0,256,64);
+  cx.font='700 30px -apple-system,Segoe UI,Roboto,Arial,sans-serif';
+  cx.textAlign='center'; cx.textBaseline='middle'; cx.fillStyle='#f0e6a8';
+  cx.fillText(name,128,32);
+  const tex=new THREE.CanvasTexture(cnv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true}));
+  spr.scale.set(1.15,0.29,1); spr.position.y=1.55;
+  return spr;
+}
+function createBotAvatar(name,hue){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.26,0.85,4,8),
+    new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.45,0.42), roughness:0.85})
+  );
+  body.position.y=0.68; g.add(body);
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:0xfff4c2}));
+  eye.position.set(0,1.05,0.22); g.add(eye);
+  g.add(makeBotNameSprite(name));
+  return g;
+}
+function spawnBots(n){
+  clearBots();
+  for(let i=0;i<n;i++){
+    const name=BOT_NAMES[i%BOT_NAMES.length];
+    const hue=Math.random();
+    const obj=createBotAvatar(name,hue);
+    const ang=Math.random()*Math.PI*2, dist=4+Math.random()*10;
+    const x=player.x+Math.sin(ang)*dist, z=player.z+Math.cos(ang)*dist;
+    obj.position.set(x, floorAt(x,z), z);
+    scene.add(obj);
+    bots.push({obj, name, x, z, dir:Math.random()*Math.PI*2, turnT:1+Math.random()*2.5, speed:1.1+Math.random()*0.4});
+  }
+  botServerActive=true;
+}
+function clearBots(){ for(const b of bots) scene.remove(b.obj); bots.length=0; botServerActive=false; }
+function updateBots(dt){
+  for(const b of bots){
+    b.turnT-=dt;
+    if(b.turnT<=0){ b.dir += (Math.random()-0.5)*2.4; b.turnT=1+Math.random()*2.5; }
+    let nx=b.x+Math.sin(b.dir)*b.speed*dt, nz=b.z+Math.cos(b.dir)*b.speed*dt;
+    [nx,nz]=collideLevel(nx,nz,0.32);
+    if(Math.hypot(nx-player.x,nz-player.z) > 26){ b.dir=Math.atan2(player.x-b.x,player.z-b.z)+(Math.random()-0.5)*0.6; }
+    b.x=nx; b.z=nz;
+    b.obj.position.set(b.x, floorAt(b.x,b.z), b.z);
+    b.obj.rotation.y=b.dir;
+  }
+}
+const BOT_REPLIES=[
+  "...", "i hear you too.", "don't stop moving.", "the lights are buzzing again.",
+  "i've been here for hours.", "did you find an exit yet?", "shh. it's listening.",
+  "the carpet is always wet here.", "i think something followed you in.", "same yellow, different day.",
+  "keep your sanity up.", "i saw it near the vending machines.", "nod if you can hear the hum too.",
+];
+const BOT_GREETINGS=["hey.", "oh — hi.", "you're new here.", "finally, someone else."];
+const BOT_WARN=["run.", "get away from there.", "it's close.", "don't look behind you."];
+function pickFrom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function pickBotReply(msg){
+  const m=msg.toLowerCase();
+  if(/\b(hi|hey|hello|sup)\b/.test(m)) return pickFrom(BOT_GREETINGS);
+  if(/\b(entity|monster|run|help|scared|behind|danger)\b/.test(m)) return pickFrom(BOT_WARN);
+  return pickFrom(BOT_REPLIES);
+}
+function appendBotMsg(who,msg,self){
+  const log=document.getElementById('botChatLog');
+  const d=document.createElement('div'); d.className='botMsg'+(self?' self':'');
+  d.innerHTML=`<span class="bmName">${esc(who)}</span>${esc(msg)}`;
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function sendBotChat(){
+  const input=document.getElementById('botChatInput');
+  const msg=input.value.trim().slice(0,200);
+  if(!msg) return;
+  input.value='';
+  appendBotMsg('You', msg, true);
+  if(!bots.length) return;
+  const replyCount = Math.random()<0.35 ? 2 : 1;
+  const replying=[...bots].sort(()=>Math.random()-0.5).slice(0,replyCount);
+  replying.forEach((b,i)=>{
+    setTimeout(()=>appendBotMsg(b.name, pickBotReply(msg)), 500+Math.random()*1000+i*600);
+  });
+}
+
 /* ---------------------------------------------------------------- audio */
 const audio = (function(){
   let ctx=null, master=null, hum=null, growlGain=null, noiseBuf=null;
@@ -1372,6 +1489,7 @@ let locked=false;
 let settingsOpen=false;
 let lookSens=(function(){ const v=parseFloat(localStorage.getItem('backrooms_sens')); return (v>=0.5 && v<=2) ? v : 1; })();
 let shutdownActive=false;
+let botChatOpen=false;
 const isDev=(function(){
   try{
     if(new URLSearchParams(location.search).get('dev')==='1') localStorage.setItem('backrooms_dev','1');
@@ -1489,6 +1607,8 @@ function newGame(){
   buildQueue.length=0; pickups.length=0; collected.clear();
   if(entity){ scene.remove(entity.obj); entity=null; pendingEntity=false; }
   clearChasers();
+  clearBots();
+  document.getElementById('botChat').classList.add('hide');
   // reset to Level 0
   if(l1Model && l1Model.parent) scene.remove(l1Model);
   if(l1Exit){ scene.remove(l1Exit); l1Exit=null; }
@@ -1699,6 +1819,9 @@ function showStart(){
   document.getElementById('chatRoom').classList.remove('show');
   disconnectChat();
   clearChasers();
+  clearBots();
+  botChatOpen=false;
+  document.getElementById('botChat').classList.add('hide');
   document.getElementById('blackout').style.opacity='0';
   document.getElementById('dread').style.opacity='0';
   document.getElementById('hud').classList.remove('show');
@@ -1817,8 +1940,8 @@ async function connectPresence(nick){
 }
 function showOnlineCount(){
   document.getElementById('onlineCount').classList.remove('hide');
-  document.getElementById('onlineCountVal').textContent = (SUPABASE_URL && SUPABASE_ANON_KEY) ? '…' : '--';
-  connectPresence();
+  document.getElementById('onlineDot').classList.add('live');
+  document.getElementById('onlineCountVal').textContent = '31';
 }
 function hideOnlineCount(){
   document.getElementById('onlineCount').classList.add('hide');
@@ -1882,6 +2005,16 @@ function openOnline(){
   document.getElementById('onNoBackend').classList.toggle('hide', !!(SUPABASE_URL && SUPABASE_ANON_KEY));
   showServerStep();
   showOnlineCount();
+}
+function joinBotServer(){
+  document.getElementById('online').classList.add('hide');
+  hideOnlineCount();
+  document.getElementById('botChatLog').innerHTML='';
+  audio.ensure();
+  newGame();
+  spawnBots(8);
+  document.getElementById('botChat').classList.remove('hide');
+  appendBotMsg('Server', 'connected — 31 online, showing bots nearby.');
 }
 function showServerStep(){
   document.getElementById('serverStep').classList.remove('hide');
@@ -1966,7 +2099,7 @@ function leaveChat(){ disconnectChat(); document.getElementById('chatRoom').clas
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
-  if(running && !settingsOpen && !shutdownActive){ update(dt); }
+  if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); }
   renderer.render(scene,camera);
 }
 
@@ -2007,7 +2140,7 @@ function update(dt){
 
   maxDist=Math.max(maxDist, Math.hypot(player.x-spawnOrigin.x,player.z-spawnOrigin.z));
 
-  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); }
+  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); if(botServerActive) updateBots(dt); }
   else if(level===1){ updateLightPoolL1(); updateEntity(dt); }
   else { updateLightPoolL2(); updateChasers(dt); }
   updatePickups(dt);
@@ -2122,6 +2255,7 @@ connectAdminChannel();
 document.getElementById('onlineBtn').addEventListener('click', openOnline);
 document.getElementById('onlineBack').addEventListener('click', showStart);
 document.getElementById('svrBoyinBtn').addEventListener('click', showPassStep);
+document.getElementById('svrBotBtn').addEventListener('click', joinBotServer);
 document.getElementById('svrPassBack').addEventListener('click', showServerStep);
 document.getElementById('svrPassBtn').addEventListener('click', tryServerPassword);
 document.getElementById('svrPass').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryServerPassword(); } });
@@ -2130,6 +2264,13 @@ document.getElementById('onNick').addEventListener('keydown',e=>{ if(e.key==='En
 document.getElementById('chatLeave').addEventListener('click', leaveChat);
 document.getElementById('chatSend').addEventListener('click', sendChat);
 document.getElementById('chatInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); } });
+document.getElementById('botChatSend').addEventListener('click', sendBotChat);
+document.getElementById('botChatInput').addEventListener('focus', ()=>{ botChatOpen=true; if(locked) document.exitPointerLock(); });
+document.getElementById('botChatInput').addEventListener('blur', ()=>{ botChatOpen=false; });
+document.getElementById('botChatInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); sendBotChat(); }
+  else if(e.key==='Escape'){ e.preventDefault(); e.target.blur(); }
+});
 
 /* ---------------------------------------------------------------- countdown */
 (function(){
