@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wavelength">
+<meta name="theme-color" content="#121212">
+<link rel="manifest" href="music-manifest.json">
+<link rel="apple-touch-icon" href="music-icon-192.png">
+<link rel="icon" href="music-icon-192.png">
+<title>Wavelength — Music Player</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --panel:#121212; --panel2:#181818; --panel3:#222;
+    --line:#282828; --txt:#fff; --sub:#b3b3b3; --acc:#1db954; --acc2:#1ed760;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--txt);height:100%;
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overscroll-behavior:none}
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  header{padding:calc(env(safe-area-inset-top) + 14px) 16px 12px;background:linear-gradient(180deg,#181818,var(--bg));
+    position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:30px;height:30px;border-radius:50%;background:var(--acc);flex:none;display:flex;align-items:center;justify-content:center}
+  .logo svg{width:16px;height:16px;fill:#04140a}
+  h1{font-size:16px;margin:0;font-weight:800}
+  .searchWrap{margin-top:12px;position:relative}
+  .searchWrap input{width:100%;background:var(--panel3);border:none;border-radius:24px;color:var(--txt);
+    padding:11px 16px 11px 40px;font-size:15px;font-family:inherit;outline:none}
+  .searchWrap input:focus{outline:2px solid var(--acc)}
+  .searchWrap .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--sub);font-size:15px;pointer-events:none}
+  .tabs{display:flex;gap:8px;margin-top:12px}
+  .tab{flex:1;padding:8px;border-radius:20px;background:var(--panel3);border:none;
+    color:var(--sub);font-weight:700;font-size:13px;text-align:center;cursor:pointer}
+  .tab.on{background:var(--acc);color:#04140a}
+  main{padding:16px 16px 20px;max-width:680px;margin:0 auto}
+  .section-title{font-size:19px;font-weight:800;margin:8px 0 12px}
+  .hint{font-size:12px;color:var(--sub);line-height:1.5;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;margin-bottom:16px}
+  .hint b{color:var(--acc2)}
+  .genreGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+  .genreCard{border-radius:8px;padding:16px;font-weight:800;font-size:14px;cursor:pointer;color:#fff;
+    height:64px;display:flex;align-items:flex-end;position:relative;overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:8px 6px;border-radius:6px;cursor:pointer}
+  .row:hover, .row:active{background:var(--panel2)}
+  .row.playing{background:var(--panel3)}
+  .row .art{width:48px;height:48px;border-radius:4px;flex:none;background:var(--panel3);object-fit:cover}
+  .row .meta{flex:1;min-width:0}
+  .row .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row.playing .t{color:var(--acc2)}
+  .row .a{font-size:12.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .row .actions{display:flex;align-items:center;gap:14px;flex:none}
+  .heart{font-size:17px;color:var(--sub);cursor:pointer;line-height:1}
+  .heart.on{color:var(--acc)}
+  .dur{font-size:12px;color:var(--sub);width:34px;text-align:right}
+  .empty{color:var(--sub);font-size:13.5px;text-align:center;padding:40px 20px;line-height:1.6}
+  .spin{display:flex;justify-content:center;padding:30px}
+  .spin .c{width:24px;height:24px;border:3px solid var(--panel3);border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .player{position:fixed;left:0;right:0;bottom:0;background:#181818;border-top:1px solid var(--line);
+    padding:8px 12px calc(8px + env(safe-area-inset-bottom));z-index:30;display:none}
+  .player.show{display:block}
+  .pTop{display:flex;align-items:center;gap:10px}
+  .pTop .art{width:44px;height:44px;border-radius:4px;object-fit:cover;background:var(--panel3);flex:none}
+  .pTop .meta{flex:1;min-width:0}
+  .pTop .t{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pTop .a{font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ctrls{display:flex;align-items:center;gap:18px;flex:none}
+  .ctrls button{background:none;border:none;color:var(--txt);font-size:19px;cursor:pointer;padding:4px;line-height:1}
+  .ctrls .play{width:34px;height:34px;border-radius:50%;background:var(--txt);color:#000;display:flex;
+    align-items:center;justify-content:center;font-size:15px}
+  .seek{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .seek span{font-size:10.5px;color:var(--sub);width:30px;flex:none}
+  .seek span:last-child{text-align:right}
+  .seek input[type=range]{flex:1;accent-color:var(--acc);height:3px}
+  .previewNote{font-size:9.5px;color:var(--sub);text-align:center;margin-top:2px}
+
+  ::-webkit-scrollbar{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.5c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9zm1.2-2.7c-.2.3-.7.5-1 .3-2.9-1.8-7.3-2.3-10.7-1.3-.5.1-.9-.1-1-.6-.1-.5.1-.9.6-1 3.9-1.2 8.7-.6 12 1.4.3.2.4.7.1 1.2zm.1-2.8C14.3 8.9 8.8 8.7 5.6 9.7c-.5.2-1-.1-1.2-.6-.2-.5.1-1 .6-1.2 3.7-1.1 9.8-.9 13.6 1.4.4.3.6.9.3 1.3-.3.4-.9.5-1.3.3z"/></svg></div>
+    <h1>Wavelength</h1>
+  </div>
+  <div class="searchWrap">
+    <span class="ic">🔍</span>
+    <input id="searchInput" placeholder="Search any artist, song, or album" autocomplete="off">
+  </div>
+  <div class="tabs">
+    <button class="tab on" data-tab="home">Home</button>
+    <button class="tab" data-tab="search">Search Results</button>
+    <button class="tab" data-tab="liked">Liked Songs</button>
+  </div>
+</header>
+
+<main>
+  <div id="view-home">
+    <div class="hint"><b>How this works:</b> Wavelength searches Apple's public iTunes music catalog — every artist and song in it is available. For licensing reasons it plays official <b>30-second previews</b> (not full tracks), the same clips Apple provides for free without login. A true full-length player would require a paid streaming license/API (e.g. a Spotify Premium account via their Web Playback SDK).</div>
+    <div class="section-title">Browse artists</div>
+    <div class="genreGrid" id="genreGrid"></div>
+  </div>
+
+  <div id="view-search" style="display:none">
+    <div class="section-title" id="searchTitle">Search Results</div>
+    <div id="searchResults"><div class="empty">Type an artist, song, or album name above to search.</div></div>
+  </div>
+
+  <div id="view-liked" style="display:none">
+    <div class="section-title">Liked Songs</div>
+    <div id="likedResults"></div>
+  </div>
+</main>
+
+<div class="player" id="player">
+  <div class="pTop">
+    <img class="art" id="pArt" alt="">
+    <div class="meta">
+      <div class="t" id="pTitle">—</div>
+      <div class="a" id="pArtist">—</div>
+    </div>
+    <div class="ctrls">
+      <span class="heart" id="pHeart">♡</span>
+      <button id="pPrev">⏮</button>
+      <button class="play" id="pPlay">▶</button>
+      <button id="pNext">⏭</button>
+    </div>
+  </div>
+  <div class="seek">
+    <span id="pCur">0:00</span>
+    <input type="range" id="pSeek" min="0" max="30" step="0.1" value="0">
+    <span id="pDur">0:30</span>
+  </div>
+  <div class="previewNote">Playing 30-second preview via Apple iTunes</div>
+</div>
+
+<audio id="audio" preload="none"></audio>
+
+<script>
+(function(){
+  const audio = document.getElementById('audio');
+  const player = document.getElementById('player');
+  const LIKED_KEY = 'wavelength_liked_v1';
+
+  const ARTISTS = [
+    ['Taylor Swift','#8e44ad'], ['Drake','#1a1a1a'], ['The Weeknd','#c0392b'],
+    ['Bad Bunny','#16a085'], ['Beyoncé','#b8860b'], ['Ed Sheeran','#2c3e50'],
+    ['Dua Lipa','#d35400'], ['Kendrick Lamar','#27ae60'], ['Billie Eilish','#34495e'],
+    ['Bruno Mars','#e67e22'], ['Adele','#7f8c8d'], ['Rihanna','#c0392b']
+  ];
+
+  function loadLiked(){ try { return JSON.parse(localStorage.getItem(LIKED_KEY) || '{}'); } catch(e){ return {}; } }
+  function saveLiked(obj){ localStorage.setItem(LIKED_KEY, JSON.stringify(obj)); }
+  let liked = loadLiked();
+
+  function fmtTime(s){
+    if (!isFinite(s) || s < 0) s = 0;
+    const m = Math.floor(s/60), r = Math.floor(s%60);
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  function itunesSearch(term, extra){
+    extra = extra || '';
+    return new Promise((resolve, reject) => {
+      const cb = 'itunesCb_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
+      const script = document.createElement('script');
+      window[cb] = function(data){ resolve(data); cleanup(); };
+      script.onerror = function(){ reject(new Error('network error')); cleanup(); };
+      function cleanup(){ delete window[cb]; script.remove(); }
+      script.src = 'https://itunes.apple.com/search?media=music&entity=song&limit=30' +
+        '&term=' + encodeURIComponent(term) + extra + '&callback=' + cb;
+      document.body.appendChild(script);
+      setTimeout(() => { if (window[cb]) { reject(new Error('timeout')); cleanup(); } }, 12000);
+    });
+  }
+
+  function hiRes(url){ return url ? url.replace('100x100', '400x400') : ''; }
+
+  let queue = [];
+  let queueIndex = -1;
+
+  function trackRow(t, listEl){
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.id = t.trackId;
+    const isLiked = !!liked[t.trackId];
+    row.innerHTML =
+      '<img class="art" src="' + (t.artworkUrl100 || '') + '" loading="lazy">' +
+      '<div class="meta"><div class="t"></div><div class="a"></div></div>' +
+      '<div class="actions"><span class="heart' + (isLiked ? ' on' : '') + '">' + (isLiked ? '♥' : '♡') + '</span>' +
+      '<span class="dur">' + fmtTime((t.trackTimeMillis||30000)/1000) + '</span></div>';
+    row.querySelector('.t').textContent = t.trackName || 'Unknown';
+    row.querySelector('.a').textContent = (t.artistName || '') + (t.collectionName ? ' • ' + t.collectionName : '');
+    row.querySelector('.heart').addEventListener('click', function(e){
+      e.stopPropagation();
+      toggleLike(t, e.currentTarget);
+    });
+    row.addEventListener('click', function(){
+      const list = listEl.__tracks || [];
+      queue = list; queueIndex = list.findIndex(x => x.trackId === t.trackId);
+      playCurrent();
+    });
+    return row;
+  }
+
+  function renderList(container, tracks){
+    container.innerHTML = '';
+    container.__tracks = tracks;
+    if (!tracks.length){
+      container.innerHTML = '<div class="empty">No results found.</div>';
+      return;
+    }
+    tracks.forEach(t => container.appendChild(trackRow(t, container)));
+    highlightPlaying();
+  }
+
+  function toggleLike(t, heartEl){
+    if (liked[t.trackId]) { delete liked[t.trackId]; }
+    else { liked[t.trackId] = t; }
+    saveLiked(liked);
+    if (heartEl){
+      const on = !!liked[t.trackId];
+      heartEl.classList.toggle('on', on);
+      heartEl.textContent = on ? '♥' : '♡';
+    }
+    if (document.getElementById('view-liked').style.display !== 'none') renderLiked();
+    if (queue[queueIndex] && queue[queueIndex].trackId === t.trackId) updatePlayerHeart();
+  }
+
+  function renderLiked(){
+    const arr = Object.values(liked);
+    const el = document.getElementById('likedResults');
+    if (!arr.length){ el.innerHTML = '<div class="empty">Tap ♡ on any song to save it here.</div>'; el.__tracks = []; return; }
+    renderList(el, arr);
+  }
+
+  function highlightPlaying(){
+    document.querySelectorAll('.row').forEach(r => {
+      r.classList.toggle('playing', !!(queue[queueIndex] && String(queue[queueIndex].trackId) === r.dataset.id));
+    });
+  }
+
+  function updatePlayerHeart(){
+    const t = queue[queueIndex];
+    const h = document.getElementById('pHeart');
+    if (!t) return;
+    const on = !!liked[t.trackId];
+    h.classList.toggle('on', on);
+    h.textContent = on ? '♥' : '♡';
+  }
+
+  function playCurrent(){
+    const t = queue[queueIndex];
+    if (!t) return;
+    if (!t.previewUrl){
+      nextTrack();
+      return;
+    }
+    audio.src = t.previewUrl;
+    audio.play().catch(() => {});
+    document.getElementById('pArt').src = hiRes(t.artworkUrl100);
+    document.getElementById('pTitle').textContent = t.trackName || 'Unknown';
+    document.getElementById('pArtist').textContent = t.artistName || '';
+    updatePlayerHeart();
+    player.classList.add('show');
+    highlightPlaying();
+  }
+
+  function nextTrack(){
+    if (!queue.length) return;
+    queueIndex = (queueIndex + 1) % queue.length;
+    playCurrent();
+  }
+  function prevTrack(){
+    if (!queue.length) return;
+    queueIndex = (queueIndex - 1 + queue.length) % queue.length;
+    playCurrent();
+  }
+
+  document.getElementById('pPlay').addEventListener('click', function(){
+    if (audio.paused) audio.play().catch(()=>{}); else audio.pause();
+  });
+  document.getElementById('pNext').addEventListener('click', nextTrack);
+  document.getElementById('pPrev').addEventListener('click', prevTrack);
+  document.getElementById('pHeart').addEventListener('click', function(){
+    const t = queue[queueIndex];
+    if (t) toggleLike(t, this);
+  });
+
+  audio.addEventListener('play', () => { document.getElementById('pPlay').textContent = '⏸'; });
+  audio.addEventListener('pause', () => { document.getElementById('pPlay').textContent = '▶'; });
+  audio.addEventListener('ended', nextTrack);
+  audio.addEventListener('timeupdate', () => {
+    if (!isFinite(audio.duration)) return;
+    document.getElementById('pSeek').max = audio.duration;
+    document.getElementById('pSeek').value = audio.currentTime;
+    document.getElementById('pCur').textContent = fmtTime(audio.currentTime);
+    document.getElementById('pDur').textContent = fmtTime(audio.duration);
+  });
+  document.getElementById('pSeek').addEventListener('input', function(){
+    audio.currentTime = parseFloat(this.value);
+  });
+
+  let searchTimer = null;
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', function(){
+    clearTimeout(searchTimer);
+    const term = this.value.trim();
+    if (!term){
+      document.getElementById('searchResults').innerHTML = '<div class="empty">Type an artist, song, or album name above to search.</div>';
+      return;
+    }
+    switchTab('search');
+    document.getElementById('searchTitle').textContent = 'Results for "' + term + '"';
+    document.getElementById('searchResults').innerHTML = '<div class="spin"><div class="c"></div></div>';
+    searchTimer = setTimeout(() => runSearch(term), 400);
+  });
+
+  function runSearch(term){
+    itunesSearch(term).then(data => {
+      const tracks = (data.results || []).filter(t => t.previewUrl);
+      renderList(document.getElementById('searchResults'), tracks);
+    }).catch(() => {
+      document.getElementById('searchResults').innerHTML = '<div class="empty">Couldn\'t reach the music catalog. Check your connection and try again.</div>';
+    });
+  }
+
+  function switchTab(name){
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+    document.getElementById('view-home').style.display = name === 'home' ? '' : 'none';
+    document.getElementById('view-search').style.display = name === 'search' ? '' : 'none';
+    document.getElementById('view-liked').style.display = name === 'liked' ? '' : 'none';
+    if (name === 'liked') renderLiked();
+  }
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+  const grid = document.getElementById('genreGrid');
+  ARTISTS.forEach(([name, color]) => {
+    const card = document.createElement('div');
+    card.className = 'genreCard';
+    card.style.background = color;
+    card.textContent = name;
+    card.addEventListener('click', () => {
+      searchInput.value = name;
+      switchTab('search');
+      document.getElementById('searchTitle').textContent = 'Results for "' + name + '"';
+      document.getElementById('searchResults').innerHTML = '<div class="spin"><div class="c"></div></div>';
+      runSearch(name);
+    });
+    grid.appendChild(card);
+  });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+})();
+</script>
+</body>
+</html>
