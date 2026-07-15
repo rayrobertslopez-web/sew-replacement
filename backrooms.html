@@ -153,6 +153,16 @@
   #loadFill{ height:100%; width:0%; border-radius:6px; background:linear-gradient(90deg,#8e2b2b,#e05a4a 60%,#f28a7a);
     transition:width .2s linear; }
   #loadPct{ margin-top:10px; font-size:12px; letter-spacing:1.5px; color:#c98a80; }
+  /* persistent countdown, always shown top-left regardless of screen/game state */
+  #countdown{ position:fixed; z-index:30; pointer-events:none;
+    top:calc(env(safe-area-inset-top) + 46px); left:calc(env(safe-area-inset-left) + 14px);
+    display:flex; flex-direction:column; align-items:flex-start; gap:1px;
+    background:rgba(8,7,2,.55); border:1px solid rgba(200,180,90,.28); border-radius:8px;
+    padding:5px 10px; font-family:"Courier New",ui-monospace,monospace; }
+  #cdLabel{ font-size:9px; font-weight:800; letter-spacing:1.5px; color:#9a916a; }
+  #cdTime{ font-size:15px; font-weight:800; letter-spacing:1px; color:var(--amber);
+    text-shadow:0 0 8px rgba(249,176,0,.4); }
+  #countdown.done #cdTime{ color:#e05a4a; text-shadow:0 0 8px rgba(224,90,74,.5); }
   /* online chat */
   #onNick{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
     color:#f0e6a8; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center; outline:none; pointer-events:auto; }
@@ -236,6 +246,8 @@
 <div id="grain"></div>
 <div id="vig"></div>
 <div id="dread"></div>
+
+<div id="countdown"><span id="cdLabel">COUNTDOWN</span><span id="cdTime">--:--:--</span></div>
 
 <!-- HUD (camcorder viewfinder) -->
 <div id="hud">
@@ -1759,6 +1771,22 @@ document.getElementById('onNick').addEventListener('keydown',e=>{ if(e.key==='En
 document.getElementById('chatLeave').addEventListener('click', leaveChat);
 document.getElementById('chatSend').addEventListener('click', sendChat);
 document.getElementById('chatInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); } });
+
+/* ---------------------------------------------------------------- countdown */
+(function(){
+  const target=new Date(2026,6,15,15,0,0).getTime();   // today (2026-07-15) at 3:00 PM local time
+  const elT=document.getElementById('cdTime'), elBox=document.getElementById('countdown');
+  function tickCountdown(){
+    const rem=target-Date.now();
+    if(rem<=0){ elT.textContent='00:00:00'; elBox.classList.add('done'); return; }
+    const s=Math.floor(rem/1000), d=Math.floor(s/86400), h=Math.floor((s%86400)/3600), m=Math.floor((s%3600)/60), sec=s%60;
+    const p2=n=>('0'+n).slice(-2);
+    elT.textContent=(d>0?d+'d ':'')+p2(h)+':'+p2(m)+':'+p2(sec);
+  }
+  tickCountdown();
+  setInterval(tickCountdown,1000);
+})();
+
 tick();
 </script>
 </body>
