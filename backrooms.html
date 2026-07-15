@@ -91,7 +91,7 @@
     padding:26px calc(env(safe-area-inset-right) + 26px) calc(env(safe-area-inset-bottom) + 26px) calc(env(safe-area-inset-left) + 26px);
     overflow-y:auto; -webkit-overflow-scrolling:touch;
     background:radial-gradient(ellipse at center, rgba(30,26,8,.94), rgba(6,5,1,.98)); }
-  .screen.hide{ display:none; }
+  .hide{ display:none; }
   .flick{ color:var(--yellow); text-shadow:0 0 22px rgba(201,178,74,.55); }
   #logoImg{ width:220px; max-width:56vw; height:auto; margin:0 0 14px; border-radius:16px;
     box-shadow:0 0 34px rgba(201,178,74,.35), 0 6px 18px rgba(0,0,0,.6); border:1px solid rgba(201,178,74,.35); }
@@ -168,9 +168,18 @@
     text-shadow:0 0 8px rgba(249,176,0,.4); }
   #countdown.done #cdTime{ color:#e05a4a; text-shadow:0 0 8px rgba(224,90,74,.5); }
   /* online chat */
-  #onNick{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
+  #serverStep:not(.hide), #passStep:not(.hide), #nickStep:not(.hide){ display:flex; flex-direction:column; align-items:center; }
+  #serverList{ margin-top:18px; width:min(360px,calc(100vw - 40px)); display:flex; flex-direction:column; gap:10px; }
+  .svrBtn{ display:flex; align-items:center; gap:12px; text-align:left; padding:14px 18px; cursor:pointer; width:100%;
+    pointer-events:auto; border:1px solid #6b6337; border-radius:12px; background:rgba(201,178,74,.08); color:#f0e6a8; font-family:inherit; }
+  .svrBtn:active{ background:rgba(201,178,74,.2); }
+  .svrDot{ width:10px; height:10px; border-radius:50%; flex:none; background:#5cc95c; box-shadow:0 0 8px rgba(92,201,92,.8); }
+  .svrName{ flex:1; font-size:16px; font-weight:800; }
+  .svrGo{ color:var(--amber); font-size:16px; }
+  #onNick, #svrPass{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
     color:#f0e6a8; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center; outline:none; pointer-events:auto; }
-  #onNick:focus{ border-color:var(--yellow); }
+  #onNick:focus, #svrPass:focus{ border-color:var(--yellow); }
+  #svrPassErr{ margin-top:12px; }
   #chatRoom{ position:fixed; inset:0; z-index:21; display:none; flex-direction:column; background:#0c0b04; pointer-events:auto; }
   #chatRoom.show{ display:flex; }
   #chatHead{ display:flex; align-items:center; gap:8px; flex:none;
@@ -235,8 +244,9 @@
     .btn2{ margin-top:8px; padding:7px 20px; font-size:12px; }
     .ctrls{ margin-top:8px; }
     .stats{ margin-top:8px; font-size:12.5px; }
-    #levelsList, #threatList{ margin-top:10px; gap:8px; }
-    .lvBtn{ padding:9px 14px; }
+    #levelsList, #threatList, #serverList{ margin-top:10px; gap:8px; }
+    .lvBtn, .svrBtn{ padding:9px 14px; }
+    #onNick, #svrPass{ margin-top:8px; padding:9px 12px; }
     .tcard .tc-head{ padding:7px 90px 7px 12px; }
     .tcard .tc-head b{ font-size:15px; }
     .tcard .tc-body{ padding:8px 14px 10px; }
@@ -341,10 +351,29 @@
 <div id="online" class="screen hide">
   <div class="sub">Online</div>
   <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">THE CHANNEL</h1>
-  <div class="lore">Real players, live, unmoderated. Be decent — nobody's watching but each other.</div>
-  <input id="onNick" maxlength="20" placeholder="Pick a nickname" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
-  <button class="btn" id="onJoinBtn">JOIN CHAT</button>
-  <div id="onNoBackend" class="lvEmpty hide">Online chat isn't connected yet — check back soon.</div>
+
+  <div id="serverStep">
+    <div class="lore">Pick a server to connect to.</div>
+    <div id="serverList">
+      <button class="svrBtn" id="svrBoyinBtn"><span class="svrDot"></span><span class="svrName">BOYINdev server</span><span class="svrGo">▶</span></button>
+    </div>
+  </div>
+
+  <div id="passStep" class="hide">
+    <div class="lore">Password to server</div>
+    <input id="svrPass" type="password" maxlength="40" placeholder="Enter password" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div id="svrPassErr" class="lvEmpty hide">Wrong password. Try again.</div>
+    <button class="btn" id="svrPassBtn">CONNECT</button>
+    <button class="btn2" id="svrPassBack">BACK</button>
+  </div>
+
+  <div id="nickStep" class="hide">
+    <div class="lore">Real players, live, unmoderated. Be decent — nobody's watching but each other.</div>
+    <input id="onNick" maxlength="20" placeholder="Pick a nickname" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="btn" id="onJoinBtn">JOIN CHAT</button>
+    <div id="onNoBackend" class="lvEmpty hide">Online chat isn't connected yet — check back soon.</div>
+  </div>
+
   <button class="btn2" id="onlineBack">BACK</button>
 </div>
 
@@ -1571,11 +1600,38 @@ function loadSupabaseSDK(){
     document.head.appendChild(s);
   });
 }
+const SERVER_PASSWORD='BOYINDEVELOPER';
 function openOnline(){
   document.getElementById('start').classList.add('hide');
   document.getElementById('online').classList.remove('hide');
   document.getElementById('onNick').value=localStorage.getItem('backrooms_nick')||'';
   document.getElementById('onNoBackend').classList.toggle('hide', !!(SUPABASE_URL && SUPABASE_ANON_KEY));
+  showServerStep();
+}
+function showServerStep(){
+  document.getElementById('serverStep').classList.remove('hide');
+  document.getElementById('passStep').classList.add('hide');
+  document.getElementById('nickStep').classList.add('hide');
+  document.getElementById('onlineBack').classList.remove('hide');
+}
+function showPassStep(){
+  document.getElementById('serverStep').classList.add('hide');
+  document.getElementById('passStep').classList.remove('hide');
+  document.getElementById('nickStep').classList.add('hide');
+  document.getElementById('svrPassErr').classList.add('hide');
+  document.getElementById('onlineBack').classList.add('hide');
+  const p=document.getElementById('svrPass'); p.value=''; setTimeout(()=>p.focus(),50);
+}
+function showNickStep(){
+  document.getElementById('serverStep').classList.add('hide');
+  document.getElementById('passStep').classList.add('hide');
+  document.getElementById('nickStep').classList.remove('hide');
+  document.getElementById('onlineBack').classList.remove('hide');
+}
+function tryServerPassword(){
+  const val=(document.getElementById('svrPass').value||'').trim();
+  if(val===SERVER_PASSWORD) showNickStep();
+  else document.getElementById('svrPassErr').classList.remove('hide');
 }
 function setChatStatus(on,txt){
   const d=document.getElementById('chatStatus');
@@ -1772,6 +1828,10 @@ document.getElementById('warnBtn').addEventListener('click',()=>{
 });
 document.getElementById('onlineBtn').addEventListener('click', openOnline);
 document.getElementById('onlineBack').addEventListener('click', showStart);
+document.getElementById('svrBoyinBtn').addEventListener('click', showPassStep);
+document.getElementById('svrPassBack').addEventListener('click', showServerStep);
+document.getElementById('svrPassBtn').addEventListener('click', tryServerPassword);
+document.getElementById('svrPass').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryServerPassword(); } });
 document.getElementById('onJoinBtn').addEventListener('click', joinChat);
 document.getElementById('onNick').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); joinChat(); } });
 document.getElementById('chatLeave').addEventListener('click', leaveChat);
