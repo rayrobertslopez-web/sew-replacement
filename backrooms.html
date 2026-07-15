@@ -167,6 +167,29 @@
   #cdTime{ font-size:15px; font-weight:800; letter-spacing:1px; color:var(--amber);
     text-shadow:0 0 8px rgba(249,176,0,.4); }
   #countdown.done #cdTime{ color:#e05a4a; text-shadow:0 0 8px rgba(224,90,74,.5); }
+  /* persistent settings button, always shown top-right regardless of screen/game state */
+  #settingsBtn{ position:fixed; z-index:30; top:calc(env(safe-area-inset-top) + 46px); right:calc(env(safe-area-inset-right) + 14px);
+    width:34px; height:34px; border-radius:8px; background:rgba(8,7,2,.55); border:1px solid rgba(200,180,90,.28);
+    color:var(--amber); font-size:17px; line-height:1; align-items:center; justify-content:center;
+    cursor:pointer; pointer-events:auto; }
+  #settingsBtn:not(.hide){ display:flex; }
+  #settingsBtn:active{ background:rgba(201,178,74,.25); }
+  #settings{ z-index:25; background:radial-gradient(ellipse at center, rgba(30,26,8,.99), rgba(6,5,1,.995)); }
+  .setRow{ width:min(360px,calc(100vw - 40px)); margin-top:24px; text-align:left; }
+  .setLabel{ display:flex; justify-content:space-between; font-size:12px; letter-spacing:1.5px; text-transform:uppercase;
+    color:#b7ad84; margin-bottom:8px; }
+  .setLabel span{ color:var(--amber); font-weight:800; letter-spacing:0; text-transform:none; }
+  .slider{ width:100%; accent-color:var(--yellow); pointer-events:auto; cursor:pointer; }
+  /* live "people online" indicator shown while browsing Online mode */
+  #onlineCount{ position:fixed; z-index:22; pointer-events:none;
+    left:calc(env(safe-area-inset-left) + 18px); top:50%; transform:translateY(-50%);
+    align-items:center; gap:9px; background:rgba(8,7,2,.55); border:1px solid rgba(200,180,90,.28);
+    border-radius:10px; padding:10px 16px; }
+  #onlineCount:not(.hide){ display:flex; }
+  .onlineDot{ width:9px; height:9px; border-radius:50%; background:#666; flex:none; }
+  .onlineDot.live{ background:#5cc95c; box-shadow:0 0 8px rgba(92,201,92,.8); }
+  #onlineCountVal{ font-size:18px; font-weight:900; color:var(--amber); letter-spacing:1px; }
+  .onlineCountLabel{ font-size:10px; font-weight:800; letter-spacing:1.5px; color:#9a916a; }
   /* online chat */
   #serverStep:not(.hide), #passStep:not(.hide), #nickStep:not(.hide){ display:flex; flex-direction:column; align-items:center; }
   #serverList{ margin-top:18px; width:min(360px,calc(100vw - 40px)); display:flex; flex-direction:column; gap:10px; }
@@ -263,6 +286,27 @@
 <div id="dread"></div>
 
 <div id="countdown"><span id="cdLabel">COUNTDOWN</span><span id="cdTime">--:--:--</span></div>
+
+<button id="settingsBtn" aria-label="Settings">&#9881;</button>
+<div id="settings" class="screen hide">
+  <div class="sub">Settings</div>
+  <h1 class="flick" style="font-size:clamp(28px,7vw,50px)">SETTINGS</h1>
+  <div class="setRow">
+    <div class="setLabel">Volume<span id="volVal">90%</span></div>
+    <input type="range" id="volSlider" class="slider" min="0" max="100" value="90">
+  </div>
+  <div class="setRow">
+    <div class="setLabel">Look sensitivity<span id="sensVal">100%</span></div>
+    <input type="range" id="sensSlider" class="slider" min="50" max="200" value="100">
+  </div>
+  <button class="btn2" id="settingsClose">CLOSE</button>
+</div>
+
+<div id="onlineCount" class="hide">
+  <span id="onlineDot" class="onlineDot"></span>
+  <span id="onlineCountVal">--</span>
+  <span class="onlineCountLabel">ONLINE</span>
+</div>
 
 <!-- HUD (camcorder viewfinder) -->
 <div id="hud">
@@ -1159,10 +1203,11 @@ function updateChasers(dt){
 /* ---------------------------------------------------------------- audio */
 const audio = (function(){
   let ctx=null, master=null, hum=null, growlGain=null, noiseBuf=null;
+  let vol=(function(){ const v=parseFloat(localStorage.getItem('backrooms_volume')); return (v>=0 && v<=1) ? v : 0.9; })();
   function ensure(){
     if(ctx) return;
     ctx=new (window.AudioContext||window.webkitAudioContext)();
-    master=ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+    master=ctx.createGain(); master.gain.value=vol; master.connect(ctx.destination);
     // fluorescent hum
     const hg=ctx.createGain(); hg.gain.value=0.05; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=760;
     const o1=ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=60;
@@ -1218,6 +1263,8 @@ const audio = (function(){
     ensure, step, zap, pickup, grab, stab,
     resume(){ if(ctx&&ctx.state==='suspended') ctx.resume(); },
     setGrowl(v){ if(growlGain) growlGain.gain.value += (Math.min(0.5,v)-growlGain.gain.value)*0.1; },
+    setVolume(v){ vol=Math.max(0,Math.min(1,v)); if(master) master.gain.value=vol; try{ localStorage.setItem('backrooms_volume',vol); }catch(e){} },
+    getVolume(){ return vol; },
     get ctx(){ return ctx; }
   };
 })();
@@ -1227,6 +1274,8 @@ const keys={};
 const input={ f:0, b:0, l:0, r:0, sprint:false, joyX:0, joyZ:0 };
 let isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 let locked=false;
+let settingsOpen=false;
+let lookSens=(function(){ const v=parseFloat(localStorage.getItem('backrooms_sens')); return (v>=0.5 && v<=2) ? v : 1; })();
 
 function setupDesktop(){
   addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
@@ -1234,7 +1283,7 @@ function setupDesktop(){
   renderer.domElement.addEventListener('click',()=>{ if(running && !locked) renderer.domElement.requestPointerLock(); });
   document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===renderer.domElement); });
   document.addEventListener('mousemove',e=>{ if(!locked) return;
-    player.yaw -= e.movementX*0.0022; player.pitch -= e.movementY*0.0022;
+    player.yaw -= e.movementX*0.0022*lookSens; player.pitch -= e.movementY*0.0022*lookSens;
     player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
   });
 }
@@ -1267,7 +1316,7 @@ function setupTouch(){
         stick.style.left=(50+dx/max*50)+'%'; stick.style.top=(50+dy/max*50)+'%';
         input.joyX=dx/max; input.joyZ=-dy/max;
       } else if(t.identifier===lookId){
-        player.yaw -= (t.clientX-lookX)*0.005; player.pitch -= (t.clientY-lookY)*0.005;
+        player.yaw -= (t.clientX-lookX)*0.005*lookSens; player.pitch -= (t.clientY-lookY)*0.005*lookSens;
         player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
         lookX=t.clientX; lookY=t.clientY;
       }
@@ -1511,7 +1560,10 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['win','levels','threat','online','levelcard','loadcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','threat','online','levelcard','loadcard','settings'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  document.getElementById('settingsBtn').classList.remove('hide');
+  settingsOpen=false;
+  hideOnlineCount();
   document.getElementById('gameover').classList.remove('show');
   document.getElementById('chatRoom').classList.remove('show');
   disconnectChat();
@@ -1524,6 +1576,21 @@ function showStart(){
   document.getElementById('start').classList.remove('hide');
   running=false; transitioning=false; caught=false;
   if(locked) document.exitPointerLock();
+}
+function openSettings(){
+  document.getElementById('volSlider').value=Math.round(audio.getVolume()*100);
+  document.getElementById('volVal').textContent=Math.round(audio.getVolume()*100)+'%';
+  document.getElementById('sensSlider').value=Math.round(lookSens*100);
+  document.getElementById('sensVal').textContent=Math.round(lookSens*100)+'%';
+  document.getElementById('settings').classList.remove('hide');
+  document.getElementById('settingsBtn').classList.add('hide');
+  settingsOpen=true;
+  if(locked) document.exitPointerLock();
+}
+function closeSettings(){
+  document.getElementById('settings').classList.add('hide');
+  document.getElementById('settingsBtn').classList.remove('hide');
+  settingsOpen=false;
 }
 function openLevels(){
   renderLevels();
@@ -1601,12 +1668,38 @@ function loadSupabaseSDK(){
   });
 }
 const SERVER_PASSWORD='BOYINDEVELOPER';
+async function connectPresence(nick){
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  if(presenceChannel){ if(nick) await presenceChannel.track({nickname:nick}); return; }
+  try{
+    await loadSupabaseSDK();
+    if(!sb) sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    chatClientId = chatClientId || (Math.random().toString(36).slice(2)+Date.now().toString(36));
+    presenceChannel=sb.channel('presence:lobby',{config:{presence:{key:chatClientId}}});
+    presenceChannel.on('presence',{event:'sync'},()=>{
+      const n=Object.keys(presenceChannel.presenceState()).length;
+      document.getElementById('chatCount').textContent=n+' online';
+      document.getElementById('onlineCountVal').textContent=n;
+      document.getElementById('onlineDot').classList.add('live');
+    }).subscribe(async status=>{ if(status==='SUBSCRIBED') await presenceChannel.track({nickname:nick||'anonymous'}); });
+  }catch(e){ /* keeps showing the placeholder */ }
+}
+function showOnlineCount(){
+  document.getElementById('onlineCount').classList.remove('hide');
+  document.getElementById('onlineCountVal').textContent = (SUPABASE_URL && SUPABASE_ANON_KEY) ? '…' : '--';
+  connectPresence();
+}
+function hideOnlineCount(){
+  document.getElementById('onlineCount').classList.add('hide');
+  document.getElementById('onlineDot').classList.remove('live');
+}
 function openOnline(){
   document.getElementById('start').classList.add('hide');
   document.getElementById('online').classList.remove('hide');
   document.getElementById('onNick').value=localStorage.getItem('backrooms_nick')||'';
   document.getElementById('onNoBackend').classList.toggle('hide', !!(SUPABASE_URL && SUPABASE_ANON_KEY));
   showServerStep();
+  showOnlineCount();
 }
 function showServerStep(){
   document.getElementById('serverStep').classList.remove('hide');
@@ -1653,6 +1746,7 @@ async function joinChat(){
   const nick=(document.getElementById('onNick').value||'').trim().slice(0,20) || ('Wanderer'+Math.floor(Math.random()*1000));
   localStorage.setItem('backrooms_nick', nick);
   document.getElementById('online').classList.add('hide');
+  hideOnlineCount();
   document.getElementById('chatRoom').classList.add('show');
   document.getElementById('chatLog').innerHTML='';
   document.getElementById('chatSend').disabled=true;
@@ -1667,11 +1761,7 @@ async function joinChat(){
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages'}, payload=>{
         appendMsg(payload.new.nickname, payload.new.body, payload.new.created_at);
       }).subscribe(status=>{ if(status==='SUBSCRIBED'){ setChatStatus(true,'live'); document.getElementById('chatSend').disabled=false; } });
-    presenceChannel=sb.channel('presence:lobby',{config:{presence:{key:chatClientId}}});
-    presenceChannel.on('presence',{event:'sync'},()=>{
-      const n=Object.keys(presenceChannel.presenceState()).length;
-      document.getElementById('chatCount').textContent=n+' online';
-    }).subscribe(async status=>{ if(status==='SUBSCRIBED') await presenceChannel.track({nickname:nick}); });
+    await connectPresence(nick);
     appendSys(nick+' joined the channel');
   }catch(e){ setChatStatus(false,'offline'); toast('Could not reach the chat server.'); }
 }
@@ -1694,7 +1784,7 @@ function leaveChat(){ disconnectChat(); document.getElementById('chatRoom').clas
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
-  if(running){ update(dt); }
+  if(running && !settingsOpen){ update(dt); }
   renderer.render(scene,camera);
 }
 
@@ -1825,6 +1915,15 @@ document.getElementById('winMenuBtn').addEventListener('click', showStart);
 document.getElementById('warnBtn').addEventListener('click',()=>{
   document.getElementById('warning').classList.add('hide');
   document.getElementById('start').classList.remove('hide');
+});
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
+document.getElementById('volSlider').addEventListener('input', e=>{
+  const v=(+e.target.value)/100; audio.setVolume(v); document.getElementById('volVal').textContent=e.target.value+'%';
+});
+document.getElementById('sensSlider').addEventListener('input', e=>{
+  lookSens=(+e.target.value)/100; document.getElementById('sensVal').textContent=e.target.value+'%';
+  try{ localStorage.setItem('backrooms_sens', lookSens); }catch(err){}
 });
 document.getElementById('onlineBtn').addEventListener('click', openOnline);
 document.getElementById('onlineBack').addEventListener('click', showStart);
