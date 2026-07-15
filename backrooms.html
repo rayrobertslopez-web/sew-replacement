@@ -204,6 +204,40 @@
   .achTitle{ font-size:14px; font-weight:900; letter-spacing:.5px; color:var(--amber); text-transform:uppercase;
     text-shadow:0 0 8px rgba(249,176,0,.35); }
   .achSub{ font-size:11.5px; color:#cabf86; margin-top:3px; line-height:1.4; }
+  /* developer-only shutdown control (unlocked via ?dev=1, see isDev) */
+  #shutdownBtn{ position:fixed; z-index:20; bottom:calc(env(safe-area-inset-bottom) + 14px); right:calc(env(safe-area-inset-right) + 14px);
+    font-size:10px; font-weight:800; letter-spacing:1px; padding:7px 12px; border-radius:8px; font-family:inherit;
+    border:1px solid rgba(224,90,74,.35); background:rgba(40,10,10,.35); color:#c98a80;
+    cursor:pointer; pointer-events:auto; opacity:.55; }
+  #shutdownBtn:hover, #shutdownBtn:active{ opacity:1; }
+  #shutdownConfirm{ position:fixed; inset:0; z-index:40; pointer-events:auto;
+    background:rgba(0,0,0,.75); align-items:center; justify-content:center; }
+  #shutdownConfirm:not(.hide){ display:flex; }
+  .confirmBox{ background:#151208; border:1px solid rgba(200,180,90,.35); border-radius:14px; padding:28px 32px; text-align:center; }
+  .confirmTitle{ font-size:18px; font-weight:900; letter-spacing:1px; color:var(--amber); margin-bottom:20px; }
+  .confirmRow{ display:flex; gap:14px; justify-content:center; }
+  #devPanel{ z-index:26; }
+  /* shutdown screen shown to everyone except the developer who triggered it */
+  #shutdownScreen{ position:fixed; inset:0; z-index:50; pointer-events:auto;
+    background:#f2c230; align-items:center; justify-content:center; padding:26px; }
+  #shutdownScreen:not(.hide){ display:flex; }
+  #shutdownCard{ width:min(560px,92vw); background:#191919; padding:42px 34px 36px; text-align:center;
+    clip-path:polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% calc(100% - 26px), calc(100% - 26px) 100%, 0 100%); }
+  #shutdownTitle{ font-family:"Courier New",ui-monospace,monospace; color:#fff; font-size:clamp(14px,3vw,19px); font-weight:700; }
+  #shutdownSub{ font-family:"Courier New",ui-monospace,monospace; color:#fff; font-size:clamp(24px,5.5vw,36px);
+    font-weight:800; margin-top:10px; letter-spacing:1px; }
+  #shutdownNote{ margin-top:38px; color:#e8e2c8; font-size:14px; line-height:1.7; max-width:460px; margin-left:auto; margin-right:auto; }
+  #leaveGameBtn{ margin-top:26px; font-size:16px; font-weight:800; letter-spacing:1px; padding:12px 34px; text-transform:uppercase;
+    border:2px solid #b7a03f; border-radius:12px; background:rgba(201,178,74,.14); color:#f0e6a8; cursor:pointer; pointer-events:auto; }
+  #leaveGameBtn:active{ transform:translateY(2px); background:rgba(201,178,74,.28); }
+  /* black "leaving" progress screen, remotely driven by the developer */
+  #leaveProgress{ position:fixed; inset:0; z-index:50; pointer-events:auto; background:#000;
+    flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+  #leaveProgress:not(.hide){ display:flex; }
+  #leaveBarTrack{ width:min(380px,80vw); height:14px; border:1px solid rgba(255,255,255,.3); border-radius:7px;
+    overflow:hidden; background:rgba(255,255,255,.06); }
+  #leaveBarFill{ height:100%; width:0%; background:linear-gradient(90deg,#c9b24a,#e7cf6a); transition:width .3s ease; }
+  #leavePctText{ font-size:22px; font-weight:800; letter-spacing:1px; color:#eae6cf; font-family:"Courier New",ui-monospace,monospace; }
   /* online chat */
   #serverStep:not(.hide), #passStep:not(.hide), #nickStep:not(.hide){ display:flex; flex-direction:column; align-items:center; }
   #serverList{ margin-top:18px; width:min(360px,calc(100vw - 40px)); display:flex; flex-direction:column; gap:10px; }
@@ -331,6 +365,43 @@
   </div>
 </div>
 
+<!-- developer-only: shut-down-game controls -->
+<div id="shutdownConfirm" class="hide">
+  <div class="confirmBox">
+    <div class="confirmTitle">SHUT DOWN GAME?</div>
+    <div class="confirmRow">
+      <button class="btn2" id="shutdownYes">YES</button>
+      <button class="btn2" id="shutdownNo">NO</button>
+    </div>
+  </div>
+</div>
+
+<div id="devPanel" class="screen hide">
+  <div class="sub">Developer</div>
+  <h1 class="flick" style="font-size:clamp(24px,6vw,40px)">SHUTDOWN SENT</h1>
+  <div class="lore">Every connected player (except you) now sees the shutdown screen. Drag the slider below to control the "leave game" progress bar on their end, live.</div>
+  <div class="setRow">
+    <div class="setLabel">Leave-game progress<span id="leavePctVal">0%</span></div>
+    <input type="range" id="leavePctSlider" class="slider" min="0" max="100" value="0">
+  </div>
+  <button class="btn2" id="devPanelClose">CLOSE</button>
+</div>
+
+<!-- shown to everyone except the developer who triggered the shutdown -->
+<div id="shutdownScreen" class="hide">
+  <div id="shutdownCard">
+    <div id="shutdownTitle">this is game is shut down for developer reasons</div>
+    <div id="shutdownSub">check back later</div>
+    <div id="shutdownNote">developers note: sorry for the shut down, our crew is currently working on something big or our game has a bug we need to fix. our game should be fixed in 3 hours</div>
+    <button id="leaveGameBtn">leave game</button>
+  </div>
+</div>
+
+<div id="leaveProgress" class="hide">
+  <div id="leaveBarTrack"><div id="leaveBarFill"></div></div>
+  <div id="leavePctText">0%</div>
+</div>
+
 <!-- HUD (camcorder viewfinder) -->
 <div id="hud">
   <div class="ccBracket br-tl"></div>
@@ -396,6 +467,7 @@
   <div class="ctrls" id="ctrlsDesk">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
+  <button id="shutdownBtn" class="hide">SHUT DOWN GAME</button>
 </div>
 
 <!-- Level select (only completed levels) -->
@@ -1299,6 +1371,13 @@ let isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in windo
 let locked=false;
 let settingsOpen=false;
 let lookSens=(function(){ const v=parseFloat(localStorage.getItem('backrooms_sens')); return (v>=0.5 && v<=2) ? v : 1; })();
+let shutdownActive=false;
+const isDev=(function(){
+  try{
+    if(new URLSearchParams(location.search).get('dev')==='1') localStorage.setItem('backrooms_dev','1');
+    return localStorage.getItem('backrooms_dev')==='1';
+  }catch(e){ return false; }
+})();
 
 function setupDesktop(){
   addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
@@ -1745,6 +1824,57 @@ function hideOnlineCount(){
   document.getElementById('onlineCount').classList.add('hide');
   document.getElementById('onlineDot').classList.remove('live');
 }
+
+/* -------------------------------------------------- developer shutdown
+   Broadcast-only Supabase Realtime channel (no DB table needed). Every
+   player subscribes at boot; broadcast:{self:false} means the developer
+   who sends "shutdown" never receives their own event back. */
+let adminChannel=null;
+async function connectAdminChannel(){
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  if(adminChannel) return;
+  try{
+    await loadSupabaseSDK();
+    if(!sb) sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    adminChannel=sb.channel('admin-broadcast',{config:{broadcast:{self:false}}});
+    adminChannel.on('broadcast',{event:'shutdown'},()=>{ showShutdownScreen(); });
+    adminChannel.on('broadcast',{event:'leaveProgress'},({payload})=>{ setLeaveProgress(payload.pct); });
+    adminChannel.subscribe();
+  }catch(e){ /* stays inert until Supabase is configured */ }
+}
+function openShutdownConfirm(){ document.getElementById('shutdownConfirm').classList.remove('hide'); }
+function closeShutdownConfirm(){ document.getElementById('shutdownConfirm').classList.add('hide'); }
+async function confirmShutdown(){
+  closeShutdownConfirm();
+  await connectAdminChannel();
+  if(adminChannel) adminChannel.send({type:'broadcast', event:'shutdown', payload:{}});
+  else toast('Online backend not connected yet — configure Supabase for this to reach real players.');
+  openDevPanel();
+}
+function openDevPanel(){
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('leavePctSlider').value=0;
+  document.getElementById('leavePctVal').textContent='0%';
+  document.getElementById('devPanel').classList.remove('hide');
+}
+function closeDevPanel(){
+  document.getElementById('devPanel').classList.add('hide');
+  showStart();
+}
+function showShutdownScreen(){
+  shutdownActive=true;
+  document.getElementById('shutdownScreen').classList.remove('hide');
+  if(locked) document.exitPointerLock();
+}
+function leaveGame(){
+  document.getElementById('shutdownScreen').classList.add('hide');
+  document.getElementById('leaveProgress').classList.remove('hide');
+}
+function setLeaveProgress(pct){
+  pct=Math.max(0,Math.min(100,pct));
+  document.getElementById('leaveBarFill').style.width=pct+'%';
+  document.getElementById('leavePctText').textContent=pct+'%';
+}
 function openOnline(){
   document.getElementById('start').classList.add('hide');
   document.getElementById('online').classList.remove('hide');
@@ -1836,7 +1966,7 @@ function leaveChat(){ disconnectChat(); document.getElementById('chatRoom').clas
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
-  if(running && !settingsOpen){ update(dt); }
+  if(running && !settingsOpen && !shutdownActive){ update(dt); }
   renderer.render(scene,camera);
 }
 
@@ -1977,6 +2107,18 @@ document.getElementById('sensSlider').addEventListener('input', e=>{
   lookSens=(+e.target.value)/100; document.getElementById('sensVal').textContent=e.target.value+'%';
   try{ localStorage.setItem('backrooms_sens', lookSens); }catch(err){}
 });
+if(isDev) document.getElementById('shutdownBtn').classList.remove('hide');
+document.getElementById('shutdownBtn').addEventListener('click', openShutdownConfirm);
+document.getElementById('shutdownYes').addEventListener('click', confirmShutdown);
+document.getElementById('shutdownNo').addEventListener('click', closeShutdownConfirm);
+document.getElementById('devPanelClose').addEventListener('click', closeDevPanel);
+document.getElementById('leavePctSlider').addEventListener('input', e=>{
+  const v=+e.target.value;
+  document.getElementById('leavePctVal').textContent=v+'%';
+  if(adminChannel) adminChannel.send({type:'broadcast', event:'leaveProgress', payload:{pct:v}});
+});
+document.getElementById('leaveGameBtn').addEventListener('click', leaveGame);
+connectAdminChannel();
 document.getElementById('onlineBtn').addEventListener('click', openOnline);
 document.getElementById('onlineBack').addEventListener('click', showStart);
 document.getElementById('svrBoyinBtn').addEventListener('click', showPassStep);
