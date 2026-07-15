@@ -287,6 +287,38 @@
   .chatMsg .nk{ font-weight:800; color:var(--amber); margin-right:6px; }
   .chatMsg .ts{ font-size:10px; color:#6b6455; margin-left:7px; }
   .chatMsg.sys{ align-self:center; color:#8f875f; font-size:11.5px; font-style:italic; }
+  /* posts feed */
+  .postComposer{ width:min(560px,calc(100vw - 32px)); margin-top:16px; text-align:left; border:1px solid #6b6337;
+    border-radius:12px; padding:14px 16px; background:rgba(201,178,74,.08); }
+  #postBody{ width:100%; background:#1c1a10; border:1px solid #4a4320; border-radius:10px; color:#f0e6a8;
+    padding:11px 12px; font-size:14px; font-family:inherit; outline:none; resize:vertical; min-height:60px; }
+  #postBody:focus{ border-color:var(--yellow); }
+  #postImgPreview{ display:none; max-width:100px; max-height:100px; border-radius:8px; margin-top:10px; border:1px solid #4a4320; }
+  #postImgPreview.show{ display:block; }
+  .postComposerBar{ display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  #postsList{ margin-top:16px; width:min(560px,calc(100vw - 32px)); display:flex; flex-direction:column; gap:14px; padding-bottom:10px; }
+  .postCard{ text-align:left; border:1px solid #6b6337; border-radius:12px; background:rgba(201,178,74,.06); padding:14px 16px; }
+  .postHead{ display:flex; align-items:center; gap:9px; }
+  .postAv{ width:28px; height:28px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:12px; color:#1a1200; }
+  .postNick{ font-weight:800; color:var(--amber); font-size:14px; }
+  .postTs{ font-size:10.5px; color:#8f875f; margin-left:auto; white-space:nowrap; }
+  .postBody{ margin-top:9px; font-size:13.5px; line-height:1.5; color:#eae6cf; white-space:pre-wrap; word-wrap:break-word; }
+  .postImg{ margin-top:10px; width:100%; max-height:320px; object-fit:cover; border-radius:8px; border:1px solid #4a4320; display:block; }
+  .postActions{ display:flex; gap:8px; margin-top:11px; }
+  .postAct{ display:flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#b7ad84;
+    cursor:pointer; pointer-events:auto; padding:5px 9px; border-radius:7px; }
+  .postAct:active{ background:rgba(201,178,74,.15); }
+  .postAct.on{ color:var(--amber); background:rgba(201,178,74,.12); }
+  .postReplies{ margin-top:4px; display:flex; flex-direction:column; gap:7px; }
+  .postReplies:not(:empty){ margin-top:10px; padding-top:10px; border-top:1px dashed #4a4320; }
+  .postReply{ font-size:12.5px; color:#cabf86; line-height:1.4; padding-left:9px; border-left:2px solid #4a4320; }
+  .postReply b{ color:var(--amber); margin-right:6px; }
+  .postReplyBar{ display:none; gap:8px; margin-top:10px; }
+  .postReplyBar.show{ display:flex; }
+  .postReplyBar input{ flex:1; min-width:0; background:#1c1a10; border:1px solid #4a4320; border-radius:8px; color:#f0e6a8;
+    padding:8px 10px; font-size:12.5px; font-family:inherit; outline:none; }
+  .postReplyBar input:focus{ border-color:var(--yellow); }
   #chatInputBar{ display:flex; gap:8px; flex:none;
     padding:10px calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + 12px);
     border-top:1px solid rgba(200,180,90,.18); background:#12100a; }
@@ -512,6 +544,7 @@
   <div class="menuRow">
     <button class="btn2" id="levelsBtn">LEVELS</button>
     <button class="btn2" id="threatBtn">THREAT INDEX</button>
+    <button class="btn2" id="postsBtn">POSTS</button>
   </div>
   <div class="ctrls" id="ctrlsDesk">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
@@ -533,6 +566,25 @@
   <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">THREAT INDEX</h1>
   <div id="threatList"></div>
   <button class="btn2" id="threatBack">BACK</button>
+</div>
+
+<!-- Posts feed -->
+<div id="posts" class="screen hide">
+  <div class="sub">Community</div>
+  <h1 class="flick" style="font-size:clamp(30px,8vw,58px)">POSTS</h1>
+  <div id="postsNoBackend" class="lvEmpty hide">Live posting isn't connected yet, so you're only seeing local wanderers (bots) — your own posts still show up below, saved on this device.</div>
+  <div class="postComposer">
+    <textarea id="postBody" maxlength="500" placeholder="Seen something in the halls? Say something…"></textarea>
+    <input id="postImgInput" type="file" accept="image/*" class="hide">
+    <img id="postImgPreview" alt="">
+    <div class="postComposerBar">
+      <button class="btn2" id="postImgBtn">📷 Add photo</button>
+      <button class="btn2" id="postImgRemove" style="display:none">✕ Remove photo</button>
+      <button class="btn" style="margin:0;padding:10px 24px;font-size:14px" id="postSendBtn">POST</button>
+    </div>
+  </div>
+  <div id="postsList"></div>
+  <button class="btn2" id="postsBack">BACK</button>
 </div>
 
 <!-- Online chat: nickname / join -->
@@ -2011,7 +2063,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['win','levels','threat','online','levelcard','loadcard','settings'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','threat','online','posts','levelcard','loadcard','settings'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
   hideOnlineCount();
@@ -2306,6 +2358,260 @@ function disconnectChat(){
 }
 function leaveChat(){ disconnectChat(); document.getElementById('chatRoom').classList.remove('show'); showStart(); }
 
+/* -------------------------------------------------------------- posts feed
+   Same Supabase project as chat (SUPABASE_URL/SUPABASE_ANON_KEY above). Bot
+   posts always show (procedurally generated, no backend needed); real posts
+   from other players need these two extra tables.
+
+   SQL to run once, alongside chat_messages:
+     create table public.posts (
+       id bigint generated always as identity primary key,
+       nickname text not null check (char_length(nickname) <= 20),
+       body text not null check (char_length(body) <= 500),
+       image text,
+       likes int not null default 0,
+       dislikes int not null default 0,
+       created_at timestamptz not null default now()
+     );
+     alter table public.posts enable row level security;
+     create policy "public read" on public.posts for select using (true);
+     create policy "public insert" on public.posts for insert with check (true);
+     create policy "public update" on public.posts for update using (true);
+     alter publication supabase_realtime add table public.posts;
+
+     create table public.post_replies (
+       id bigint generated always as identity primary key,
+       post_id bigint not null references public.posts(id) on delete cascade,
+       nickname text not null check (char_length(nickname) <= 20),
+       body text not null check (char_length(body) <= 200),
+       created_at timestamptz not null default now()
+     );
+     alter table public.post_replies enable row level security;
+     create policy "public read" on public.post_replies for select using (true);
+     create policy "public insert" on public.post_replies for insert with check (true);
+     alter publication supabase_realtime add table public.post_replies;
+------------------------------------------------------------------------- */
+const BOT_POST_CAPTIONS = [
+  "found this room today. water damage everywhere. still no exit.",
+  "does anyone else hear the hum get louder at night or is it just me",
+  "almond water tastes different in this sector. reporting it anyway.",
+  "saw movement near the vending machines. didn't stick around to check.",
+  "3 hours in and the carpet pattern hasn't repeated once. or maybe it has.",
+  "posting this so someone knows I made it this far.",
+  "the lights flickered in a pattern. I think it was trying to say something.",
+  "found a door that wasn't there yesterday.",
+];
+const BOT_POST_STATE_KEY='backrooms_botposts_v1';
+function loadBotPostState(){ try{ return JSON.parse(localStorage.getItem(BOT_POST_STATE_KEY)||'{}'); }catch(e){ return {}; } }
+function persistBotPost(p){
+  if(p.source!=='bot') return;
+  const state=loadBotPostState();
+  state[p.id]={ likes:p.likes, dislikes:p.dislikes, userVote:p.userVote, replies:p.replies };
+  try{ localStorage.setItem(BOT_POST_STATE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function makeBotPostImage(seed){
+  const s=256, c=makeCanvas(s), x=c.getContext('2d'), R=rng(seed);
+  x.fillStyle='#3b3410'; x.fillRect(0,0,s,s);
+  for(let i=0;i<40;i++) blob(x,s,R()*s,R()*s,10+R()*50, `rgba(${140+((R()*60)|0)},${120+((R()*50)|0)},${40+((R()*30)|0)},${(0.08+R()*0.18).toFixed(2)})`);
+  x.fillStyle='rgba(0,0,0,.25)'; x.fillRect(0,s*0.7,s,s*0.3);
+  return c.toDataURL('image/jpeg',0.7);
+}
+function seedBotPosts(){
+  const saved=loadBotPostState();
+  return BOT_NAMES.slice(0,8).map((name,i)=>{
+    const id='bot'+i, st=saved[id]||{};
+    return {
+      id, source:'bot', nickname:name,
+      body: BOT_POST_CAPTIONS[i%BOT_POST_CAPTIONS.length],
+      image: (i%2===0) ? makeBotPostImage(100+i) : null,
+      likes: st.likes ?? (3+Math.floor(rng(200+i)()*40)),
+      dislikes: st.dislikes ?? Math.floor(rng(300+i)()*4),
+      created_at: Date.now()-(i+1)*3600*1000*(2+i),
+      replies: st.replies || [],
+      userVote: st.userVote || null,
+    };
+  });
+}
+let posts=[], postsChannel=null;
+function timeAgo(ts){
+  const s=Math.max(0,Math.floor((Date.now()-ts)/1000));
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+function avatarColor(name){ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0; return 'hsl('+(h%360)+',55%,55%)'; }
+function findPostById(id){ return posts.find(p=>p.id===id); }
+function renderPosts(){
+  const list=document.getElementById('postsList');
+  list.innerHTML='';
+  for(const p of posts){
+    const card=document.createElement('div'); card.className='postCard'; card.dataset.pid=p.id;
+    const initial=(p.nickname[0]||'?').toUpperCase();
+    card.innerHTML=`
+      <div class="postHead">
+        <div class="postAv" style="background:${avatarColor(p.nickname)}">${esc(initial)}</div>
+        <span class="postNick">${esc(p.nickname)}</span>
+        <span class="postTs">${timeAgo(p.created_at)}</span>
+      </div>
+      <div class="postBody">${esc(p.body)}</div>
+      ${p.image?`<img class="postImg" src="${p.image}">`:''}
+      <div class="postActions">
+        <span class="postAct${p.userVote==='like'?' on':''}" data-act="like">👍&nbsp;<span>${p.likes}</span></span>
+        <span class="postAct${p.userVote==='dislike'?' on':''}" data-act="dislike">👎&nbsp;<span>${p.dislikes}</span></span>
+        <span class="postAct" data-act="reply">💬&nbsp;Reply${p.replies.length?' ('+p.replies.length+')':''}</span>
+      </div>
+      <div class="postReplies">${p.replies.map(r=>`<div class="postReply"><b>${esc(r.nickname)}</b>${esc(r.body)}</div>`).join('')}</div>
+      <div class="postReplyBar"><input maxlength="200" placeholder="Reply…"><button class="btn2" data-act="sendreply">Send</button></div>
+    `;
+    card.querySelector('[data-act="like"]').addEventListener('click',()=>votePost(p,'like'));
+    card.querySelector('[data-act="dislike"]').addEventListener('click',()=>votePost(p,'dislike'));
+    card.querySelector('[data-act="reply"]').addEventListener('click',()=>{
+      card.querySelector('.postReplyBar').classList.toggle('show');
+    });
+    const replyInput=card.querySelector('.postReplyBar input');
+    const doReply=()=>{ sendReply(p, replyInput.value); replyInput.value=''; };
+    card.querySelector('[data-act="sendreply"]').addEventListener('click', doReply);
+    replyInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doReply(); } });
+    list.appendChild(card);
+  }
+}
+function updatePostVoteUI(p){
+  const card=document.querySelector(`.postCard[data-pid="${p.id}"]`); if(!card) return;
+  const likeEl=card.querySelector('[data-act="like"]'), dislikeEl=card.querySelector('[data-act="dislike"]');
+  likeEl.querySelector('span').textContent=p.likes; likeEl.classList.toggle('on', p.userVote==='like');
+  dislikeEl.querySelector('span').textContent=p.dislikes; dislikeEl.classList.toggle('on', p.userVote==='dislike');
+}
+function votePost(p, kind){
+  if(p.userVote===kind){ p[kind+'s']=Math.max(0,p[kind+'s']-1); p.userVote=null; }
+  else { if(p.userVote) p[p.userVote+'s']=Math.max(0,p[p.userVote+'s']-1); p[kind+'s']++; p.userVote=kind; }
+  updatePostVoteUI(p);
+  persistBotPost(p);
+  if(p.source==='db' && sb) sb.from('posts').update({likes:p.likes, dislikes:p.dislikes}).eq('id',p.dbId).then(()=>{});
+}
+function appendReplyUI(p, reply){
+  const card=document.querySelector(`.postCard[data-pid="${p.id}"]`); if(!card) return;
+  const d=document.createElement('div'); d.className='postReply';
+  d.innerHTML=`<b>${esc(reply.nickname)}</b>${esc(reply.body)}`;
+  card.querySelector('.postReplies').appendChild(d);
+  card.querySelector('[data-act="reply"]').innerHTML='💬&nbsp;Reply ('+p.replies.length+')';
+}
+function maybeBotAutoReply(p){
+  setTimeout(()=>{
+    const reply={ nickname:p.nickname, body:pickFrom(BOT_REPLIES), created_at:Date.now() };
+    p.replies.push(reply); appendReplyUI(p, reply); persistBotPost(p);
+  }, 800+Math.random()*1600);
+}
+function sendReply(p, text){
+  text=(text||'').trim().slice(0,200);
+  if(!text) return;
+  const nick=(localStorage.getItem('backrooms_nick')||'').trim() || ('Wanderer'+Math.floor(Math.random()*1000));
+  localStorage.setItem('backrooms_nick', nick);
+  const reply={ nickname:nick, body:text, created_at:Date.now() };
+  p.replies.push(reply);
+  appendReplyUI(p, reply);
+  if(p.source==='db' && sb) sb.from('post_replies').insert({post_id:p.dbId, nickname:nick, body:text});
+  else if(p.source==='bot'){ persistBotPost(p); maybeBotAutoReply(p); }
+}
+let pendingPostImage=null;
+function resetPostComposerImage(){
+  pendingPostImage=null;
+  document.getElementById('postImgInput').value='';
+  const prev=document.getElementById('postImgPreview'); prev.classList.remove('show'); prev.src='';
+  document.getElementById('postImgRemove').style.display='none';
+}
+function onPostImgChosen(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxDim=640; let w=img.width, h=img.height;
+      if(w>maxDim||h>maxDim){ const s=maxDim/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      pendingPostImage=c.toDataURL('image/jpeg',0.72);
+      const prev=document.getElementById('postImgPreview');
+      prev.src=pendingPostImage; prev.classList.add('show');
+      document.getElementById('postImgRemove').style.display='inline-block';
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+let lastPostAt=0;
+async function submitPost(){
+  const ta=document.getElementById('postBody');
+  const body=ta.value.trim().slice(0,500);
+  if(!body && !pendingPostImage) return;
+  const now=performance.now(); if(now-lastPostAt<1500) return; lastPostAt=now;
+  const nick=(localStorage.getItem('backrooms_nick')||'').trim() || ('Wanderer'+Math.floor(Math.random()*1000));
+  localStorage.setItem('backrooms_nick', nick);
+  const image=pendingPostImage;
+  ta.value=''; resetPostComposerImage();
+
+  if(SUPABASE_URL && SUPABASE_ANON_KEY){
+    try{
+      await loadSupabaseSDK();
+      if(!sb) sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const {error}=await sb.from('posts').insert({nickname:nick, body, image});
+      if(error) throw error;
+      return;   // the postgres_changes subscription below renders it once it echoes back
+    }catch(e){ toast('Post failed to send — showing it locally only.'); }
+  }
+  posts.unshift({ id:'local'+Date.now(), source:'local', nickname:nick, body, image, likes:0, dislikes:0,
+    created_at:Date.now(), replies:[], userVote:null });
+  renderPosts();
+}
+async function openPosts(){
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('posts').classList.remove('hide');
+  document.getElementById('postsNoBackend').classList.toggle('hide', !!(SUPABASE_URL && SUPABASE_ANON_KEY));
+  posts=seedBotPosts();
+  renderPosts();
+  if(!(SUPABASE_URL && SUPABASE_ANON_KEY)) return;
+  try{
+    await loadSupabaseSDK();
+    if(!sb) sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const {data,error}=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(40);
+    if(!error && data && data.length){
+      const ids=data.map(p=>p.id);
+      let repliesByPost={};
+      const {data:reps}=await sb.from('post_replies').select('*').in('post_id',ids).order('created_at',{ascending:true});
+      if(reps) for(const r of reps){ (repliesByPost[r.post_id]=repliesByPost[r.post_id]||[]).push(r); }
+      const dbPosts=data.map(p=>({ id:'db'+p.id, dbId:p.id, source:'db', nickname:p.nickname, body:p.body,
+        image:p.image||null, likes:p.likes, dislikes:p.dislikes, created_at:new Date(p.created_at).getTime(),
+        replies:(repliesByPost[p.id]||[]).map(r=>({nickname:r.nickname,body:r.body,created_at:new Date(r.created_at).getTime()})),
+        userVote:null }));
+      posts=[...dbPosts, ...posts].sort((a,b)=>b.created_at-a.created_at);
+      renderPosts();
+    }
+    postsChannel=sb.channel('public:posts')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'posts'}, payload=>{
+        const p=payload.new;
+        posts.unshift({ id:'db'+p.id, dbId:p.id, source:'db', nickname:p.nickname, body:p.body,
+          image:p.image||null, likes:p.likes, dislikes:p.dislikes, created_at:new Date(p.created_at).getTime(),
+          replies:[], userVote:null });
+        renderPosts();
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'posts'}, payload=>{
+        const p=payload.new, row=posts.find(x=>x.dbId===p.id);
+        if(row){ row.likes=p.likes; row.dislikes=p.dislikes; updatePostVoteUI(row); }
+      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'post_replies'}, payload=>{
+        const r=payload.new, row=posts.find(x=>x.dbId===r.post_id);
+        if(row){ const reply={nickname:r.nickname,body:r.body,created_at:new Date(r.created_at).getTime()};
+          row.replies.push(reply); appendReplyUI(row, reply); }
+      })
+      .subscribe();
+  }catch(e){ /* stays on bot-only posts */ }
+}
+function closePosts(){
+  if(sb && postsChannel){ sb.removeChannel(postsChannel); postsChannel=null; }
+  document.getElementById('posts').classList.add('hide');
+  showStart();
+}
+
 /* ---------------------------------------------------------------- loop */
 function tick(){
   requestAnimationFrame(tick);
@@ -2572,6 +2878,12 @@ document.getElementById('levelsBtn').addEventListener('click', openLevels);
 document.getElementById('levelsBack').addEventListener('click', showStart);
 document.getElementById('threatBtn').addEventListener('click', openThreat);
 document.getElementById('threatBack').addEventListener('click', showStart);
+document.getElementById('postsBtn').addEventListener('click', openPosts);
+document.getElementById('postsBack').addEventListener('click', closePosts);
+document.getElementById('postImgBtn').addEventListener('click', ()=> document.getElementById('postImgInput').click());
+document.getElementById('postImgInput').addEventListener('change', onPostImgChosen);
+document.getElementById('postImgRemove').addEventListener('click', resetPostComposerImage);
+document.getElementById('postSendBtn').addEventListener('click', submitPost);
 document.getElementById('winMenuBtn').addEventListener('click', showStart);
 document.getElementById('warnBtn').addEventListener('click',()=>{
   document.getElementById('warning').classList.add('hide');
