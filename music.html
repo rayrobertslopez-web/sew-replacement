@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Wavelength">
 <meta name="theme-color" content="#121212">
+<link rel="manifest" href="music-manifest.json">
+<link rel="apple-touch-icon" href="music-icon-192.png">
+<link rel="icon" href="music-icon-192.png">
 <title>Wavelength — Music Player</title>
 <style>
   :root{
@@ -352,6 +355,10 @@
     });
     grid.appendChild(card);
   });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
 })();
 </script>
 </body>
