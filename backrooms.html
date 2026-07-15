@@ -148,6 +148,11 @@
   #deadTitle{ color:#c94a4a; text-shadow:0 0 26px rgba(201,74,74,.5), 0 3px 0 #3a1010; }
   #winTitle{ color:#7fd07f; text-shadow:0 0 26px rgba(120,208,120,.5), 0 3px 0 #14371a; }
   #loadNote{ margin-top:20px; font-size:12px; color:#8f875f; letter-spacing:2px; }
+  #loadTrack{ margin-top:22px; width:min(360px,80vw); height:10px; border-radius:6px; background:rgba(0,0,0,.55);
+    border:1px solid rgba(224,90,74,.4); overflow:hidden; }
+  #loadFill{ height:100%; width:0%; border-radius:6px; background:linear-gradient(90deg,#8e2b2b,#e05a4a 60%,#f28a7a);
+    transition:width .2s linear; }
+  #loadPct{ margin-top:10px; font-size:12px; letter-spacing:1.5px; color:#c98a80; }
   /* online chat */
   #onNick{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
     color:#f0e6a8; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center; outline:none; pointer-events:auto; }
@@ -364,8 +369,17 @@
 <div id="levelcard" class="screen hide">
   <div class="sub" id="lcNum">Level&nbsp;1</div>
   <h1 id="lcTitle" class="flick">HABITABLE<br>ZONE</h1>
-  <div class="lore">You forced the exit and dropped through — into cold <b>concrete and steel</b>, diamond-plate underfoot, the fluorescent hum quieter now. It's calmer here. Almost survivable. But you heard it come down after you.</div>
+  <div class="lore" id="lcLore">You forced the exit and dropped through — into cold <b>concrete and steel</b>, diamond-plate underfoot, the fluorescent hum quieter now. It's calmer here. Almost survivable. But you heard it come down after you.</div>
   <button class="btn" id="lcBtn">DESCEND</button>
+</div>
+
+<!-- Level 2 loading card (large asset) -->
+<div id="loadcard" class="screen hide">
+  <div class="sub">Level&nbsp;2</div>
+  <h1 class="flick" style="color:#e05a4a;text-shadow:0 0 26px rgba(224,90,74,.5),0 3px 0 #3a1010">RUN</h1>
+  <div class="lore">The exit doesn't lead anywhere calm this time. Something is already coming.</div>
+  <div id="loadTrack"><div id="loadFill"></div></div>
+  <div id="loadPct">Loading — 0%</div>
 </div>
 
 <script type="importmap">
@@ -375,6 +389,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from './vendor/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from './vendor/utils/three-mesh-bvh.js';
+// global accelerated-raycast patch: only meshes with computeBoundsTree() called on their geometry
+// use the BVH path (Level 2's ~1M-tri merged map) — everything else falls back to the stock
+// per-triangle raycast unchanged, so Level 0/1 collision is unaffected.
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 /* ============================================================================
    THE BACKROOMS — Level 0
@@ -412,6 +433,7 @@ const collected = new Set();   // "i,j" of grabbed almond waters
 
 // player
 const player = { x:0, z:0, yaw:0, pitch:0, vy:0, bob:0, stepPhase:0, dist:0, floorY:0 };
+let spawnOrigin = { x:0, z:0 };   // current level's spawn point, so "M from entry" means something on Level 2's coords
 let sanity = 100, stamina = 100, waters = 0, elapsed = 0, maxDist = 0;
 let localLight = 1;
 
@@ -421,11 +443,16 @@ let entityProto = null;   // loaded GLB scene (the "howler" model)
 let entityFoot = 0;       // y offset so the model's feet rest on the floor
 let pendingEntity = false; // spawn requested before the model finished loading
 
-// levels: 0 = infinite procedural Lobby, 1 = Habitable Zone (GLB)
-const LEVELS = [{n:'Level 0', t:'The Lobby'}, {n:'Level 1', t:'Habitable Zone'}];
+// level 2 chase pack — several always-hunting howler instances (independently loaded, not clones,
+// since the model is a skinned rig and plain Object3D.clone() doesn't rebind skeletons correctly)
+let chasers = [];   // {obj, x, z, foot, faceYaw}
+
+// levels: 0 = infinite procedural Lobby, 1 = Habitable Zone (GLB), 2 = Backstage of Reality (GLB, run/chase)
+const LEVELS = [{n:'Level 0', t:'The Lobby'}, {n:'Level 1', t:'Habitable Zone'}, {n:'Level 2', t:'Backstage of Reality'}];
 const THREAT = [
   { cls:'3', traits:['Unstable','Entity Presence Confirmed','Severe Sanity Hazard'] },
   { cls:'2', traits:['Semi-Stable','Entity Presence Confirmed','Breathable Atmosphere'] },
+  { cls:'6', traits:['Extremely Hostile','Multiple Entities Confirmed','No Known Safe Rooms — Do Not Stop'] },
 ];
 let completed = loadCompleted();      // Set of level indices the player has escaped
 function loadCompleted(){ try{ return new Set(JSON.parse(localStorage.getItem('backrooms_completed')||'[]')); }catch(e){ return new Set(); } }
@@ -439,6 +466,12 @@ let l1Model = null, l1Ready = false, l1FloorY = 0, l1Half = 26, l1Exit = null;
 let pendingLevel1 = false, transitioning = false;
 const raycaster = new THREE.Raycaster();
 const _ro = new THREE.Vector3(), _rd = new THREE.Vector3();
+
+// level 2 "Backstage of Reality" — big real-world GLB, merged on load, lazy-fetched
+let l2Group = null, l2Ready = false, l2Loading = false, l2Exit = null;
+let l2Bounds = { minX:-217, maxX:229, minZ:-384, maxZ:416 };   // real (non-outlier) map extent, safety clamp
+const L2_SPAWN = { x:-206.8, z:-201.1 }, L2_EXIT = { x:-206.8, z:-67.5 };  // verified-walkable corridor run
+let pendingLevel2 = false;
 
 // death cinematic (entity catch) + game over
 let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0;
@@ -526,12 +559,17 @@ function ceilingTexture(){
   t.anisotropy=maxAniso(); return t;
 }
 const ENTITY_H = 2.95;   // target in-game height (metres); ceiling is WALL_H=3.3
-function loadEntityModel(){
+let _entityMat=null;
+function entityMaterial(){
+  if(!_entityMat) _entityMat=new THREE.MeshStandardMaterial({ color:0x15130c, roughness:0.85, metalness:0.0,
+    emissive:0x14100a, emissiveIntensity:0.95, side:THREE.DoubleSide });
+  return _entityMat;
+}
+// loads one independent howler instance (not a clone — the model is a skinned rig, and plain
+// Object3D.clone() shares the skeleton/bones, so simultaneous instances would move as one).
+function loadEntityInstance(cb){
   new GLTFLoader().load('./backrooms-entity.glb', (gltf)=>{
-    const root=gltf.scene;
-    // dark, palette-fitting material with a faint self-glow so its tangled form reads in the haze
-    const mat=new THREE.MeshStandardMaterial({ color:0x15130c, roughness:0.85, metalness:0.0,
-      emissive:0x14100a, emissiveIntensity:0.95, side:THREE.DoubleSide });
+    const root=gltf.scene, mat=entityMaterial();
     root.traverse(o=>{ if(o.isMesh){ o.material=mat; o.frustumCulled=false; o.castShadow=false; } });
     // normalise scale + rest feet on floor + face the model's snout down local -Z
     let box=new THREE.Box3().setFromObject(root);
@@ -539,10 +577,15 @@ function loadEntityModel(){
     root.rotation.y=-Math.PI/2;              // model faces -X natively -> align to group -Z
     root.updateMatrixWorld(true);
     box=new THREE.Box3().setFromObject(root);
-    entityFoot=-box.min.y;                    // lift so feet touch y=0
-    entityProto=root;
+    cb(root, -box.min.y);                    // foot offset so feet touch y=0
+  }, undefined, (err)=>{ console.warn('entity model failed to load', err); cb(null,0); });
+}
+function loadEntityModel(){
+  loadEntityInstance((root,foot)=>{
+    if(!root) return;
+    entityFoot=foot; entityProto=root;
     if(pendingEntity){ pendingEntity=false; spawnEntity(); }
-  }, undefined, (err)=>{ console.warn('entity model failed to load', err); });
+  });
 }
 let _aniso=1; function maxAniso(){ return _aniso; }
 
@@ -770,27 +813,40 @@ function loadLevel1(){
     if(pendingLevel1){ pendingLevel1=false; enterLevel1(); }
   }, undefined, (e)=>console.warn('level 1 model failed to load', e));
 }
-function floorAt(x,z){ return level===0 ? 0 : l1FloorY; }
+function curRaycastModel(){ return level===1 ? l1Model : level===2 ? l2Group : null; }
+let l2LastFloorY=1.3;   // level 2's floor height varies across the map, unlike level 1's flat room
+function floorAt(x,z){
+  if(level===0) return 0;
+  if(level===1) return l1FloorY;
+  // level 2: live downward raycast (uneven multi-structure map); fall back to last-known on a miss
+  raycaster.set(_ro.set(x,l2LastFloorY+20,z), _rd.set(0,-1,0)); raycaster.far=40;
+  const hits=raycaster.intersectObject(l2Group,true);
+  if(hits.length){ l2LastFloorY=hits[0].point.y; }
+  return l2LastFloorY;
+}
 function collideLevel(x,z,r){
   if(level===0) return collide(x,z,r);
-  const y=l1FloorY+1.1;
+  const m=curRaycastModel(); if(!m) return [x,z];
+  const y=floorAt(x,z)+1.1;
   for(let iter=0; iter<2; iter++){
     for(let k=0;k<8;k++){
       const a=k/8*Math.PI*2, dxx=Math.cos(a), dzz=Math.sin(a);
       raycaster.set(_ro.set(x,y,z), _rd.set(dxx,0,dzz)); raycaster.far=r+0.15;
-      const h=raycaster.intersectObject(l1Model,true)[0];
+      const h=raycaster.intersectObject(m,true)[0];
       if(h && h.distance<r){ const push=r-h.distance; x-=dxx*push; z-=dzz*push; }
     }
   }
-  // hard clamp inside the room as a safety net
-  x=Math.max(-l1Half,Math.min(l1Half,x)); z=Math.max(-l1Half,Math.min(l1Half,z));
+  // hard clamp inside the level bounds as a safety net
+  if(level===1){ x=Math.max(-l1Half,Math.min(l1Half,x)); z=Math.max(-l1Half,Math.min(l1Half,z)); }
+  else { x=Math.max(l2Bounds.minX,Math.min(l2Bounds.maxX,x)); z=Math.max(l2Bounds.minZ,Math.min(l2Bounds.maxZ,z)); }
   return [x,z];
 }
 function losClear(x0,z0,x1,z1){
   if(level===0) return lineClear(x0,z0,x1,z1);
-  const y=l1FloorY+1.3; _rd.set(x1-x0,0,z1-z0); const len=_rd.length()||0.001; _rd.multiplyScalar(1/len);
+  const m=curRaycastModel(); if(!m) return true;
+  const y=floorAt(x0,z0)+1.3; _rd.set(x1-x0,0,z1-z0); const len=_rd.length()||0.001; _rd.multiplyScalar(1/len);
   raycaster.set(_ro.set(x0,y,z0), _rd); raycaster.far=len;
-  return raycaster.intersectObject(l1Model,true).length===0;
+  return raycaster.intersectObject(m,true).length===0;
 }
 function updateLightPoolL1(){
   localLight=0.9;
@@ -798,11 +854,65 @@ function updateLightPoolL1(){
   for(let k=0;k<lightPool.length;k++){ const L=lightPool[k], o=off[k];
     L.color.setHex(0xcfe0ff); L.position.set(player.x+o[0], cy, player.z+o[1]); L.intensity=9; L.distance=24; }
 }
+function updateLightPoolL2(){
+  localLight=0.85;
+  const cy=floorAt(player.x,player.z)+3.6, off=[[0,0],[6,2],[-6,-2],[2,6],[-2,-6],[6,-6],[-6,6]];
+  for(let k=0;k<lightPool.length;k++){ const L=lightPool[k], o=off[k];
+    L.color.setHex(0xff8f6a); L.position.set(player.x+o[0], cy, player.z+o[1]); L.intensity=7; L.distance=18; }
+}
+
+/* ------------------------------------------------ level 2 (GLB, chase run) */
+function loadLevel2(){
+  if(l2Ready || l2Loading) return; l2Loading=true;
+  const loader=new GLTFLoader();
+  loader.load('./level3/scene.gltf', (gltf)=>{
+    const root=gltf.scene; root.updateMatrixWorld(true);
+    const groups=new Map();   // material uuid -> {material, geoms:[]}
+    root.traverse(o=>{
+      if(!o.isMesh) return;
+      const box=new THREE.Box3().setFromObject(o); if(box.isEmpty()||box.min.y>100) return;   // drop the stray far-above prop cluster
+      const mat=Array.isArray(o.material)?o.material[0]:o.material; if(!mat) return;
+      if('metalness'in mat){ mat.metalness=Math.min(mat.metalness,0.2); mat.roughness=Math.max(mat.roughness??0.6,0.5); }
+      mat.fog=true; mat.needsUpdate=true;
+      const g=o.geometry; if(!g.attributes.position || !g.attributes.uv) return;
+      const gc=g.clone(); gc.applyMatrix4(o.matrixWorld);
+      if(!groups.has(mat.uuid)) groups.set(mat.uuid,{material:mat, geoms:[]});
+      groups.get(mat.uuid).geoms.push(gc);
+    });
+    const grp=new THREE.Group();
+    for(const {material,geoms} of groups.values()){
+      try{
+        const merged=mergeGeometries(geoms,false);
+        merged.computeBoundsTree();   // ~1M tris total — without this, raycasts (collision/floor/LOS) take ~100ms each
+        const mesh=new THREE.Mesh(merged, material); mesh.frustumCulled=true;
+        grp.add(mesh);
+      }catch(e){ console.warn('level 2 merge skipped a material group', e); }
+    }
+    // large invisible safety floor so the player can never fall through a gap between structures
+    const safety=new THREE.Mesh(
+      new THREE.PlaneGeometry((l2Bounds.maxX-l2Bounds.minX)+40, (l2Bounds.maxZ-l2Bounds.minZ)+40),
+      new THREE.MeshBasicMaterial({visible:false}));
+    safety.rotation.x=-Math.PI/2;
+    safety.position.set((l2Bounds.minX+l2Bounds.maxX)/2, 1.0, (l2Bounds.minZ+l2Bounds.maxZ)/2);
+    grp.add(safety);
+    l2Group=grp; l2Ready=true; l2Loading=false;
+    if(pendingLevel2){ pendingLevel2=false; proceedToLevel2(); }
+  }, (xhr)=>{
+    if(xhr.total){ const pct=Math.round(xhr.loaded/xhr.total*100);
+      const bar=document.getElementById('loadFill'), txt=document.getElementById('loadPct');
+      if(bar){ bar.style.width=pct+'%'; txt.textContent='Loading — '+pct+'%'; }
+    }
+  }, (e)=>{
+    console.warn('level 2 model failed to load', e); l2Loading=false;
+    if(pendingLevel2){ pendingLevel2=false; document.getElementById('loadcard').classList.add('hide'); showStart(); toast('Could not load Level 2 — check your connection and try again.'); }
+  });
+}
 
 /* -------------------------------------------- death cinematic (the catch) */
-function startCatch(){
+let catchObj=null;   // whichever creature (entity or a level-2 chaser) actually caught the player
+function startCatch(obj){
   if(caught) return;
-  caught=true; caughtT=0; catchBlack=false;
+  caught=true; caughtT=0; catchBlack=false; catchObj=obj||null;
   catchYaw=player.yaw; catchPitch=player.pitch; catchFloorY=floorAt(player.x,player.z);
   audio.setGrowl(0.5); audio.grab();
 }
@@ -814,11 +924,11 @@ function updateCatch(dt){
   let d = t<0.5 ? 1.05 : t<1.2 ? 1.05-smooth01(t,0.5,1.2)*0.35  // reeled in
                                 : 0.7-smooth01(t,1.2,1.55)*0.62; // lunge / stab
   d=Math.max(0.1,d);
-  if(entity){
-    entity.obj.position.set(player.x+fwdX*d, catchFloorY+entityFoot, player.z+fwdZ*d);
-    entity.faceYaw=Math.atan2(-fwdX,-fwdZ);                     // skull turned to your face
+  if(catchObj){
+    catchObj.position.set(player.x+fwdX*d, catchFloorY+entityFoot, player.z+fwdZ*d);
+    const faceYaw=Math.atan2(-fwdX,-fwdZ);                       // skull turned to your face
     const s = t>1.2 ? (Math.random()-0.5)*0.12 : 0;
-    entity.obj.rotation.set(s*0.6, entity.faceYaw, s);
+    catchObj.rotation.set(s*0.6, faceYaw, s);
   }
   const amp = t<0.5?0.03 : t<1.2?0.015 : 0.09;                  // camera shake, violent on the stab
   camera.position.set(player.x+(Math.random()-0.5)*amp, catchFloorY+EYE+lift+(Math.random()-0.5)*amp, player.z+(Math.random()-0.5)*amp);
@@ -832,7 +942,7 @@ function updateCatch(dt){
   }
   if(t>=1.95) finishCatch();
 }
-function finishCatch(){ caught=false; deathLevel=level; gameOver(); }
+function finishCatch(){ caught=false; catchObj=null; deathLevel=level; gameOver(); }
 
 /* ------------------------------------------- wayfinding arrows (to exit) */
 function arrowTexture(){
@@ -869,10 +979,11 @@ function gatherWalls(){ // {x,y,z, nx,nz, tx,tz, d} for nearby wall faces, neare
       if(hasWallH(i,j)){ const wx=i*CELL+CELL/2, wz=j*CELL, nz=Math.sign(player.z-wz)||1;
         out.push({x:wx,y,z:wz+nz*(WALL_T+0.02),nx:0,nz,tx:1,tz:0,d:(wx-player.x)**2+(wz-player.z)**2}); }
     }
-  } else if(l1Model){
+  } else if(curRaycastModel()){
+    const rm=curRaycastModel();
     for(let k=0;k<16;k++){ const a=k/16*Math.PI*2, dx=Math.cos(a), dz=Math.sin(a);
       raycaster.set(_ro.set(player.x,y,player.z), _rd.set(dx,0,dz)); raycaster.far=34;
-      const h=raycaster.intersectObject(l1Model,true)[0]; if(!h) continue;
+      const h=raycaster.intersectObject(rm,true)[0]; if(!h) continue;
       let nx=dx, nz=dz;
       if(h.face){ _vn.copy(h.face.normal).transformDirection(h.object.matrixWorld); nx=_vn.x; nz=_vn.z; }
       const nl=Math.hypot(nx,nz)||1; nx/=nl; nz/=nl;
@@ -887,7 +998,8 @@ function updateGuide(){
   if(elapsed-guideRefresh<0.1) return;       // ~10 Hz is plenty for static wall decals
   guideRefresh=elapsed;
   if(elapsed-guideT>0.4){ guideT=elapsed;
-    guideTarget = level===0 ? nearestExitL0() : (l1Exit?{x:l1Exit.position.x,z:l1Exit.position.z}:null);
+    const exitObj = level===1 ? l1Exit : level===2 ? l2Exit : null;
+    guideTarget = level===0 ? nearestExitL0() : (exitObj?{x:exitObj.position.x,z:exitObj.position.z}:null);
   }
   const walls=gatherWalls(); let k=0;
   if(guideTarget) for(const w of walls){
@@ -957,7 +1069,44 @@ function updateEntity(dt){
   // audio dread + caught
   const near=Math.max(0,1-dist/22);
   audio.setGrowl((e.state==='chase'?0.6:0.15)*near + (e.state==='chase'?0.2:0));
-  if(dist<1.1){ startCatch(); }
+  if(dist<1.1){ startCatch(e.obj); }
+}
+
+/* ------------------------------------------ level 2 chase pack (always-hunt) */
+function spawnChasers(n){
+  clearChasers();
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  const rgtX=Math.cos(player.yaw), rgtZ=-Math.sin(player.yaw);
+  for(let i=0;i<n;i++){
+    const back=13+i*4.5, side=(i-(n-1)/2)*3.2;
+    const x=player.x-fwdX*back+rgtX*side, z=player.z-fwdZ*back+rgtZ*side;
+    loadEntityInstance((root,foot)=>{
+      if(!root || level!==2) return;   // player may have already left level 2 by the time this resolves
+      scene.add(root);
+      chasers.push({obj:root, x, z, foot, faceYaw:0});
+    });
+  }
+}
+function clearChasers(){ for(const c of chasers) scene.remove(c.obj); chasers.length=0; }
+function updateChasers(dt){
+  const dread=(100-sanity)/100;
+  const speed=2.15+dread*1.3;
+  for(const c of chasers){
+    const dx=player.x-c.x, dz=player.z-c.z, dist=Math.hypot(dx,dz)||0.001;
+    const hx=dx/dist, hz=dz/dist;
+    let nx=c.x+hx*speed*dt, nz=c.z+hz*speed*dt;
+    [nx,nz]=collideLevel(nx,nz,0.4);
+    c.x=nx; c.z=nz;
+    const targetYaw=Math.atan2(hx,hz);
+    let d0=targetYaw-c.faceYaw; while(d0>Math.PI)d0-=2*Math.PI; while(d0<-Math.PI)d0+=2*Math.PI;
+    c.faceYaw+=d0*Math.min(1,dt*8);
+    const gait=12, bob=Math.abs(Math.sin(elapsed*gait))*0.1;
+    c.obj.position.set(c.x, floorAt(c.x,c.z)+c.foot+bob, c.z);
+    c.obj.rotation.set(Math.sin(elapsed*gait*0.5)*0.04, c.faceYaw, Math.sin(elapsed*gait)*0.05);
+    if(dist<1.1){ startCatch(c.obj); return; }
+  }
+  const nearest=chasers.reduce((m,c)=>Math.min(m,Math.hypot(player.x-c.x,player.z-c.z)),999);
+  audio.setGrowl(Math.max(0,1-nearest/20));
 }
 
 /* ---------------------------------------------------------------- audio */
@@ -1141,14 +1290,18 @@ function newGame(){
   for(const key of [...chunks.keys()]) unloadChunk(key);
   buildQueue.length=0; pickups.length=0; collected.clear();
   if(entity){ scene.remove(entity.obj); entity=null; pendingEntity=false; }
+  clearChasers();
   // reset to Level 0
   if(l1Model && l1Model.parent) scene.remove(l1Model);
   if(l1Exit){ scene.remove(l1Exit); l1Exit=null; }
-  level=0; transitioning=false; pendingLevel1=false; applyAtmosphere(0);
+  if(l2Group && l2Group.parent) scene.remove(l2Group);
+  if(l2Exit){ scene.remove(l2Exit); l2Exit=null; }
+  level=0; transitioning=false; pendingLevel1=false; pendingLevel2=false; applyAtmosphere(0);
   document.getElementById('levelcard').classList.add('hide');
   document.getElementById('obj').innerHTML='Follow the <b>black arrows</b> to the <b style="color:#8ec98e">EXIT</b>. Drink almond water. Don\'t stop moving.';
 
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0; player.floorY=0;
+  spawnOrigin={x:player.x,z:player.z};
   sanity=100; stamina=100; waters=0; elapsed=0; maxDist=0; localLight=1;
 
   updateChunks(); processQueue(999);   // build initial rings synchronously
@@ -1188,7 +1341,7 @@ function gameOver(){
 }
 function winGame(){
   if(!running) return; running=false;
-  markComplete(0); markComplete(1);   // reaching the Level 1 exit means both are cleared
+  markComplete(0); markComplete(1); markComplete(2);   // reaching the final exit clears every level before it
   audio.setGrowl(0); audio.pickup();
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
@@ -1212,11 +1365,17 @@ function applyAtmosphere(lv){
     hemi.color.setHex(0xbaa94a); hemi.groundColor.setHex(0x2a2410); hemi.intensity=0.6;
     fillLight.color.setHex(0xd8cf9a);
     for(const L of lightPool) L.color.setHex(0xfff0c4);
-  } else {
+  } else if(lv===1){
     scene.background.setHex(0x0d1114); scene.fog.color.setHex(0x0d1114); scene.fog.near=3.5; fogFarBase=44;
     ambient.color.setHex(0x2b3138); ambient.intensity=0.9;
     hemi.color.setHex(0xb3bec9); hemi.groundColor.setHex(0x20252b); hemi.intensity=0.75;
     fillLight.color.setHex(0xbcc6d2);
+  } else {
+    // harsher, redder emergency-light tone; tighter fog so the chase feels close
+    scene.background.setHex(0x120806); scene.fog.color.setHex(0x120806); scene.fog.near=2.5; fogFarBase=26;
+    ambient.color.setHex(0x3a1f18); ambient.intensity=0.75;
+    hemi.color.setHex(0xd98a6a); hemi.groundColor.setHex(0x1a0f0c); hemi.intensity=0.7;
+    fillLight.color.setHex(0xe0a888);
   }
 }
 // Level 0 exit -> descend into Level 1 (Habitable Zone)
@@ -1230,11 +1389,60 @@ function enterLevel1(){
   buildQueue.length=0; pickups.length=0;
   level=1; scene.add(l1Model); applyAtmosphere(1);
   player.x=0; player.z=0; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.floorY=l1FloorY;
+  spawnOrigin={x:player.x,z:player.z};
   // place the level-1 exit at a far corner
   l1Exit=makeExit();
   l1Exit.position.set((Math.random()<0.5?-1:1)*(l1Half-2), l1FloorY, (Math.random()<0.5?-1:1)*(l1Half-2));
   l1Exit.rotation.y=Math.random()*7; scene.add(l1Exit); pickups.push({mesh:l1Exit,key:'l1exit',kind:'exit'});
   if(entity) placeEntityFar(); else spawnEntity();
+  loadLevel2();   // ~98MB — start fetching now so it's likely ready by the time the player reaches this exit
+  document.getElementById('lcNum').textContent='Level 1';
+  document.getElementById('lcTitle').innerHTML='HABITABLE<br>ZONE';
+  document.getElementById('lcLore').innerHTML='You forced the exit and dropped through — into cold <b>concrete and steel</b>, diamond-plate underfoot, the fluorescent hum quieter now. It\'s calmer here. Almost survivable. But you heard it come down after you.';
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('cross').classList.remove('show');
+  document.getElementById('touch').classList.remove('show');
+  document.getElementById('levelcard').classList.remove('hide');
+}
+// Level 1 exit -> Backstage of Reality — a straight run, several things already hunting
+function enterLevel2(){
+  if(transitioning) return;
+  markComplete(1); markDiscovered(2);
+  if(!l2Ready){
+    pendingLevel2=true; loadLevel2();
+    transitioning=true; running=false; audio.setGrowl(0);
+    if(locked) document.exitPointerLock();
+    document.getElementById('hud').classList.remove('show');
+    document.getElementById('cross').classList.remove('show');
+    document.getElementById('touch').classList.remove('show');
+    document.getElementById('loadcard').classList.remove('hide');
+    return;
+  }
+  proceedToLevel2();
+}
+// the actual setup, split out so the "load finished while showing the loading card" callback
+// can run it directly without tripping the transitioning-guard at the top of enterLevel2()
+function proceedToLevel2(){
+  document.getElementById('loadcard').classList.add('hide');
+  transitioning=true; running=false; audio.setGrowl(0);
+  if(locked) document.exitPointerLock();
+  for(const key of [...chunks.keys()]) unloadChunk(key);
+  buildQueue.length=0; pickups.length=0;
+  if(l1Model && l1Model.parent) scene.remove(l1Model);
+  if(l1Exit){ scene.remove(l1Exit); l1Exit=null; }
+  if(entity){ scene.remove(entity.obj); entity=null; }
+  level=2; scene.add(l2Group); applyAtmosphere(2);
+  player.x=L2_SPAWN.x; player.z=L2_SPAWN.z; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0;
+  spawnOrigin={x:player.x,z:player.z};
+  player.floorY=floorAt(player.x,player.z); l2LastFloorY=player.floorY;
+  l2Exit=makeExit();
+  const exY=floorAt(L2_EXIT.x,L2_EXIT.z);
+  l2Exit.position.set(L2_EXIT.x, exY, L2_EXIT.z); l2Exit.rotation.y=Math.random()*7;
+  scene.add(l2Exit); pickups.push({mesh:l2Exit,key:'l2exit',kind:'exit'});
+  spawnChasers(3);
+  document.getElementById('lcNum').textContent='Level 2';
+  document.getElementById('lcTitle').innerHTML='<span style="color:#e05a4a;text-shadow:0 0 26px rgba(224,90,74,.5),0 3px 0 #3a1010">BACKSTAGE<br>OF REALITY</span>';
+  document.getElementById('lcLore').innerHTML='The exit dumps you into somewhere <b>bigger</b> — cold brick, gravel, scaffolding stretching off into the dark. You hear it before you see it: more than one set of footsteps, closing fast. <b>Don\'t stop. Don\'t look back. Just run.</b><div style="margin-top:10px;font-size:11px;color:#7a7260">"Rec Room — Backstage of Reality" by Lol_o9, CC BY 4.0 (Sketchfab)</div>';
   document.getElementById('hud').classList.remove('show');
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
@@ -1245,16 +1453,22 @@ function resumeFromCard(){
   document.getElementById('hud').classList.add('show');
   document.getElementById('cross').classList.toggle('show', !isTouch);
   if(isTouch) document.getElementById('touch').classList.add('show');
-  document.getElementById('obj').innerHTML='LEVEL 1 · Follow the <b>arrows</b> to the <b style="color:#8ec98e">EXIT</b> — it followed you down.';
+  if(level===2){
+    document.getElementById('obj').innerHTML='LEVEL 2 · <b style="color:#e05a4a">RUN</b> — follow the arrows to the EXIT. Don\'t stop.';
+    toast('Level 2 — Backstage of Reality');
+  } else {
+    document.getElementById('obj').innerHTML='LEVEL 1 · Follow the <b>arrows</b> to the <b style="color:#8ec98e">EXIT</b> — it followed you down.';
+    toast('Level 1 — Habitable Zone');
+  }
   transitioning=false; running=true; clock.getDelta();
-  toast('Level 1 — Habitable Zone');
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['win','levels','threat','online','levelcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','threat','online','levelcard','loadcard'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('gameover').classList.remove('show');
   document.getElementById('chatRoom').classList.remove('show');
   disconnectChat();
+  clearChasers();
   document.getElementById('blackout').style.opacity='0';
   document.getElementById('dread').style.opacity='0';
   document.getElementById('hud').classList.remove('show');
@@ -1301,6 +1515,11 @@ function startAtLevel(idx){
   if(idx>=1){
     if(l1Ready){ enterLevel1(); resumeFromCard(); }   // jump straight into Level 1
     else pendingLevel1=true;                          // model still loading -> transition on load
+  }
+  if(idx>=2){
+    loadLevel2();                                     // make sure a fetch is in flight
+    if(l2Ready){ enterLevel2(); resumeFromCard(); }
+    else pendingLevel2=true;                          // asset still loading -> transition on load
   }
 }
 
@@ -1440,11 +1659,11 @@ function update(dt){
     if(player.stepPhase - (player._lastStep||0) >= 1){ player._lastStep=Math.floor(player.stepPhase); audio.step(); }
   } else { player.bob *= 0.8; }
 
-  maxDist=Math.max(maxDist, Math.hypot(player.x,player.z));
+  maxDist=Math.max(maxDist, Math.hypot(player.x-spawnOrigin.x,player.z-spawnOrigin.z));
 
-  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); }
-  else { updateLightPoolL1(); }
-  updateEntity(dt);
+  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); }
+  else if(level===1){ updateLightPoolL1(); updateEntity(dt); }
+  else { updateLightPoolL2(); updateChasers(dt); }
   updatePickups(dt);
   updateGuide();
 
@@ -1453,6 +1672,7 @@ function update(dt){
   let drain = 0.5 + (dark?2.6:0);
   if(!moving) drain += 0.3;
   if(entity && entity.state==='chase') drain += 1.4;
+  if(level===2 && chasers.length) drain += 1.6;   // constant pursuit, constant dread
   sanity=Math.max(0, sanity - drain*dt);
   if(sanity<=0){ die("your mind stayed behind","YOU BROKE"); return; }
 
@@ -1485,7 +1705,7 @@ function updatePickups(dt){
     } else if(p.kind==='exit'){
       const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
       if(p.mesh.userData.light) p.mesh.userData.light.intensity = d<14 ? Math.max(0, 3-(d/14)*3) : 0;
-      if(d<1.6){ if(level===0) enterLevel1(); else winGame(); return; }
+      if(d<1.6){ if(level===0) enterLevel1(); else if(level===1) enterLevel2(); else winGame(); return; }
     }
   }
 }
@@ -1498,7 +1718,7 @@ function updateHUD(){
   document.getElementById('staPct').textContent=Math.round(stamina);
   document.getElementById('staFill').style.width=stamina+'%';
   document.getElementById('waterN').textContent=waters;
-  document.getElementById('dist').textContent=Math.round(Math.hypot(player.x,player.z));
+  document.getElementById('dist').textContent=Math.round(Math.hypot(player.x-spawnOrigin.x,player.z-spawnOrigin.z));
   // battery = sanity: fill width + colour, flashing red once critical
   const bf=document.getElementById('battFill'), bodyW=20;
   bf.setAttribute('width', Math.max(0,bodyW*san/100).toFixed(1));
