@@ -865,9 +865,9 @@ function gatherWalls(){ // {x,y,z, nx,nz, tx,tz, d} for nearby wall faces, neare
     const pci=Math.floor(player.x/CELL), pcj=Math.floor(player.z/CELL);
     for(let i=pci-2;i<=pci+2;i++) for(let j=pcj-2;j<=pcj+2;j++){
       if(hasWallV(i,j)){ const wx=i*CELL, wz=j*CELL+CELL/2, nx=Math.sign(player.x-wx)||1;
-        out.push({x:wx+nx*0.1,y,z:wz,nx,nz:0,tx:0,tz:1,d:(wx-player.x)**2+(wz-player.z)**2}); }
+        out.push({x:wx+nx*(WALL_T+0.02),y,z:wz,nx,nz:0,tx:0,tz:1,d:(wx-player.x)**2+(wz-player.z)**2}); }
       if(hasWallH(i,j)){ const wx=i*CELL+CELL/2, wz=j*CELL, nz=Math.sign(player.z-wz)||1;
-        out.push({x:wx,y,z:wz+nz*0.1,nx:0,nz,tx:1,tz:0,d:(wx-player.x)**2+(wz-player.z)**2}); }
+        out.push({x:wx,y,z:wz+nz*(WALL_T+0.02),nx:0,nz,tx:1,tz:0,d:(wx-player.x)**2+(wz-player.z)**2}); }
     }
   } else if(l1Model){
     for(let k=0;k<16;k++){ const a=k/16*Math.PI*2, dx=Math.cos(a), dz=Math.sin(a);
