@@ -190,6 +190,20 @@
   .onlineDot.live{ background:#5cc95c; box-shadow:0 0 8px rgba(92,201,92,.8); }
   #onlineCountVal{ font-size:18px; font-weight:900; color:var(--amber); letter-spacing:1px; }
   .onlineCountLabel{ font-size:10px; font-weight:800; letter-spacing:1.5px; color:#9a916a; }
+  /* achievement toast, slides in from the top-right */
+  #achieveToast{ position:fixed; z-index:35; pointer-events:none;
+    top:calc(env(safe-area-inset-top) + 92px); right:calc(env(safe-area-inset-right) + 14px);
+    width:min(300px,calc(100vw - 28px)); display:flex; align-items:center; gap:12px;
+    background:rgba(8,7,2,.92); border:1px solid rgba(200,180,90,.4); border-radius:12px;
+    padding:12px 16px; box-shadow:0 6px 24px rgba(0,0,0,.55), 0 0 20px rgba(201,178,74,.15);
+    transform:translateX(calc(100% + 40px)); transition:transform .45s cubic-bezier(.16,1,.3,1); }
+  #achieveToast.show{ transform:translateX(0); }
+  .achIcon{ font-size:26px; flex:none; filter:drop-shadow(0 0 6px rgba(201,178,74,.5)); }
+  .achText{ min-width:0; }
+  .achLabel{ font-size:9px; font-weight:800; letter-spacing:1.5px; color:#9a916a; }
+  .achTitle{ font-size:14px; font-weight:900; letter-spacing:.5px; color:var(--amber); text-transform:uppercase;
+    text-shadow:0 0 8px rgba(249,176,0,.35); }
+  .achSub{ font-size:11.5px; color:#cabf86; margin-top:3px; line-height:1.4; }
   /* online chat */
   #serverStep:not(.hide), #passStep:not(.hide), #nickStep:not(.hide){ display:flex; flex-direction:column; align-items:center; }
   #serverList{ margin-top:18px; width:min(360px,calc(100vw - 40px)); display:flex; flex-direction:column; gap:10px; }
@@ -306,6 +320,15 @@
   <span id="onlineDot" class="onlineDot"></span>
   <span id="onlineCountVal">--</span>
   <span class="onlineCountLabel">ONLINE</span>
+</div>
+
+<div id="achieveToast">
+  <div class="achIcon" id="achIcon">&#128128;</div>
+  <div class="achText">
+    <div class="achLabel">ACHIEVEMENT UNLOCKED</div>
+    <div class="achTitle" id="achTitle">FIRST DEATH!</div>
+    <div class="achSub" id="achSub">congrats on your first death!</div>
+  </div>
 </div>
 
 <!-- HUD (camcorder viewfinder) -->
@@ -565,7 +588,7 @@ const L2_SPAWN = { x:-206.8, z:-201.1 }, L2_EXIT = { x:-206.8, z:-67.5 };  // ve
 let pendingLevel2 = false;
 
 // death cinematic (entity catch) + game over
-let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0;
+let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0, lastDeathByEntity = false;
 
 // wayfinding: black arrows painted on nearby walls, pointing to the nearest exit
 let arrowPool = [], guideTarget = null, guideT = -9, guideRefresh = -9;
@@ -1033,7 +1056,7 @@ function updateCatch(dt){
   }
   if(t>=1.95) finishCatch();
 }
-function finishCatch(){ caught=false; catchObj=null; deathLevel=level; gameOver(); }
+function finishCatch(){ caught=false; catchObj=null; deathLevel=level; lastDeathByEntity=true; gameOver(); }
 
 /* ------------------------------------------- wayfinding arrows (to exit) */
 function arrowTexture(){
@@ -1422,9 +1445,36 @@ function newGame(){
   toast("Level 0 — keep moving.");
 }
 
+/* ------------------------------------------------------- achievements */
+const ACHIEVEMENTS = {
+  firstdeath:   { icon:'&#128128;', title:'FIRST DEATH!', sub:'congrats on your first death!' },
+  meetbacteria: { icon:'&#129440;', title:'MEET THE BACTERIA', sub:"you got killed by the entity bacteria! don't let him catch you next time!" },
+};
+let achQueue=[], achShowing=false;
+function unlockAchievement(key){
+  const storeKey='backrooms_ach_'+key;
+  try{ if(localStorage.getItem(storeKey)) return; localStorage.setItem(storeKey,'1'); }catch(e){}
+  achQueue.push(key);
+  if(!achShowing) showNextAchievement();
+}
+function showNextAchievement(){
+  if(!achQueue.length){ achShowing=false; return; }
+  achShowing=true;
+  const a=ACHIEVEMENTS[achQueue.shift()];
+  document.getElementById('achIcon').innerHTML=a.icon;
+  document.getElementById('achTitle').textContent=a.title;
+  document.getElementById('achSub').textContent=a.sub;
+  const el=document.getElementById('achieveToast');
+  el.classList.add('show');
+  setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(showNextAchievement, 500);
+  }, 3600);
+}
+
 function die(reason,title){          // non-catch deaths (e.g. sanity) -> straight to Game Over
   if(!running || caught) return;
-  deathLevel=level; gameOver();
+  deathLevel=level; lastDeathByEntity=false; gameOver();
 }
 function gameOver(){
   running=false; caught=false;
@@ -1434,6 +1484,8 @@ function gameOver(){
   document.getElementById('hud').classList.remove('show');
   document.getElementById('gameover').classList.add('show');
   if(locked) document.exitPointerLock();
+  unlockAchievement('firstdeath');
+  if(lastDeathByEntity) unlockAchievement('meetbacteria');
 }
 function winGame(){
   if(!running) return; running=false;
