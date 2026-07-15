@@ -204,7 +204,7 @@
   .achTitle{ font-size:14px; font-weight:900; letter-spacing:.5px; color:var(--amber); text-transform:uppercase;
     text-shadow:0 0 8px rgba(249,176,0,.35); }
   .achSub{ font-size:11.5px; color:#cabf86; margin-top:3px; line-height:1.4; }
-  /* developer-only shutdown control (unlocked via ?dev=1, see isDev) */
+  /* shutdown control, bottom-right of the main menu */
   #shutdownBtn{ position:fixed; z-index:20; bottom:calc(env(safe-area-inset-bottom) + 14px); right:calc(env(safe-area-inset-right) + 14px);
     font-size:10px; font-weight:800; letter-spacing:1px; padding:7px 12px; border-radius:8px; font-family:inherit;
     border:1px solid rgba(224,90,74,.35); background:rgba(40,10,10,.35); color:#c98a80;
@@ -467,7 +467,7 @@
   <div class="ctrls" id="ctrlsDesk">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
-  <button id="shutdownBtn" class="hide">SHUT DOWN GAME</button>
+  <button id="shutdownBtn">SHUT DOWN GAME</button>
 </div>
 
 <!-- Level select (only completed levels) -->
@@ -1372,12 +1372,6 @@ let locked=false;
 let settingsOpen=false;
 let lookSens=(function(){ const v=parseFloat(localStorage.getItem('backrooms_sens')); return (v>=0.5 && v<=2) ? v : 1; })();
 let shutdownActive=false;
-const isDev=(function(){
-  try{
-    if(new URLSearchParams(location.search).get('dev')==='1') localStorage.setItem('backrooms_dev','1');
-    return localStorage.getItem('backrooms_dev')==='1';
-  }catch(e){ return false; }
-})();
 
 function setupDesktop(){
   addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
@@ -2107,7 +2101,6 @@ document.getElementById('sensSlider').addEventListener('input', e=>{
   lookSens=(+e.target.value)/100; document.getElementById('sensVal').textContent=e.target.value+'%';
   try{ localStorage.setItem('backrooms_sens', lookSens); }catch(err){}
 });
-if(isDev) document.getElementById('shutdownBtn').classList.remove('hide');
 document.getElementById('shutdownBtn').addEventListener('click', openShutdownConfirm);
 document.getElementById('shutdownYes').addEventListener('click', confirmShutdown);
 document.getElementById('shutdownNo').addEventListener('click', closeShutdownConfirm);
