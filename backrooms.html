@@ -191,6 +191,35 @@
     cursor:pointer; pointer-events:auto; }
   #settingsBtn:not(.hide){ display:flex; }
   #settingsBtn:active{ background:rgba(201,178,74,.25); }
+  /* creator server corner button, shown only on the start screen */
+  #creatorBtn{ position:absolute; top:calc(env(safe-area-inset-top) + 14px); right:calc(env(safe-area-inset-right) + 14px);
+    font-size:10px; font-weight:800; letter-spacing:1px; padding:8px 12px; border-radius:8px;
+    border:1px solid rgba(200,180,90,.35); background:rgba(8,7,2,.55); color:var(--amber);
+    cursor:pointer; pointer-events:auto; }
+  #creatorBtn:active{ background:rgba(201,178,74,.22); }
+  /* creator server sandbox UI */
+  #creatorUI{ position:fixed; inset:0; z-index:16; pointer-events:none; display:none; }
+  #creatorUI.show{ display:block; }
+  #creatorExit{ position:fixed; top:calc(env(safe-area-inset-top) + 14px); left:calc(env(safe-area-inset-left) + 14px);
+    font-size:11px; font-weight:800; letter-spacing:1px; padding:9px 16px; border-radius:9px;
+    border:1px solid rgba(200,180,90,.4); background:rgba(8,7,2,.75); color:var(--amber); cursor:pointer; pointer-events:auto; }
+  #creatorExit:active{ background:rgba(201,178,74,.25); }
+  #creatorBars{ position:fixed; left:0; right:0; bottom:0; display:flex; flex-direction:column; gap:5px;
+    padding:0 8px calc(env(safe-area-inset-bottom) + 8px); align-items:center; }
+  .crRow{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; max-width:min(640px,100%);
+    background:rgba(8,7,2,.75); border:1px solid rgba(200,180,90,.3); border-radius:11px; padding:6px 8px; pointer-events:auto; }
+  .crBtn{ font-size:10px; font-weight:800; letter-spacing:.3px; padding:6px 9px; border-radius:7px;
+    border:1px solid rgba(200,180,90,.35); background:rgba(201,178,74,.1); color:#f0e6a8; cursor:pointer; pointer-events:auto;
+    font-family:inherit; white-space:nowrap; }
+  @media (max-width:420px){
+    .crBtn{ font-size:9.5px; padding:6px 7px; }
+    .crLabel{ font-size:8.5px; }
+  }
+  .crBtn:active{ background:rgba(201,178,74,.28); }
+  .crBtn.on{ background:rgba(201,178,74,.4); color:#1a1200; }
+  .crBtn.danger{ border-color:rgba(224,90,74,.4); color:#e0a99a; }
+  .crLabel{ font-size:9.5px; font-weight:800; letter-spacing:1px; color:#9a916a; align-self:center; padding:0 4px; }
+  #crKfCount{ font-size:11px; font-weight:800; color:var(--amber); align-self:center; padding:0 4px; white-space:nowrap; }
   #settings{ z-index:25; background:radial-gradient(ellipse at center, rgba(30,26,8,.99), rgba(6,5,1,.995)); }
   .setRow{ width:min(360px,calc(100vw - 40px)); margin-top:24px; text-align:left; }
   .setLabel{ display:flex; justify-content:space-between; font-size:12px; letter-spacing:1.5px; text-transform:uppercase;
@@ -528,6 +557,7 @@
 
 <!-- Start screen -->
 <div id="start" class="screen hide">
+  <button id="creatorBtn">CREATOR SERVER</button>
   <img src="./backrooms-logo.png" alt="The Backrooms logo" id="logoImg">
   <h1>THE<br>BACKROOMS</h1>
   <div class="sub">Level&nbsp;0 — “The&nbsp;Lobby”</div>
@@ -640,6 +670,48 @@
 <div id="cineBanner"></div>
 <div id="runBanner"><span>RUN</span></div>
 <div id="toBeContinued"><span>to be continued...</span></div>
+
+<!-- Creator Server: a free sandbox to spawn shapes/entities and pose out simple animations -->
+<div id="creatorUI">
+  <button id="creatorExit">EXIT CREATOR</button>
+  <div id="creatorBars">
+    <div class="crRow" id="crTransformRow" style="display:none">
+      <span class="crLabel">MOVE</span>
+      <button class="crBtn" data-nudge="pos,x,-1">X-</button>
+      <button class="crBtn" data-nudge="pos,x,1">X+</button>
+      <button class="crBtn" data-nudge="pos,y,-1">Y-</button>
+      <button class="crBtn" data-nudge="pos,y,1">Y+</button>
+      <button class="crBtn" data-nudge="pos,z,-1">Z-</button>
+      <button class="crBtn" data-nudge="pos,z,1">Z+</button>
+      <span class="crLabel">TURN</span>
+      <button class="crBtn" data-nudge="rot,x,-1">RX-</button>
+      <button class="crBtn" data-nudge="rot,x,1">RX+</button>
+      <button class="crBtn" data-nudge="rot,y,-1">RY-</button>
+      <button class="crBtn" data-nudge="rot,y,1">RY+</button>
+      <button class="crBtn" data-nudge="rot,z,-1">RZ-</button>
+      <button class="crBtn" data-nudge="rot,z,1">RZ+</button>
+      <button class="crBtn danger" id="crDelete">DELETE</button>
+    </div>
+    <div class="crRow">
+      <span class="crLabel">ANIMATE</span>
+      <button class="crBtn" id="crAddKey">+ KEYFRAME</button>
+      <button class="crBtn" id="crPlay">▶ PLAY</button>
+      <button class="crBtn" id="crStop">■ STOP</button>
+      <button class="crBtn danger" id="crClearKeys">CLEAR</button>
+      <span id="crKfCount">0 keyframes</span>
+    </div>
+    <div class="crRow">
+      <span class="crLabel">SPAWN</span>
+      <button class="crBtn" data-spawn="cube">CUBE</button>
+      <button class="crBtn" data-spawn="sphere">SPHERE</button>
+      <button class="crBtn" data-spawn="cylinder">CYLINDER</button>
+      <button class="crBtn" data-spawn="cone">CONE</button>
+      <button class="crBtn" data-spawn="plane">SLAB</button>
+      <button class="crBtn" data-spawn="entity">HOWLER</button>
+      <button class="crBtn on" id="crSelect">🎯 SELECT</button>
+    </div>
+  </div>
+</div>
 
 <!-- Game Over screen -->
 <div id="gameover">
@@ -778,7 +850,15 @@ let portalSpawned = false, portalObj = null;
 // 3PM event: a one-time cinematic (played once per browser) + the portal it unlocks permanently afterward
 const EVENT_TARGET = new Date(2026,6,15,15,0,0).getTime();
 function eventPassed(){ return Date.now() >= EVENT_TARGET; }
-let cineActive = false, cineRunningBefore = false, cineVisibleScreen = null;
+let cineActive = false, cineRunningBefore = false, cineVisibleScreen = null, cineCreatorBefore = false;
+
+// Creator Server: a free sandbox, entirely separate from the level0-3/`level` system on purpose —
+// its own tick() branch and its own movement code, so it can never interact with or regress the game.
+let creatorMode = false;
+let creatorBaseplate = null, creatorClouds = [], creatorSun = null;
+let creatorObjects = [], creatorObjSeq = 0, selectedCreatorId = null, creatorOutline = null;
+let creatorKeyframes = [], creatorPlaying = false, creatorPlayIdx = 0, creatorPlayT = 0;
+const CREATOR_BOUND = 95, CREATOR_STEP = 0.4, CREATOR_ROT_STEP = Math.PI/12, CREATOR_SEG_DUR = 1.2;
 
 // death cinematic (entity catch) + game over
 let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0, lastDeathByEntity = false;
@@ -1356,6 +1436,238 @@ function endLevel3(){
   }, 5200);
 }
 
+/* ---------------------------------------------------------------- Creator Server
+   A free sandbox: grey baseplate, sunny sky, spawn shapes/the entity, move/turn them,
+   and pose out simple keyframe animations. Deliberately independent of the level0-3
+   system — its own tick() branch, its own movement — so it can't affect the game. */
+function creatorGridTexture(){
+  const s=512, c=makeCanvas(s), x=c.getContext('2d');
+  x.fillStyle='#9a9a9a'; x.fillRect(0,0,s,s);
+  x.strokeStyle='rgba(255,255,255,.22)'; x.lineWidth=2;
+  for(let i=0;i<=s;i+=32){ x.beginPath(); x.moveTo(i,0); x.lineTo(i,s); x.stroke(); x.beginPath(); x.moveTo(0,i); x.lineTo(s,i); x.stroke(); }
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(40,40);
+  t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+function buildCreatorBaseplate(){
+  const mat=new THREE.MeshStandardMaterial({map:creatorGridTexture(), roughness:0.92});
+  const base=new THREE.Mesh(new THREE.PlaneGeometry(CREATOR_BOUND*2.2,CREATOR_BOUND*2.2), mat);
+  base.rotation.x=-Math.PI/2;
+  return base;
+}
+let _cloudTex=null;
+function cloudTexture(){
+  if(_cloudTex) return _cloudTex;
+  const s=160, c=makeCanvas(s), x=c.getContext('2d'), R=rng(909);
+  x.clearRect(0,0,s,s);
+  for(let i=0;i<8;i++){
+    const cx=s*0.5+(R()*2-1)*40, cy=s*0.55+(R()*2-1)*16, r=20+R()*26;
+    const g=x.createRadialGradient(cx,cy,0,cx,cy,r);
+    g.addColorStop(0,'rgba(255,255,255,.95)'); g.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=g; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
+  }
+  _cloudTex=new THREE.CanvasTexture(c); return _cloudTex;
+}
+function buildCreatorClouds(){
+  const mat=new THREE.SpriteMaterial({map:cloudTexture(), transparent:true, depthWrite:false, opacity:0.95, fog:false});
+  const clouds=[];
+  for(let i=0;i<14;i++){
+    const s=new THREE.Sprite(mat);
+    const scl=16+Math.random()*18; s.scale.set(scl,scl*0.5,1);
+    s.position.set((Math.random()*2-1)*150, 34+Math.random()*22, (Math.random()*2-1)*150);
+    clouds.push(s);
+  }
+  return clouds;
+}
+function applyCreatorAtmosphere(){
+  // set scene.fog.far directly too — it's normally refreshed every frame inside update(dt) from
+  // fogFarBase, but creator mode runs its own loop (updateCreator) that never touches fog at all
+  scene.background.setHex(0x8fd0f2); scene.fog.color.setHex(0xbfe6f7); scene.fog.near=60; scene.fog.far=420; fogFarBase=420;
+  ambient.color.setHex(0xffffff); ambient.intensity=0.85;
+  hemi.color.setHex(0xffffff); hemi.groundColor.setHex(0x9a9a6a); hemi.intensity=0.9;
+  fillLight.color.setHex(0xfff6dd); fillLight.intensity=0.4;
+  for(const L of lightPool) L.intensity=0;
+  if(!creatorSun){ creatorSun=new THREE.DirectionalLight(0xfff4d6, 1.4); creatorSun.position.set(60,90,40); scene.add(creatorSun); }
+  creatorSun.visible=true;
+}
+function creatorNextId(){ return 'cr'+(creatorObjSeq++); }
+function addCreatorObject(obj, kind){
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  // small random jitter so spawning several things in a row doesn't stack them all in the same spot
+  const jx=(Math.random()*2-1)*1.2, jz=(Math.random()*2-1)*1.2;
+  obj.position.set(player.x+fwdX*4+jx, obj.position.y, player.z+fwdZ*4+jz);
+  scene.add(obj);
+  const id=creatorNextId();
+  creatorObjects.push({obj, kind, id});
+  selectCreatorObject(id);
+}
+function spawnCreatorShape(kind){
+  let geo, y=0.6;
+  if(kind==='cube') geo=new THREE.BoxGeometry(1,1,1);
+  else if(kind==='sphere') geo=new THREE.SphereGeometry(0.6,22,16);
+  else if(kind==='cylinder') geo=new THREE.CylinderGeometry(0.5,0.5,1.2,22);
+  else if(kind==='cone') geo=new THREE.ConeGeometry(0.6,1.2,22);
+  else { geo=new THREE.BoxGeometry(2,0.2,2); y=0.1; }
+  const color=[0x5ec9e0,0xe0895e,0x8fe05e,0xd6e05e,0xb05ee0,0xe05e9e][Math.floor(Math.random()*6)];
+  const mesh=new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color, roughness:0.55}));
+  mesh.position.y=y;
+  const grp=new THREE.Group(); grp.add(mesh); grp.position.y=0;
+  addCreatorObject(grp, kind);
+}
+function spawnCreatorEntity(){
+  if(!entityProto && !entity){ toast('Entity model still loading — try again in a second.'); }
+  loadEntityInstance((root,foot)=>{
+    if(!root) return;
+    root.position.y=foot;
+    const grp=new THREE.Group(); grp.add(root);
+    addCreatorObject(grp, 'entity');
+  });
+}
+function updateCreatorOutline(){
+  if(creatorOutline){ scene.remove(creatorOutline); creatorOutline=null; }
+  const rec=creatorObjects.find(o=>o.id===selectedCreatorId);
+  if(!rec) return;
+  creatorOutline=new THREE.BoxHelper(rec.obj, 0xffee66);
+  creatorOutline.material.fog=false;
+  scene.add(creatorOutline);
+}
+function updateTransformPanel(){
+  document.getElementById('crTransformRow').style.display = selectedCreatorId ? 'flex' : 'none';
+}
+function selectCreatorObject(id){
+  selectedCreatorId=id;
+  updateCreatorOutline();
+  updateTransformPanel();
+}
+function creatorSelectAtCrosshair(){
+  const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+  raycaster.set(camera.position, dir); raycaster.far=60;
+  const meshes=creatorObjects.map(o=>o.obj);
+  const hit=meshes.length ? raycaster.intersectObjects(meshes,true)[0] : null;
+  if(!hit){ selectCreatorObject(null); toast('Nothing in view to select.'); return; }
+  let obj=hit.object; while(obj && !creatorObjects.find(o=>o.obj===obj)) obj=obj.parent;
+  const rec=obj && creatorObjects.find(o=>o.obj===obj);
+  selectCreatorObject(rec ? rec.id : null);
+}
+function nudgeSelected(kind, axis, dir){
+  const rec=creatorObjects.find(o=>o.id===selectedCreatorId); if(!rec) return;
+  if(kind==='pos') rec.obj.position[axis]+=CREATOR_STEP*dir;
+  else rec.obj.rotation[axis]+=CREATOR_ROT_STEP*dir;
+  updateCreatorOutline();
+}
+function deleteSelectedCreatorObject(){
+  const idx=creatorObjects.findIndex(o=>o.id===selectedCreatorId); if(idx<0) return;
+  scene.remove(creatorObjects[idx].obj);
+  creatorObjects.splice(idx,1);
+  selectCreatorObject(null);
+}
+function updateKeyframeUI(){
+  document.getElementById('crKfCount').textContent=creatorKeyframes.length+' keyframe'+(creatorKeyframes.length===1?'':'s');
+}
+function addKeyframe(){
+  const poses=creatorObjects.map(o=>({ id:o.id,
+    px:o.obj.position.x, py:o.obj.position.y, pz:o.obj.position.z,
+    rx:o.obj.rotation.x, ry:o.obj.rotation.y, rz:o.obj.rotation.z }));
+  creatorKeyframes.push({poses});
+  updateKeyframeUI();
+  toast('Keyframe '+creatorKeyframes.length+' recorded.');
+}
+function clearCreatorKeyframes(){
+  creatorKeyframes=[]; creatorPlaying=false; updateKeyframeUI();
+}
+function playCreatorAnimation(){
+  if(creatorKeyframes.length<2){ toast('Add at least 2 keyframes first.'); return; }
+  creatorPlaying=true; creatorPlayIdx=0; creatorPlayT=0;
+}
+function stopCreatorAnimation(){ creatorPlaying=false; }
+function advanceCreatorAnimation(dt){
+  creatorPlayT+=dt;
+  const u=Math.min(1, creatorPlayT/CREATOR_SEG_DUR);
+  const a=creatorKeyframes[creatorPlayIdx], b=creatorKeyframes[creatorPlayIdx+1];
+  if(a && b) for(const pb of b.poses){
+    const pa=a.poses.find(p=>p.id===pb.id); if(!pa) continue;
+    const rec=creatorObjects.find(o=>o.id===pb.id); if(!rec) continue;
+    rec.obj.position.set(pa.px+(pb.px-pa.px)*u, pa.py+(pb.py-pa.py)*u, pa.pz+(pb.pz-pa.pz)*u);
+    rec.obj.rotation.set(pa.rx+(pb.rx-pa.rx)*u, pa.ry+(pb.ry-pa.ry)*u, pa.rz+(pb.rz-pa.rz)*u);
+  }
+  if(u>=1){
+    creatorPlayIdx++; creatorPlayT=0;
+    if(creatorPlayIdx>=creatorKeyframes.length-1) creatorPlayIdx=0;   // loop back to the start
+  }
+  updateCreatorOutline();
+}
+function updateCreator(dt){
+  if(!isTouch) readKeys();
+  let mx=(input.r-input.l)+input.joyX, mz=(input.f-input.b)+input.joyZ;
+  const mag=Math.hypot(mx,mz); if(mag>1){ mx/=mag; mz/=mag; }
+  const speed = input.sprint ? 6.5 : 3.5;
+  const sinY=Math.sin(player.yaw), cosY=Math.cos(player.yaw);
+  const fwdX=-sinY, fwdZ=-cosY, rgtX=cosY, rgtZ=-sinY;
+  const vx=(fwdX*mz+rgtX*mx)*speed, vz=(fwdZ*mz+rgtZ*mx)*speed;
+  player.x=Math.max(-CREATOR_BOUND,Math.min(CREATOR_BOUND, player.x+vx*dt));
+  player.z=Math.max(-CREATOR_BOUND,Math.min(CREATOR_BOUND, player.z+vz*dt));
+  player.floorY=0;
+  camera.position.set(player.x, EYE, player.z);
+  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  fillLight.position.set(player.x, EYE, player.z);
+  if(creatorPlaying) advanceCreatorAnimation(dt);
+}
+function enterCreator(){
+  document.getElementById('start').classList.add('hide');
+  // tear down whatever the normal game had going, mirroring newGame()'s cleanup
+  for(const key of [...chunks.keys()]) unloadChunk(key);
+  buildQueue.length=0; pickups.length=0;
+  if(entity){ scene.remove(entity.obj); entity=null; }
+  clearChasers(); clearBots();
+  document.getElementById('botChat').classList.add('hide');
+  if(l1Model && l1Model.parent) scene.remove(l1Model);
+  if(l1Exit){ scene.remove(l1Exit); l1Exit=null; }
+  if(l2Group && l2Group.parent) scene.remove(l2Group);
+  if(l2Exit){ scene.remove(l2Exit); l2Exit=null; }
+  if(portalObj){ scene.remove(portalObj); portalObj=null; portalSpawned=false; }
+  if(l3Group && l3Group.parent) scene.remove(l3Group);
+  if(wallObj){ scene.remove(wallObj); wallObj=null; }
+  if(holeObj){ scene.remove(holeObj); holeObj=null; }
+  if(flashlight) flashlight.visible=false;
+
+  if(!creatorBaseplate) creatorBaseplate=buildCreatorBaseplate();
+  scene.add(creatorBaseplate);
+  if(!creatorClouds.length) creatorClouds=buildCreatorClouds();
+  creatorClouds.forEach(c=>{ if(!c.parent) scene.add(c); });
+  applyCreatorAtmosphere();
+
+  creatorObjects.forEach(o=>{ if(o.obj.parent) scene.remove(o.obj); });
+  creatorObjects=[]; creatorKeyframes=[]; creatorPlaying=false;
+  selectCreatorObject(null); updateKeyframeUI();
+
+  player.x=0; player.z=0; player.yaw=0; player.pitch=0; player.bob=0;
+  camera.position.set(0, EYE, 0); camera.rotation.set(0,0,0,'YXZ');
+
+  creatorMode=true; running=false; caught=false;
+  document.getElementById('creatorUI').classList.add('show');
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('cross').classList.toggle('show', !isTouch);
+  if(isTouch) document.getElementById('touch').classList.add('show');
+  if(locked) document.exitPointerLock();
+  audio.ensure(); audio.setGrowl(0);
+  clock.getDelta();
+  toast('Creator Server — spawn something, then aim + SELECT to move it.');
+}
+function exitCreator(){
+  creatorMode=false; creatorPlaying=false;
+  document.getElementById('creatorUI').classList.remove('show');
+  document.getElementById('cross').classList.remove('show');
+  document.getElementById('touch').classList.remove('show');
+  if(locked) document.exitPointerLock();
+  if(creatorBaseplate && creatorBaseplate.parent) scene.remove(creatorBaseplate);
+  creatorClouds.forEach(c=>{ if(c.parent) scene.remove(c); });
+  if(creatorSun) creatorSun.visible=false;
+  creatorObjects.forEach(o=>{ if(o.obj.parent) scene.remove(o.obj); });
+  creatorObjects=[];
+  if(creatorOutline){ scene.remove(creatorOutline); creatorOutline=null; }
+  applyAtmosphere(level);
+  showStart();
+}
+
 /* -------------------------------------------- death cinematic (the catch) */
 let catchObj=null;   // whichever creature (entity or a level-2 chaser) actually caught the player
 function startCatch(obj){
@@ -1734,7 +2046,7 @@ const isDev=(function(){
 function setupDesktop(){
   addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
   addEventListener('keyup',e=>{ keys[e.code]=false; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=false; });
-  renderer.domElement.addEventListener('click',()=>{ if(running && !locked) renderer.domElement.requestPointerLock(); });
+  renderer.domElement.addEventListener('click',()=>{ if((running||creatorMode) && !locked) renderer.domElement.requestPointerLock(); });
   document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===renderer.domElement); });
   document.addEventListener('mousemove',e=>{ if(!locked) return;
     player.yaw -= e.movementX*0.0022*lookSens; player.pitch -= e.movementY*0.0022*lookSens;
@@ -1835,6 +2147,16 @@ function initGraphics(){
 
 /* ---------------------------------------------------------------- game flow */
 function newGame(){
+  if(creatorMode){   // defensive: shouldn't happen (EXIT CREATOR is the only way out), but never leak its state into a real game
+    creatorMode=false;
+    document.getElementById('creatorUI').classList.remove('show');
+    if(creatorBaseplate && creatorBaseplate.parent) scene.remove(creatorBaseplate);
+    creatorClouds.forEach(c=>{ if(c.parent) scene.remove(c); });
+    if(creatorSun) creatorSun.visible=false;
+    creatorObjects.forEach(o=>{ if(o.obj.parent) scene.remove(o.obj); });
+    creatorObjects=[];
+    if(creatorOutline){ scene.remove(creatorOutline); creatorOutline=null; }
+  }
   seed=(Math.floor(Math.random()*2e9))>>>0;
   // clear world
   for(const key of [...chunks.keys()]) unloadChunk(key);
@@ -2617,6 +2939,7 @@ function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
   if(cineActive){ updateCine(dt); }
+  else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); }
   renderer.render(scene,camera);
 }
@@ -2811,10 +3134,11 @@ function playIntroCutscene(){
   if(cineActive) return;
   cineActive=true;
   cineRunningBefore=running;
+  cineCreatorBefore=creatorMode;
   cineVisibleScreen=document.querySelector('.screen:not(.hide)');
   cineL1WasAttached=!!(l1Model && l1Model.parent===scene);
   cineL2WasAttached=!!(l2Group && l2Group.parent===scene);
-  running=false;
+  running=false; creatorMode=false;
   if(locked) document.exitPointerLock();
   for(const L of lightPool) L.intensity=0;
   document.getElementById('hud').classList.remove('show');
@@ -2822,6 +3146,7 @@ function playIntroCutscene(){
   document.getElementById('touch').classList.remove('show');
   document.getElementById('botChat').classList.add('hide');
   document.getElementById('settingsBtn').classList.add('hide');
+  document.getElementById('creatorUI').classList.remove('show');
   hideOnlineCount();
   if(cineVisibleScreen) cineVisibleScreen.classList.add('hide');
   document.getElementById('introFade').style.opacity='1';
@@ -2843,7 +3168,13 @@ function finishCine(){
   if(l2Group && l2Group.parent===scene && !cineL2WasAttached) scene.remove(l2Group);
   applyAtmosphere(level);   // restore the correct look for wherever the player actually is
   document.getElementById('settingsBtn').classList.remove('hide');
-  if(cineRunningBefore){
+  if(cineCreatorBefore){
+    creatorMode=true; clock.getDelta();
+    document.getElementById('creatorUI').classList.add('show');
+    document.getElementById('cross').classList.toggle('show', !isTouch);
+    if(isTouch) document.getElementById('touch').classList.add('show');
+    applyCreatorAtmosphere();   // finishCine() already restored applyAtmosphere(level) above — creator mode needs its own look back
+  } else if(cineRunningBefore){
     running=true; clock.getDelta();
     document.getElementById('hud').classList.add('show');
     document.getElementById('cross').classList.toggle('show', !isTouch);
@@ -2884,6 +3215,21 @@ document.getElementById('postImgBtn').addEventListener('click', ()=> document.ge
 document.getElementById('postImgInput').addEventListener('change', onPostImgChosen);
 document.getElementById('postImgRemove').addEventListener('click', resetPostComposerImage);
 document.getElementById('postSendBtn').addEventListener('click', submitPost);
+document.getElementById('creatorBtn').addEventListener('click', enterCreator);
+document.getElementById('creatorExit').addEventListener('click', exitCreator);
+document.querySelectorAll('[data-spawn]').forEach(b=>{
+  b.addEventListener('click', ()=>{ const k=b.dataset.spawn; if(k==='entity') spawnCreatorEntity(); else spawnCreatorShape(k); });
+});
+document.querySelectorAll('[data-nudge]').forEach(b=>{
+  const [kind,axis,dir]=b.dataset.nudge.split(',');
+  b.addEventListener('click', ()=>nudgeSelected(kind,axis,+dir));
+});
+document.getElementById('crSelect').addEventListener('click', creatorSelectAtCrosshair);
+document.getElementById('crDelete').addEventListener('click', deleteSelectedCreatorObject);
+document.getElementById('crAddKey').addEventListener('click', addKeyframe);
+document.getElementById('crPlay').addEventListener('click', playCreatorAnimation);
+document.getElementById('crStop').addEventListener('click', stopCreatorAnimation);
+document.getElementById('crClearKeys').addEventListener('click', clearCreatorKeyframes);
 document.getElementById('winMenuBtn').addEventListener('click', showStart);
 document.getElementById('warnBtn').addEventListener('click',()=>{
   document.getElementById('warning').classList.add('hide');
