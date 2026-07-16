@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0806">
+<title>The Late Shift</title>
+<style>
+  :root{ --amber:#e7b84a; --red:#d94a3d; --blue:#3d6fd9; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:#000;
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#eee2c8; touch-action:none; -webkit-user-select:none; user-select:none; }
+  canvas{ display:block; }
+  #vig{ position:fixed; inset:0; z-index:5; pointer-events:none;
+    box-shadow:inset 0 0 22vmin 8vmin rgba(0,0,0,.88); }
+  #grain{ position:fixed; inset:0; z-index:5; pointer-events:none; opacity:.05;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>"); }
+
+  #toast{ position:fixed; top:26%; left:50%; transform:translateX(-50%); z-index:50; pointer-events:none;
+    background:rgba(8,7,2,.86); border:1px solid rgba(210,190,100,.35); color:var(--amber);
+    padding:10px 20px; border-radius:12px; font-weight:800; font-size:14px; opacity:0; transition:opacity .3s;
+    text-shadow:0 1px 2px #000; max-width:80vw; text-align:center; }
+  #toast.show{ opacity:1; }
+
+  .screen{ position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    padding:26px calc(env(safe-area-inset-right) + 26px) calc(env(safe-area-inset-bottom) + 26px) calc(env(safe-area-inset-left) + 26px);
+    overflow-y:auto; background:radial-gradient(ellipse at center, rgba(20,14,6,.96), rgba(4,3,1,.99)); }
+  .hide{ display:none; }
+  h1{ font-size:clamp(34px,9vw,66px); margin:0; font-weight:900; letter-spacing:2px; line-height:.98;
+    color:var(--amber); text-shadow:0 0 26px rgba(231,184,74,.4), 0 3px 0 #3a2a0f; }
+  .sub{ font-size:13px; letter-spacing:4px; text-transform:uppercase; color:#b7a082; margin:10px 0 0; }
+  .lore{ max-width:520px; font-size:14px; line-height:1.75; color:#cbbfa4; margin:18px 0 6px; }
+  .lore b{ color:var(--amber); }
+  .btn{ margin-top:22px; font-size:20px; font-weight:900; letter-spacing:2px; padding:14px 46px;
+    border:2px solid #a8842f; border-radius:12px; background:rgba(231,184,74,.14); color:#f0e0ab;
+    cursor:pointer; pointer-events:auto; }
+  .btn:active{ transform:translateY(2px); background:rgba(231,184,74,.28); }
+  .btn2{ margin-top:12px; font-size:13px; font-weight:800; letter-spacing:2px; padding:10px 26px;
+    border:1px solid #6b5a37; border-radius:10px; background:rgba(231,184,74,.06); color:#cabf9e;
+    cursor:pointer; pointer-events:auto; }
+  #nightList{ margin-top:16px; display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:420px; }
+  .nightBtn{ padding:10px 16px; border-radius:8px; border:1px solid #6b5a37; background:rgba(231,184,74,.08);
+    color:#f0e0ab; font-weight:800; font-size:13px; cursor:pointer; pointer-events:auto; }
+  .nightBtn.locked{ opacity:.35; cursor:default; }
+
+  /* night-start / night-complete transition cards */
+  #nightCard h1{ font-size:clamp(46px,13vw,90px); }
+  #nightCard .sub{ font-size:16px; letter-spacing:6px; margin-top:14px; }
+
+  /* HUD */
+  #hud{ position:fixed; inset:0; z-index:8; pointer-events:none; display:none; }
+  #hud.show{ display:block; }
+  #clock{ position:fixed; top:calc(env(safe-area-inset-top) + 18px); right:calc(env(safe-area-inset-right) + 20px);
+    text-align:right; font-family:"Courier New",ui-monospace,monospace; }
+  #clockTime{ font-size:26px; font-weight:800; color:#f0e0ab; text-shadow:0 0 10px rgba(231,184,74,.5); }
+  #clockNight{ font-size:11px; letter-spacing:2px; color:#a8967a; }
+  #powerBox{ position:fixed; top:calc(env(safe-area-inset-top) + 18px); left:calc(env(safe-area-inset-left) + 20px);
+    font-family:"Courier New",ui-monospace,monospace; }
+  #powerPct{ font-size:26px; font-weight:800; }
+  #powerPct.warn{ color:var(--red); animation:pblink 1s infinite; }
+  @keyframes pblink{ 0%,100%{opacity:1} 50%{opacity:.4} }
+  #powerUse{ font-size:10px; letter-spacing:1px; color:#a8967a; margin-top:2px; }
+  #usageBars{ display:flex; gap:3px; margin-top:4px; }
+  #usageBars span{ width:8px; height:10px; background:#3a2f1c; border-radius:1px; }
+  #usageBars span.on{ background:var(--amber); }
+
+  #doorControls{ position:fixed; bottom:calc(env(safe-area-inset-bottom) + 20px); left:0; right:0;
+    display:flex; justify-content:space-between; padding:0 calc(env(safe-area-inset-left) + 18px) 0 calc(env(safe-area-inset-right) + 18px); }
+  .doorPad{ display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
+  .padBtn{ width:64px; height:52px; border-radius:10px; border:2px solid #6b5a37; background:rgba(10,8,4,.65);
+    color:#f0e0ab; font-size:11px; font-weight:800; letter-spacing:1px; cursor:pointer; }
+  .padBtn.doorBtn.active{ background:rgba(217,74,61,.5); border-color:var(--red); }
+  .padBtn.lightBtn.active{ background:rgba(231,184,74,.5); border-color:var(--amber); }
+
+  #camBtn{ position:fixed; bottom:calc(env(safe-area-inset-bottom) + 20px); left:50%; transform:translateX(-50%);
+    padding:14px 30px; border-radius:12px; border:2px solid #6b5a37; background:rgba(10,8,4,.7);
+    color:#f0e0ab; font-size:14px; font-weight:900; letter-spacing:2px; cursor:pointer; pointer-events:auto; }
+  #camBtn.active{ background:rgba(231,184,74,.35); border-color:var(--amber); }
+
+  /* office door overlay panels (CSS, over the 3D backdrop) */
+  #officeOverlay{ position:fixed; inset:0; z-index:6; pointer-events:none; display:none; }
+  #officeOverlay.show{ display:block; }
+  .doorPanel{ position:absolute; top:0; bottom:0; width:16%; background:#161208; border:2px solid #3a2f1c;
+    transform:scaleY(0); transform-origin:top; transition:transform .35s ease; box-shadow:0 0 30px rgba(0,0,0,.7) inset; }
+  .doorPanel.closed{ transform:scaleY(1); }
+  #doorPanelL{ left:8%; }
+  #doorPanelR{ right:8%; }
+  .hallLight{ position:absolute; top:30%; bottom:30%; width:16%; background:rgba(231,184,74,0); transition:background .15s; }
+  .hallLight.on{ background:rgba(231,184,74,.22); }
+  #hallLightL{ left:8%; }
+  #hallLightR{ right:8%; }
+
+  /* camera monitor overlay */
+  #monitor{ position:fixed; inset:0; z-index:12; display:none; pointer-events:none; }
+  #monitor.show{ display:block; }
+  #monHead{ position:absolute; top:0; left:0; right:0; padding:calc(env(safe-area-inset-top) + 10px) 16px 8px;
+    display:flex; align-items:center; justify-content:space-between; background:linear-gradient(rgba(0,0,0,.7),transparent);
+    font-family:"Courier New",ui-monospace,monospace; z-index:2; }
+  #monLabel{ font-size:14px; font-weight:800; letter-spacing:1px; color:#e05a4a; }
+  #monLabel .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#e05a4a; margin-right:6px; animation:pblink 1s infinite; }
+  #monClose{ padding:7px 12px; border-radius:8px; border:1px solid #666; background:rgba(40,40,40,.8);
+    color:#eee; font-size:11px; font-weight:800; letter-spacing:1px; cursor:pointer; pointer-events:auto; }
+  #monStatic{ position:absolute; inset:0; z-index:3; background:#fff; opacity:0; pointer-events:none; }
+  #camGrid{ position:absolute; bottom:0; left:0; right:0; display:flex; gap:6px; flex-wrap:wrap; justify-content:center;
+    padding:10px calc(env(safe-area-inset-left) + 10px) calc(env(safe-area-inset-bottom) + 10px); background:linear-gradient(transparent,rgba(0,0,0,.75)); }
+  .camBtn2{ padding:9px 12px; border-radius:8px; border:1px solid #444; background:rgba(20,20,20,.75);
+    color:#ccc; font-size:11px; font-weight:800; letter-spacing:.5px; cursor:pointer; pointer-events:auto; }
+  .camBtn2.sel{ border-color:var(--red); color:#fff; background:rgba(217,74,61,.35); }
+  .camBtn2 .occ{ color:var(--red); }
+
+  /* jumpscare + gameover + win */
+  #scare{ position:fixed; inset:0; z-index:40; display:none; background:#000; align-items:center; justify-content:center; }
+  #scare.show{ display:flex; }
+  #scareFlash{ position:fixed; inset:0; z-index:41; background:#fff; opacity:0; pointer-events:none; transition:opacity .6s; }
+  #gameover, #nightWin, #finalWin{ position:fixed; inset:0; z-index:30; display:none; align-items:center; justify-content:center; flex-direction:column;
+    background:#050403; text-align:center; padding:26px; }
+  #gameover.show, #nightWin.show, #finalWin.show{ display:flex; }
+  #goTitle{ font-size:clamp(40px,11vw,84px); font-weight:900; color:var(--red); text-shadow:0 0 30px rgba(217,74,61,.5); }
+
+  @media (orientation:landscape) and (max-height:520px){
+    .screen{ justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 14px); padding-bottom:14px; }
+    h1{ font-size:clamp(22px,6vw,40px); }
+    .lore{ margin:8px 0 2px; font-size:12px; line-height:1.5; }
+    .btn{ margin-top:10px; padding:9px 34px; font-size:16px; }
+    .padBtn{ width:52px; height:44px; }
+  }
+</style>
+</head>
+<body>
+<div id="grain"></div>
+<div id="vig"></div>
+
+<!-- Start screen -->
+<div id="start" class="screen">
+  <h1>THE LATE<br>SHIFT</h1>
+  <div class="sub">Overnight Security — Palace Pizza</div>
+  <div class="lore">
+    You just took the graveyard shift at Palace Pizza. The <b>animatronic performers</b> are supposed to power
+    down and stay on stage after hours — corporate says their servos "wander" if left idle too long. Watch the
+    <b>cameras</b>, manage your <b>power</b>, and keep the <b>doors</b> shut when something's close. Make it to
+    <b>6&nbsp;AM</b>.
+  </div>
+  <button class="btn" id="playBtn">START NIGHT 1</button>
+  <div id="nightList"></div>
+</div>
+
+<!-- Night transition card -->
+<div id="nightCard" class="screen hide">
+  <div class="sub" id="ncSub">GET READY</div>
+  <h1 id="ncTitle">NIGHT 1</h1>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="clock"><div id="clockTime">12:00 AM</div><div id="clockNight">NIGHT 1</div></div>
+  <div id="powerBox">
+    <div id="powerPct">100%</div>
+    <div id="usageBars"><span></span><span></span><span></span><span></span></div>
+    <div id="powerUse">POWER</div>
+  </div>
+  <div id="doorControls">
+    <div class="doorPad">
+      <button class="padBtn doorBtn" id="leftDoorBtn">L DOOR</button>
+      <button class="padBtn lightBtn" id="leftLightBtn">L LIGHT</button>
+    </div>
+    <div class="doorPad">
+      <button class="padBtn doorBtn" id="rightDoorBtn">R DOOR</button>
+      <button class="padBtn lightBtn" id="rightLightBtn">R LIGHT</button>
+    </div>
+  </div>
+  <button id="camBtn">📷 CAMERAS</button>
+</div>
+
+<div id="officeOverlay">
+  <div class="hallLight" id="hallLightL"></div>
+  <div class="hallLight" id="hallLightR"></div>
+  <div class="doorPanel" id="doorPanelL"></div>
+  <div class="doorPanel" id="doorPanelR"></div>
+</div>
+
+<!-- Camera monitor -->
+<div id="monitor">
+  <div id="monHead"><span id="monLabel"><span class="dot"></span>CAM</span><span id="monClock"></span><button id="monClose">CLOSE ✕</button></div>
+  <div id="monStatic"></div>
+  <div id="camGrid"></div>
+</div>
+
+<!-- Jumpscare -->
+<div id="scare"></div>
+<div id="scareFlash"></div>
+
+<!-- Game over -->
+<div id="gameover">
+  <div id="goTitle">6:00 AM</div>
+  <div class="sub" id="goSub">you didn't make it</div>
+  <button class="btn" id="goRetry">TRY AGAIN</button>
+  <button class="btn2" id="goQuit">MAIN MENU</button>
+</div>
+
+<!-- Night complete -->
+<div id="nightWin">
+  <h1 style="color:#8ec98e">6:00 AM</h1>
+  <div class="sub">you survived the night</div>
+  <button class="btn" id="nextNightBtn">NEXT NIGHT</button>
+  <button class="btn2" id="nightWinMenu">MAIN MENU</button>
+</div>
+
+<!-- Final win -->
+<div id="finalWin">
+  <h1 style="color:#8ec98e">YOU MADE IT</h1>
+  <div class="sub">5 nights survived — you're off the schedule</div>
+  <button class="btn2" id="finalWinMenu">MAIN MENU</button>
+</div>
+
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+
+/* ---------------------------------------------------------------- setup */
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.05, 300);
+
+const hemi = new THREE.HemisphereLight(0x554433, 0x0a0705, 1.4);
+scene.add(hemi);
+const fill = new THREE.PointLight(0xffcc88, 18, 20, 2);
+scene.add(fill);
+
+addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------------------------------------------------------------- map load */
+let mapReady = false, mapGroup = null;
+new GLTFLoader().load('./nightshift-map.glb', (gltf)=>{
+  const root = gltf.scene;
+  // strip the giant stray outlier mesh present in the source scan (export artifact)
+  root.traverse(o=>{ if(o.isMesh && o.name==='Object_669' && o.parent) o.parent.remove(o); });
+  mapGroup = root;
+  scene.add(root);
+  mapReady = true;
+}, undefined, ()=>{ toast('Could not load the map. Check your connection and reload.'); });
+
+/* ---------------------------------------------------------------- nodes / cameras
+   Coordinates come from surveying the real map: dining area, pirate cove
+   (purple curtain), east-wall arcade, show stage (curtains/speakers), and
+   the compact office alcove near the building's front. */
+const NODES = {
+  stage:    { pos:[-1.5, 2.0, -22.5],  look:[-1.5, 1.7, -15],  label:'CAM 1 · SHOW STAGE' },
+  dining:   { pos:[-1.5, 1.7, -11.5],  look:[-1.5, 1.6, -2],   label:'CAM 2 · DINING AREA' },
+  cove:     { pos:[-4.6, 1.8, -8.2],   look:[-8.3, 1.4, -8.0], label:'CAM 3 · PIRATE COVE' },
+  arcade:   { pos:[4.6, 1.8, -10.5],   look:[8.7, 1.3, -11],   label:'CAM 4 · ARCADE' },
+  westhall: { pos:[-3.5, 1.5, -1],     look:[-1.53, 1.3, 0.6], label:'CAM 5 · WEST HALL' },
+  easthall: { pos:[3.5, 1.5, -1],      look:[1.54, 1.3, 0.6],  label:'CAM 6 · EAST HALL' },
+};
+const OFFICE_POS = [0, 1.6, 3.1], OFFICE_LOOK = [0, 1.5, -4];
+const GRAPH = {
+  stage:['dining'], dining:['stage','cove','arcade'],
+  cove:['dining','westhall'], arcade:['dining','easthall'],
+  westhall:['cove'], easthall:['arcade'],
+};
+
+/* ---------------------------------------------------------------- characters
+   Two original characters (no likeness to any copyrighted animatronic):
+   a slow steady roamer, and a cove-based "rush" threat that punishes
+   neglect the way a classic pirate-cove watcher mechanic does. */
+function makeCharAvatar(hue){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.42, 1.15, 4, 10),
+    new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.55,0.32), roughness:0.75, metalness:0.15})
+  );
+  body.position.y = 1.05; g.add(body);
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.34, 12, 12),
+    new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(hue,0.5,0.28), roughness:0.7})
+  );
+  head.position.y = 1.95; g.add(head);
+  const eyeMat = new THREE.MeshBasicMaterial({color:0xfff4c2});
+  for(const s of [-1,1]){
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8), eyeMat);
+    eye.position.set(s*0.13, 1.98, 0.29); g.add(eye);
+  }
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+const CHARACTERS = {
+  grizzle: { home:'stage', node:'stage', avatar:makeCharAvatar(0.08), aiTimer:0, moveChance:0.12 },
+  vex:     { home:'cove',  node:'cove',  avatar:makeCharAvatar(0.75), aiTimer:0, moveChance:0.10, patience:0, rushing:false },
+};
+function placeCharacterAvatar(ch){
+  const n = NODES[ch.node];
+  if(!n || ch.node==='office'){ ch.avatar.visible=false; return; }
+  ch.avatar.visible = true;
+  ch.avatar.position.set(n.pos[0], n.pos[1]-1.2, n.pos[2]);
+  const toLook = n.look;
+  ch.avatar.lookAt(toLook[0], n.pos[1]-1.2, toLook[2]);
+}
+for(const k in CHARACTERS) placeCharacterAvatar(CHARACTERS[k]);
+
+/* ---------------------------------------------------------------- game state */
+let running=false, night=1, gameTime=0, NIGHT_LEN=270; // seconds real-time per night (12AM-6AM)
+let power=100, leftDoor=false, rightDoor=false, leftLight=false, rightLight=false;
+let monitorOpen=false, currentCam='stage';
+let scareActive=false, blackoutAt=null;
+const completed = loadCompleted();
+function loadCompleted(){ try{ return new Set(JSON.parse(localStorage.getItem('nightshift_completed')||'[]')); }catch(e){ return new Set(); } }
+function markComplete(n){ completed.add(n); try{ localStorage.setItem('nightshift_completed', JSON.stringify([...completed])); }catch(e){} }
+
+function toast(msg){
+  let el=document.getElementById('toast');
+  if(!el){
+    el=document.createElement('div'); el.id='toast';
+    document.body.appendChild(el);
+  }
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>el.classList.remove('show'), 3200);
+}
+
+/* ---------------------------------------------------------------- audio */
+const audio = (function(){
+  let ctx=null, master=null, hum=null;
+  function ensure(){
+    if(ctx) return;
+    ctx = new (window.AudioContext||window.webkitAudioContext)();
+    master = ctx.createGain(); master.gain.value=0.85; master.connect(ctx.destination);
+    const hg=ctx.createGain(); hg.gain.value=0.04;
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=500;
+    const o1=ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=52;
+    o1.connect(lp); lp.connect(hg); hg.connect(master); o1.start();
+    hum=hg;
+  }
+  function resume(){ if(ctx && ctx.state==='suspended') ctx.resume(); }
+  function clunk(){ if(!ctx) return;
+    const o=ctx.createOscillator(); o.type='square'; o.frequency.value=90;
+    const g=ctx.createGain(); g.gain.value=0.3; o.connect(g); g.connect(master);
+    const t=ctx.currentTime; g.gain.setValueAtTime(0.3,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+    o.start(t); o.stop(t+0.2);
+  }
+  function beep(){ if(!ctx) return;
+    const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=1400;
+    const g=ctx.createGain(); g.gain.value=0.12; o.connect(g); g.connect(master);
+    const t=ctx.currentTime; g.gain.exponentialRampToValueAtTime(0.001,t+0.09); o.start(t); o.stop(t+0.1);
+  }
+  function step(){ if(!ctx) return;
+    const buf=ctx.createBuffer(1, ctx.sampleRate*0.15, ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=180; bp.Q.value=0.9;
+    const g=ctx.createGain(); g.gain.value=0.22; src.connect(bp); bp.connect(g); g.connect(master);
+    src.start();
+  }
+  function scare(){ if(!ctx) return;
+    const t=ctx.currentTime;
+    const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(900,t+0.3);
+    const g=ctx.createGain(); g.gain.value=0.5; o.connect(g); g.connect(master);
+    g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.6); o.start(t); o.stop(t+0.62);
+    const buf=ctx.createBuffer(1, ctx.sampleRate*0.5, ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const g2=ctx.createGain(); g2.gain.value=0.45; src.connect(g2); g2.connect(master);
+    g2.gain.setValueAtTime(0.45,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.55); src.start(t);
+  }
+  function setHum(scale){ if(hum) hum.gain.value = 0.04*scale; }
+  return { ensure, resume, clunk, beep, step, scare, setHum };
+})();
+
+/* ---------------------------------------------------------------- office view */
+function setOfficeView(){
+  camera.position.set(OFFICE_POS[0], OFFICE_POS[1], OFFICE_POS[2]);
+  camera.lookAt(OFFICE_LOOK[0], OFFICE_LOOK[1], OFFICE_LOOK[2]);
+}
+function setCamView(key){
+  const n = NODES[key];
+  camera.position.set(n.pos[0], n.pos[1], n.pos[2]);
+  camera.lookAt(n.look[0], n.look[1], n.look[2]);
+}
+
+/* ---------------------------------------------------------------- camera monitor UI */
+function buildCamGrid(){
+  const grid = document.getElementById('camGrid');
+  grid.innerHTML='';
+  for(const key in NODES){
+    const b = document.createElement('button');
+    b.className='camBtn2'; b.dataset.cam=key;
+    b.textContent = NODES[key].label;
+    b.addEventListener('click', ()=>selectCam(key));
+    grid.appendChild(b);
+  }
+}
+buildCamGrid();
+function selectCam(key){
+  currentCam = key;
+  document.querySelectorAll('.camBtn2').forEach(b=>b.classList.toggle('sel', b.dataset.cam===key));
+  const el=document.getElementById('monStatic');
+  el.style.transition='none'; el.style.opacity='0.85';
+  requestAnimationFrame(()=>{ el.style.transition='opacity .25s'; el.style.opacity='0'; });
+  document.getElementById('monLabel').innerHTML = '<span class="dot"></span>'+NODES[key].label;
+  setCamView(key);
+}
+function openMonitor(){
+  monitorOpen=true;
+  document.getElementById('monitor').classList.add('show');
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('officeOverlay').classList.remove('show');
+  selectCam(currentCam);
+}
+function closeMonitor(){
+  monitorOpen=false;
+  document.getElementById('monitor').classList.remove('show');
+  if(running){
+    document.getElementById('hud').classList.add('show');
+    document.getElementById('officeOverlay').classList.add('show');
+  }
+  setOfficeView();
+}
+
+/* ---------------------------------------------------------------- doors / lights */
+function toggleDoor(side){
+  if(scareActive || !running) return;
+  audio.clunk();
+  if(side==='L'){ leftDoor=!leftDoor; }
+  else{ rightDoor=!rightDoor; }
+  updateDoorUI();
+}
+function updateDoorUI(){
+  document.getElementById('leftDoorBtn').classList.toggle('active', leftDoor);
+  document.getElementById('rightDoorBtn').classList.toggle('active', rightDoor);
+  document.getElementById('doorPanelL').classList.toggle('closed', leftDoor);
+  document.getElementById('doorPanelR').classList.toggle('closed', rightDoor);
+}
+function toggleLight(side){
+  if(scareActive || !running) return;
+  if(side==='L'){ leftLight=!leftLight; document.getElementById('leftLightBtn').classList.toggle('active', leftLight); document.getElementById('hallLightL').classList.toggle('on', leftLight); }
+  else{ rightLight=!rightLight; document.getElementById('rightLightBtn').classList.toggle('active', rightLight); document.getElementById('hallLightR').classList.toggle('on', rightLight); }
+}
+
+/* ---------------------------------------------------------------- animatronic AI */
+function stepToward(ch, targetSide){
+  // move one step along GRAPH from ch.node toward the given hallway ('westhall'/'easthall')
+  const path = bfsPath(ch.node, targetSide);
+  if(path && path.length>1) ch.node = path[1];
+}
+function bfsPath(from,to){
+  const q=[[from]], seen=new Set([from]);
+  while(q.length){
+    const path=q.shift(); const last=path[path.length-1];
+    if(last===to) return path;
+    for(const nb of (GRAPH[last]||[])){ if(!seen.has(nb)){ seen.add(nb); q.push([...path,nb]); } }
+  }
+  return null;
+}
+function aiTick(dt){
+  const diff = 0.45 + night*0.13; // 0-1 scaled difficulty multiplier
+  // grizzle: slow steady wander toward the office, alternating hallway targets
+  const g = CHARACTERS.grizzle;
+  g.aiTimer -= dt;
+  if(g.aiTimer<=0){
+    g.aiTimer = 5.5 - night*0.4 + Math.random()*3;
+    if(Math.random() < g.moveChance*diff){
+      const target = Math.random()<0.5 ? 'westhall' : 'easthall';
+      if(g.node==='westhall' || g.node==='easthall'){
+        // already at a hallway mouth -> try to enter the office
+        tryEnterOffice(g, g.node==='westhall'?'L':'R');
+      } else {
+        stepToward(g, target);
+        audio.step();
+      }
+      placeCharacterAvatar(g);
+    }
+  }
+  // vex: waits in pirate cove; if not observed via CAM 3, patience rises; at max, rushes westhall->office fast
+  const v = CHARACTERS.vex;
+  if(v.node==='cove'){
+    if(monitorOpen && currentCam==='cove'){ v.patience = Math.max(0, v.patience-dt*2); }
+    else v.patience += dt * (0.09 + night*0.03);
+    if(v.patience>=10 && !v.rushing){ v.rushing=true; v.node='westhall'; placeCharacterAvatar(v); audio.step(); }
+  } else if(v.rushing){
+    v.aiTimer -= dt;
+    if(v.aiTimer<=0){
+      v.aiTimer = 1.4 - night*0.08;
+      if(v.node==='westhall'){ tryEnterOffice(v,'L'); }
+    }
+  }
+}
+function tryEnterOffice(ch, side){
+  const doorClosed = side==='L' ? leftDoor : rightDoor;
+  if(doorClosed){
+    // rejected at the door -> retreat back toward home
+    ch.node = ch.home;
+    if(ch===CHARACTERS.vex){ ch.rushing=false; ch.patience=0; }
+    placeCharacterAvatar(ch);
+    audio.clunk();
+  } else {
+    triggerJumpscare(ch);
+  }
+}
+
+/* ---------------------------------------------------------------- power */
+function powerUsageLevel(){
+  let n=1;
+  if(leftDoor) n++;
+  if(rightDoor) n++;
+  if(leftLight) n++;
+  if(rightLight) n++;
+  if(monitorOpen) n++;
+  return Math.min(4,n);
+}
+function updatePowerUI(){
+  const pct=Math.max(0,Math.round(power));
+  const el=document.getElementById('powerPct');
+  el.textContent=pct+'%';
+  el.classList.toggle('warn', pct<=20);
+  const lvl=powerUsageLevel();
+  document.querySelectorAll('#usageBars span').forEach((s,i)=>s.classList.toggle('on', i<lvl));
+}
+
+/* ---------------------------------------------------------------- night flow */
+function fmtClock(t){
+  const hoursElapsed = (t/NIGHT_LEN)*6;
+  let h = Math.floor(hoursElapsed);
+  const displayH = ((h+11)%12)+1; // 12,1,2,3,4,5
+  const m = Math.floor(((hoursElapsed-h))*60);
+  return { text: displayH+':'+('0'+m).slice(-2)+' '+(h===0?'AM':'AM'), hour:h };
+}
+function startNight(n){
+  night=n; gameTime=0; power=100; leftDoor=rightDoor=leftLight=rightLight=false; monitorOpen=false; scareActive=false; blackoutAt=null;
+  CHARACTERS.grizzle.node='stage'; CHARACTERS.grizzle.aiTimer=8;
+  CHARACTERS.vex.node='cove'; CHARACTERS.vex.patience=0; CHARACTERS.vex.rushing=false; CHARACTERS.vex.aiTimer=0;
+  placeCharacterAvatar(CHARACTERS.grizzle); placeCharacterAvatar(CHARACTERS.vex);
+  updateDoorUI(); updatePowerUI(); closeMonitor(); setOfficeView();
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('nightWin').classList.remove('show');
+  document.getElementById('scare').classList.remove('show');
+  document.getElementById('scareFlash').style.opacity='0';
+  document.getElementById('officeOverlay').classList.add('show');
+  document.getElementById('ncTitle').textContent='NIGHT '+n;
+  document.getElementById('ncSub').textContent='12:00 AM';
+  document.getElementById('nightCard').classList.remove('hide');
+  document.getElementById('clockNight').textContent='NIGHT '+n;
+  audio.ensure(); audio.resume();
+  setTimeout(()=>{
+    document.getElementById('nightCard').classList.add('hide');
+    document.getElementById('hud').classList.add('show');
+    running=true; clock.getDelta();
+  }, 2200);
+}
+function finishNight(){
+  running=false;
+  markComplete(night);
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('officeOverlay').classList.remove('show');
+  closeMonitor();
+  if(night>=5){
+    document.getElementById('finalWin').classList.add('show');
+  } else {
+    document.getElementById('nightWin').classList.add('show');
+  }
+}
+function gameOver(){
+  running=false; scareActive=false;
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('officeOverlay').classList.remove('show');
+  document.getElementById('scare').classList.remove('show');
+  document.getElementById('gameover').classList.add('show');
+  document.getElementById('scareFlash').style.opacity='0';
+}
+function triggerJumpscare(ch){
+  if(scareActive) return;
+  scareActive=true; running=false;
+  audio.scare();
+  const scareEl=document.getElementById('scare');
+  scareEl.classList.add('show');
+  ch.avatar.visible=true;
+  ch.avatar.position.set(0, 0.6, 0.6);
+  camera.position.set(0,1.6,1.5);
+  camera.lookAt(0,1.2,0.6);
+  const flash=document.getElementById('scareFlash');
+  let t=0;
+  function shake(){
+    if(t>1.1){ flash.style.opacity='1'; setTimeout(gameOver,400); return; }
+    t+=0.05;
+    camera.position.set((Math.random()-0.5)*0.15, 1.6+(Math.random()-0.5)*0.15, 1.5);
+    renderer.render(scene,camera);
+    setTimeout(shake,50);
+  }
+  shake();
+}
+
+/* ---------------------------------------------------------------- main loop */
+const clock = new THREE.Clock();
+function tick(){
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.1, clock.getDelta());
+  if(running){
+    gameTime += dt;
+    const usage = powerUsageLevel();
+    power -= dt * (0.28 + usage*0.24 + night*0.06);
+    updatePowerUI();
+    audio.setHum(1 + (1-power/100)*0.6);
+
+    if(power<=0 && !blackoutAt){ blackoutAt = gameTime; }
+    if(blackoutAt!==null){
+      // power out: office goes dark, a jumpscare becomes inevitable within a short window unless 6am hits first
+      if(gameTime - blackoutAt > 4 + Math.random()*10 && !scareActive){
+        triggerJumpscare(CHARACTERS.grizzle);
+      }
+    }
+
+    aiTick(dt);
+
+    const {text} = fmtClock(gameTime);
+    document.getElementById('clockTime').textContent = text;
+    document.getElementById('monClock').textContent = text;
+
+    if(gameTime >= NIGHT_LEN){ finishNight(); }
+
+    if(!monitorOpen) setOfficeView();
+  }
+  fill.position.set(camera.position.x, camera.position.y+0.6, camera.position.z);
+  renderer.render(scene, camera);
+}
+
+/* ---------------------------------------------------------------- menu wiring */
+function renderNightList(){
+  const list=document.getElementById('nightList');
+  list.innerHTML='';
+  for(let n=1;n<=5;n++){
+    const unlocked = n===1 || completed.has(n-1);
+    const b=document.createElement('button');
+    b.className='nightBtn'+(unlocked?'':' locked');
+    b.textContent='NIGHT '+n;
+    if(unlocked) b.addEventListener('click', ()=>startNight(n));
+    list.appendChild(b);
+  }
+}
+renderNightList();
+
+document.getElementById('playBtn').addEventListener('click', ()=>startNight(1));
+function toggleMonitorUI(){
+  if(!running) return;
+  if(monitorOpen) closeMonitor(); else openMonitor();
+  document.getElementById('camBtn').classList.toggle('active', monitorOpen);
+}
+document.getElementById('camBtn').addEventListener('click', toggleMonitorUI);
+document.getElementById('monClose').addEventListener('click', toggleMonitorUI);
+document.getElementById('leftDoorBtn').addEventListener('click', ()=>toggleDoor('L'));
+document.getElementById('rightDoorBtn').addEventListener('click', ()=>toggleDoor('R'));
+document.getElementById('leftLightBtn').addEventListener('click', ()=>toggleLight('L'));
+document.getElementById('rightLightBtn').addEventListener('click', ()=>toggleLight('R'));
+document.getElementById('goRetry').addEventListener('click', ()=>startNight(night));
+document.getElementById('goQuit').addEventListener('click', showMenu);
+document.getElementById('nextNightBtn').addEventListener('click', ()=>startNight(night+1));
+document.getElementById('nightWinMenu').addEventListener('click', showMenu);
+document.getElementById('finalWinMenu').addEventListener('click', showMenu);
+
+function showMenu(){
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('nightWin').classList.remove('show');
+  document.getElementById('finalWin').classList.remove('show');
+  renderNightList();
+  document.getElementById('start').classList.remove('hide');
+}
+
+tick();
+</script>
+</body>
+</html>
