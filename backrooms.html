@@ -263,6 +263,23 @@
   .confirmTitle{ font-size:18px; font-weight:900; letter-spacing:1px; color:var(--amber); margin-bottom:20px; }
   .confirmRow{ display:flex; gap:14px; justify-content:center; }
   #devPanel{ z-index:26; }
+  /* admin-abuse panel (unlocked via ?admin=1, see isAdmin) */
+  #adminBtn{ position:fixed; z-index:20; bottom:calc(env(safe-area-inset-bottom) + 14px); left:calc(env(safe-area-inset-left) + 14px);
+    font-size:10px; font-weight:800; letter-spacing:1px; padding:7px 12px; border-radius:8px; font-family:inherit;
+    border:1px solid rgba(185,142,242,.4); background:rgba(30,10,40,.4); color:#c9a0e8;
+    cursor:pointer; pointer-events:auto; opacity:.6; }
+  #adminBtn:hover, #adminBtn:active{ opacity:1; }
+  #adminPanel{ z-index:26; }
+  .adminGrid{ margin-top:18px; width:min(460px,calc(100vw - 40px)); display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .adminGrid .btn2{ margin:0; width:100%; }
+  #adminAnnounceText{ margin-top:16px; width:min(420px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
+    color:#f0e6a8; padding:11px 14px; font-size:14px; font-family:inherit; outline:none; pointer-events:auto; }
+  #adminAnnounceText:focus{ border-color:var(--yellow); }
+  #adminBanner{ position:fixed; left:0; right:0; top:32%; text-align:center; z-index:36; pointer-events:none;
+    font-family:"Courier New",ui-monospace,monospace; font-weight:900; font-size:clamp(22px,5vw,42px);
+    color:#e0342a; text-shadow:0 0 20px rgba(224,52,42,.9), 0 0 60px rgba(224,52,42,.6);
+    padding:0 8vw; opacity:0; transition:opacity .4s ease; }
+  #adminBanner.show{ opacity:1; }
   /* shutdown screen shown to everyone except the developer who triggered it */
   #shutdownScreen{ position:fixed; inset:0; z-index:50; pointer-events:auto;
     background:#f2c230; align-items:center; justify-content:center; padding:26px; }
@@ -434,7 +451,7 @@
 <div id="vig"></div>
 <div id="dread"></div>
 
-<div id="countdown"><span id="cdLabel">COUNTDOWN</span><span id="cdTime">--:--:--</span></div>
+<div id="countdown"><span id="cdLabel">ADMIN ABUSE STARTS IN...</span><span id="cdTime">--:--:--</span></div>
 
 <button id="settingsBtn" aria-label="Settings">&#9881;</button>
 <div id="settings" class="screen hide">
@@ -486,6 +503,24 @@
     <input type="range" id="leavePctSlider" class="slider" min="0" max="100" value="0">
   </div>
   <button class="btn2" id="devPanelClose">CLOSE</button>
+</div>
+
+<!-- admin-abuse panel (unlocked via ?admin=1) -->
+<div id="adminPanel" class="screen hide">
+  <div class="sub">Live Event</div>
+  <h1 class="flick" style="font-size:clamp(26px,6.5vw,44px);color:#c9a0e8;text-shadow:0 0 22px rgba(185,142,242,.5)">ADMIN ABUSE</h1>
+  <div class="lore">Every button below broadcasts to every other connected player's own client — nothing happens on your screen. Requires Supabase configured to actually reach anyone.</div>
+  <input id="adminAnnounceText" maxlength="140" placeholder="Type an announcement…" autocomplete="off">
+  <div class="adminGrid">
+    <button class="btn2" id="adminAnnounceBtn">📢 ANNOUNCE</button>
+    <button class="btn2" id="adminFlashBtn">⚡ FLASH EVERYONE</button>
+    <button class="btn2" id="adminCurseBtn">💀 CURSE (drain sanity)</button>
+    <button class="btn2" id="adminBlessBtn">✨ BLESS (full sanity)</button>
+    <button class="btn2" id="adminUnleashBtn">👹 UNLEASH ENTITY</button>
+    <button class="btn2" id="adminSendL4Btn">🕳️ SEND TO LEVEL 4</button>
+    <button class="btn2" id="adminAchievementBtn">🏆 BOMB ACHIEVEMENT</button>
+  </div>
+  <button class="btn2" id="adminPanelBack" style="margin-top:20px">BACK</button>
 </div>
 
 <!-- shown to everyone except the developer who triggered the shutdown -->
@@ -580,6 +615,7 @@
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
   <button id="shutdownBtn" class="hide">SHUT DOWN GAME</button>
+  <button id="adminBtn" class="hide">ADMIN PANEL</button>
 </div>
 
 <!-- Level select (only completed levels) -->
@@ -670,6 +706,7 @@
 <div id="cineBanner"></div>
 <div id="runBanner"><span>RUN</span></div>
 <div id="toBeContinued"><span>to be continued...</span></div>
+<div id="adminBanner"></div>
 
 <!-- Creator Server: a free sandbox to spawn shapes/entities and pose out simple animations -->
 <div id="creatorUI">
@@ -848,7 +885,7 @@ const PORTAL_POS = { x: CELL/2 + 3.4, z: CELL/2 + 3.4 };   // inside Level 0's g
 let portalSpawned = false, portalObj = null;
 
 // 3PM event: a one-time cinematic (played once per browser) + the portal it unlocks permanently afterward
-const EVENT_TARGET = new Date(2026,6,15,15,0,0).getTime();
+const EVENT_TARGET = new Date(2026,6,18,15,0,0).getTime();   // Saturday, July 18, 2026, 3:00 PM local — Admin Abuse live event
 function eventPassed(){ return Date.now() >= EVENT_TARGET; }
 let cineActive = false, cineRunningBefore = false, cineVisibleScreen = null, cineCreatorBefore = false;
 
@@ -2042,6 +2079,12 @@ const isDev=(function(){
     return localStorage.getItem('backrooms_dev')==='1';
   }catch(e){ return false; }
 })();
+const isAdmin=(function(){
+  try{
+    if(new URLSearchParams(location.search).get('admin')==='1') localStorage.setItem('backrooms_admin','1');
+    return localStorage.getItem('backrooms_admin')==='1';
+  }catch(e){ return false; }
+})();
 
 function setupDesktop(){
   addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
@@ -2212,6 +2255,7 @@ const ACHIEVEMENTS = {
   firstdeath:   { icon:'&#128128;', title:'FIRST DEATH!', sub:'congrats on your first death!' },
   meetbacteria: { icon:'&#129440;', title:'MEET THE BACTERIA', sub:"you got killed by the entity bacteria! don't let him catch you next time!" },
   endlessroad:  { icon:'&#128308;', title:'TO BE CONTINUED', sub:'you found the hole and jumped. the road is still out there.' },
+  adminchosen:  { icon:'&#128081;', title:"THE ADMIN'S CHOSEN ONE", sub:'you got noticed. that rarely ends well.' },
 };
 let achQueue=[], achShowing=false;
 function unlockAchievement(key){
@@ -2385,7 +2429,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['win','levels','threat','online','posts','levelcard','loadcard','settings'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
   hideOnlineCount();
@@ -2537,6 +2581,7 @@ async function connectAdminChannel(){
     adminChannel=sb.channel('admin-broadcast',{config:{broadcast:{self:false}}});
     adminChannel.on('broadcast',{event:'shutdown'},()=>{ showShutdownScreen(); });
     adminChannel.on('broadcast',{event:'leaveProgress'},({payload})=>{ setLeaveProgress(payload.pct); });
+    adminChannel.on('broadcast',{event:'admin_action'},({payload})=>{ handleAdminAction(payload); });
     adminChannel.subscribe();
   }catch(e){ /* stays inert until Supabase is configured */ }
 }
@@ -2558,6 +2603,76 @@ function openDevPanel(){
 function closeDevPanel(){
   document.getElementById('devPanel').classList.add('hide');
   showStart();
+}
+
+/* -------------------------------------------------- admin abuse panel
+   Reuses the same admin-broadcast channel as the shutdown gag above, just with
+   a new event name ('admin_action') carrying a {type,...} payload. Every
+   connected player's own client reacts locally to affect *their own* game
+   state — there's no shared/synced world, so "teleport everyone" etc. means
+   "tell everyone's client to do this to itself," same trick as the shutdown
+   screen already uses. broadcast:{self:false} means the admin's own client
+   never receives its own commands (consistent with the shutdown flow). */
+function openAdminPanel(){
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('adminPanel').classList.remove('hide');
+}
+function closeAdminPanel(){
+  document.getElementById('adminPanel').classList.add('hide');
+  showStart();
+}
+async function sendAdminAction(type, extra){
+  await connectAdminChannel();
+  if(!adminChannel){ toast('Online backend not connected yet — configure Supabase for this to reach real players.'); return; }
+  adminChannel.send({type:'broadcast', event:'admin_action', payload:Object.assign({type}, extra||{})});
+  toast('Sent: '+type);
+}
+function sendAdminAnnounce(){
+  const input=document.getElementById('adminAnnounceText');
+  const text=(input.value||'').trim().slice(0,140);
+  if(!text) return;
+  sendAdminAction('announce', {text});
+  input.value='';
+}
+function showAdminBanner(text){
+  const b=document.getElementById('adminBanner');
+  b.textContent=text;
+  b.classList.add('show');
+  clearTimeout(showAdminBanner._t);
+  showAdminBanner._t=setTimeout(()=>b.classList.remove('show'), 6000);
+}
+function flashJumpscare(){
+  audio.ensure(); audio.zap();
+  const b=document.getElementById('blackout');
+  b.style.transition='opacity .05s';
+  b.style.opacity='1';
+  setTimeout(()=>{
+    b.style.opacity='0';
+    setTimeout(()=>{ b.style.transition=''; }, 300);
+  }, 130);
+}
+function handleAdminAction(payload){
+  const type=payload && payload.type;
+  if(type==='announce'){
+    showAdminBanner(payload.text||'');
+  } else if(type==='flash'){
+    flashJumpscare();
+  } else if(type==='curse'){
+    if(running){ sanity=Math.max(0, sanity-90); toast('You feel... cursed.'); }
+  } else if(type==='bless'){
+    if(running){ sanity=100; stamina=100; toast('You feel... blessed.'); }
+  } else if(type==='unleash'){
+    if(running && (level===0 || level===1) && entity){
+      const ang=Math.random()*Math.PI*2, d=6;
+      entity.x=player.x+Math.cos(ang)*d; entity.z=player.z+Math.sin(ang)*d;
+      entity.state='chase'; entity.lastSeen=elapsed;
+      toast('Something is close.');
+    }
+  } else if(type==='send_l4'){
+    if(running && level!==3 && !creatorMode && !transitioning) enterLevel3();
+  } else if(type==='achievement'){
+    unlockAchievement('adminchosen');
+  }
 }
 function showShutdownScreen(){
   shutdownActive=true;
@@ -3249,6 +3364,17 @@ document.getElementById('shutdownBtn').addEventListener('click', openShutdownCon
 document.getElementById('shutdownYes').addEventListener('click', confirmShutdown);
 document.getElementById('shutdownNo').addEventListener('click', closeShutdownConfirm);
 document.getElementById('devPanelClose').addEventListener('click', closeDevPanel);
+if(isAdmin) document.getElementById('adminBtn').classList.remove('hide');
+document.getElementById('adminBtn').addEventListener('click', openAdminPanel);
+document.getElementById('adminPanelBack').addEventListener('click', closeAdminPanel);
+document.getElementById('adminAnnounceBtn').addEventListener('click', sendAdminAnnounce);
+document.getElementById('adminAnnounceText').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendAdminAnnounce(); } });
+document.getElementById('adminFlashBtn').addEventListener('click', ()=>sendAdminAction('flash'));
+document.getElementById('adminCurseBtn').addEventListener('click', ()=>sendAdminAction('curse'));
+document.getElementById('adminBlessBtn').addEventListener('click', ()=>sendAdminAction('bless'));
+document.getElementById('adminUnleashBtn').addEventListener('click', ()=>sendAdminAction('unleash'));
+document.getElementById('adminSendL4Btn').addEventListener('click', ()=>sendAdminAction('send_l4'));
+document.getElementById('adminAchievementBtn').addEventListener('click', ()=>sendAdminAction('achievement'));
 document.getElementById('leavePctSlider').addEventListener('input', e=>{
   const v=+e.target.value;
   document.getElementById('leavePctVal').textContent=v+'%';
