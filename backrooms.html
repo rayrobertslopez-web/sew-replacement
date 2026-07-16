@@ -311,10 +311,10 @@
   .svrName{ flex:1; font-size:16px; font-weight:800; }
   .svrSub{ display:block; font-size:11px; font-weight:600; color:#9a916a; letter-spacing:.3px; margin-top:2px; }
   .svrGo{ color:var(--amber); font-size:16px; }
-  #onNick, #svrPass{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
+  #onNick, #svrPass, #adminPassInput{ margin-top:16px; width:min(320px,80vw); background:#1c1a10; border:1px solid #4a4320; border-radius:10px;
     color:#f0e6a8; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center; outline:none; pointer-events:auto; }
-  #onNick:focus, #svrPass:focus{ border-color:var(--yellow); }
-  #svrPassErr{ margin-top:12px; }
+  #onNick:focus, #svrPass:focus, #adminPassInput:focus{ border-color:var(--yellow); }
+  #svrPassErr, #adminPassErr{ margin-top:12px; }
   #chatRoom{ position:fixed; inset:0; z-index:21; display:none; flex-direction:column; background:#0c0b04; pointer-events:auto; }
   #chatRoom.show{ display:flex; }
   #chatHead{ display:flex; align-items:center; gap:8px; flex:none;
@@ -435,7 +435,7 @@
     .stats{ margin-top:8px; font-size:12.5px; }
     #levelsList, #threatList, #serverList{ margin-top:10px; gap:8px; }
     .lvBtn, .svrBtn{ padding:9px 14px; }
-    #onNick, #svrPass{ margin-top:8px; padding:9px 12px; }
+    #onNick, #svrPass, #adminPassInput{ margin-top:8px; padding:9px 12px; }
     .tcard .tc-head{ padding:7px 90px 7px 12px; }
     .tcard .tc-head b{ font-size:15px; }
     .tcard .tc-body{ padding:8px 14px 10px; }
@@ -505,7 +505,18 @@
   <button class="btn2" id="devPanelClose">CLOSE</button>
 </div>
 
-<!-- admin-abuse panel (unlocked via ?admin=1) -->
+<!-- admin panel password gate -->
+<div id="adminPassStep" class="screen hide">
+  <div class="sub">Live Event</div>
+  <h1 class="flick" style="font-size:clamp(26px,6.5vw,44px);color:#c9a0e8;text-shadow:0 0 22px rgba(185,142,242,.5)">ADMIN ABUSE</h1>
+  <div class="lore">Password required.</div>
+  <input id="adminPassInput" type="password" maxlength="40" placeholder="Enter password" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+  <div id="adminPassErr" class="lvEmpty hide">Wrong password. Try again.</div>
+  <button class="btn" id="adminPassBtn">ENTER</button>
+  <button class="btn2" id="adminPassBack">BACK</button>
+</div>
+
+<!-- admin-abuse panel (unlocked via password above, or ?admin=1) -->
 <div id="adminPanel" class="screen hide">
   <div class="sub">Live Event</div>
   <h1 class="flick" style="font-size:clamp(26px,6.5vw,44px);color:#c9a0e8;text-shadow:0 0 22px rgba(185,142,242,.5)">ADMIN ABUSE</h1>
@@ -615,7 +626,7 @@
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
   <button id="shutdownBtn" class="hide">SHUT DOWN GAME</button>
-  <button id="adminBtn" class="hide">ADMIN PANEL</button>
+  <button id="adminBtn">ADMIN PANEL</button>
 </div>
 
 <!-- Level select (only completed levels) -->
@@ -2079,7 +2090,7 @@ const isDev=(function(){
     return localStorage.getItem('backrooms_dev')==='1';
   }catch(e){ return false; }
 })();
-const isAdmin=(function(){
+let isAdmin=(function(){
   try{
     if(new URLSearchParams(location.search).get('admin')==='1') localStorage.setItem('backrooms_admin','1');
     return localStorage.getItem('backrooms_admin')==='1';
@@ -2429,7 +2440,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
   hideOnlineCount();
@@ -2541,6 +2552,10 @@ function loadSupabaseSDK(){
   });
 }
 const SERVER_PASSWORD='BOYINDEVELOPER';
+// same "soft gate" as SERVER_PASSWORD above (plaintext, client-side, visible to anyone who reads the page
+// source) — keep it separate from SERVER_PASSWORD since that one's casually shared as a join code, and
+// this one grants live-event admin powers over every connected player
+const ADMIN_PASSWORD='BACKROOMSADMIN';
 async function connectPresence(nick){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
   if(presenceChannel){ if(nick) await presenceChannel.track({nickname:nick}); return; }
@@ -2613,6 +2628,28 @@ function closeDevPanel(){
    "tell everyone's client to do this to itself," same trick as the shutdown
    screen already uses. broadcast:{self:false} means the admin's own client
    never receives its own commands (consistent with the shutdown flow). */
+function handleAdminBtnClick(){
+  if(isAdmin){ openAdminPanel(); return; }
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('adminPassErr').classList.add('hide');
+  document.getElementById('adminPassStep').classList.remove('hide');
+  const p=document.getElementById('adminPassInput'); p.value=''; setTimeout(()=>p.focus(),50);
+}
+function tryAdminPassword(){
+  const val=(document.getElementById('adminPassInput').value||'').trim();
+  if(val===ADMIN_PASSWORD){
+    isAdmin=true;
+    try{ localStorage.setItem('backrooms_admin','1'); }catch(e){}
+    document.getElementById('adminPassStep').classList.add('hide');
+    openAdminPanel();
+  } else {
+    document.getElementById('adminPassErr').classList.remove('hide');
+  }
+}
+function closeAdminPassStep(){
+  document.getElementById('adminPassStep').classList.add('hide');
+  showStart();
+}
 function openAdminPanel(){
   document.getElementById('start').classList.add('hide');
   document.getElementById('adminPanel').classList.remove('hide');
@@ -3364,8 +3401,10 @@ document.getElementById('shutdownBtn').addEventListener('click', openShutdownCon
 document.getElementById('shutdownYes').addEventListener('click', confirmShutdown);
 document.getElementById('shutdownNo').addEventListener('click', closeShutdownConfirm);
 document.getElementById('devPanelClose').addEventListener('click', closeDevPanel);
-if(isAdmin) document.getElementById('adminBtn').classList.remove('hide');
-document.getElementById('adminBtn').addEventListener('click', openAdminPanel);
+document.getElementById('adminBtn').addEventListener('click', handleAdminBtnClick);
+document.getElementById('adminPassBtn').addEventListener('click', tryAdminPassword);
+document.getElementById('adminPassBack').addEventListener('click', closeAdminPassStep);
+document.getElementById('adminPassInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryAdminPassword(); } });
 document.getElementById('adminPanelBack').addEventListener('click', closeAdminPanel);
 document.getElementById('adminAnnounceBtn').addEventListener('click', sendAdminAnnounce);
 document.getElementById('adminAnnounceText').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendAdminAnnounce(); } });
