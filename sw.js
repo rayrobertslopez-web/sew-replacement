@@ -1,5 +1,5 @@
-const CACHE='sew-v33';
-const CORE=['./','./index.html','./manifest.json','./icon.svg','./ocr/tesseract.min.js','./sew-data.js','./basketball.html','./three.min.js','./green.mp3','./backrooms.html','./vendor/three.module.min.js','./vendor/utils/BufferGeometryUtils.js','./vendor/loaders/GLTFLoader.js','./backrooms-entity.glb','./backrooms-level1.glb','./backrooms-logo.png','./music.html','./music-manifest.json','./music-icon-192.png','./music-icon-512.png','./tv-rec-1.mp3','./tv-rec-2.mp3','./tv-rec-3.mp3','./tv-rec-4.mp3'];
+const CACHE='sew-v34';
+const CORE=['./','./index.html','./manifest.json','./icon.svg','./ocr/tesseract.min.js','./sew-data.js','./basketball.html','./three.min.js','./green.mp3','./backrooms.html','./vendor/three.module.min.js','./vendor/utils/BufferGeometryUtils.js','./vendor/loaders/GLTFLoader.js','./backrooms-entity.glb','./backrooms-level1.glb','./backrooms-logo.png','./music.html','./music-manifest.json','./music-icon-192.png','./music-icon-512.png','./tv-rec-1.mp3','./tv-rec-2.mp3','./tv-rec-3.mp3','./tv-rec-4.mp3','./entity-chase.mp3'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()).catch(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{
