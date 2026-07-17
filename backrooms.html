@@ -2136,6 +2136,7 @@ let tvPlaying=false, tvT=0, tvPhase='', tvA1Played=false, tvA2Played=false, tvJo
 let tvSaved=null, tvEntityWasVisible=true, tvNpcWasVisible=true;
 let tvCamX=0, tvCamZ=0, tvCamYaw=0, tvTurnFromYaw=0, tvT_turn=0, tvT_end=0;
 const TV_TURN=0.9, TV_END_FADE=0.85, TV_WALK_SPD=0.8;   // slow enough to stay inside the open spawn safe-zone
+const TV_EYE=1.55;                                      // standing eye height for the walker (not on the floor)
 const JOHN_SIDE=2.0, JOHN_AHEAD=0.9;                    // John walks this far to the walker's right, a touch ahead
 const tvAudio1=new Audio('./tv-rec-1.mp3'), tvAudio2=new Audio('./tv-rec-2.mp3');
 tvAudio1.preload='auto'; tvAudio2.preload='auto';
@@ -2239,7 +2240,7 @@ function updateTvRec(dt){
     if(!tvA1Played){ tvA1Played=true; tvAudio1.play().catch(()=>{}); }
     tvCamZ -= TV_WALK_SPD*dt;
     tvCamYaw = 0;
-    if(tvJohn){ tvJohn.visible=false; tvJohn.position.set(tvCamX+JOHN_SIDE, 0, tvCamZ-JOHN_AHEAD); tvJohn.rotation.y=0; }
+    if(tvJohn){ tvJohn.visible=false; tvJohn.position.set(tvCamX+JOHN_SIDE, 0, tvCamZ-JOHN_AHEAD); tvJohn.rotation.y=Math.PI; }
     if(tvT<TV_END_FADE) fade.style.opacity=(1-tvT/TV_END_FADE).toFixed(2); else fade.style.opacity='0';
     if(tvT>=D1){ tvPhase='turn'; tvTurnFromYaw=tvCamYaw; tvT_turn=0; }
   } else if(tvPhase==='turn'){
@@ -2248,14 +2249,14 @@ function updateTvRec(dt){
     const u=Math.min(1, tvT_turn/TV_TURN);
     tvCamYaw = tvTurnFromYaw + (johnTargetYaw-tvTurnFromYaw)*(u*u*(3-2*u));
     tvCamZ -= TV_WALK_SPD*0.35*dt;   // ease forward a little through the turn
-    if(tvJohn){ tvJohn.position.set(tvCamX+JOHN_SIDE, bob*0.6, tvCamZ-JOHN_AHEAD); tvJohn.rotation.y=0; }
+    if(tvJohn){ tvJohn.position.set(tvCamX+JOHN_SIDE, bob*0.6, tvCamZ-JOHN_AHEAD); tvJohn.rotation.y=Math.PI; }
     fade.style.opacity='0';
     if(u>=1){ tvPhase='walk2'; }
   } else if(tvPhase==='walk2'){
     if(!tvA2Played){ tvA2Played=true; tvAudio2.play().catch(()=>{}); }
     tvCamZ -= TV_WALK_SPD*dt;
     tvCamYaw = johnTargetYaw;
-    if(tvJohn){ tvJohn.position.set(tvCamX+JOHN_SIDE, bob*0.6, tvCamZ-JOHN_AHEAD); tvJohn.rotation.y=0; }
+    if(tvJohn){ tvJohn.position.set(tvCamX+JOHN_SIDE, bob*0.6, tvCamZ-JOHN_AHEAD); tvJohn.rotation.y=Math.PI; }
     fade.style.opacity='0';
     if(tvT >= D1+TV_TURN+D2){ tvPhase='end'; tvT_end=0; }
   } else if(tvPhase==='end'){
@@ -2265,7 +2266,7 @@ function updateTvRec(dt){
   }
 
   // drive the camera as the "tape"
-  camera.position.set(tvCamX, 0.34+bob, tvCamZ);
+  camera.position.set(tvCamX, TV_EYE+bob, tvCamZ);
   camera.rotation.set(-0.02, tvCamYaw, 0, 'YXZ');
   fillLight.position.copy(camera.position);
   // REC timecode
