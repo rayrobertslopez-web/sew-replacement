@@ -60,6 +60,12 @@
   #obj{ position:fixed; bottom:calc(env(safe-area-inset-bottom) + 54px); left:50%; transform:translateX(-50%);
     font-size:12px; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#f2f2f2;
     text-shadow:0 1px 3px #000, 0 0 8px rgba(0,0,0,.8); text-align:center; max-width:min(86vw,520px); }
+  #npcTalk{ position:fixed; bottom:calc(env(safe-area-inset-bottom) + 120px); left:50%; transform:translateX(-50%);
+    z-index:9; pointer-events:none; display:none; max-width:min(86vw,460px); text-align:center;
+    background:rgba(8,7,2,.82); border:1px solid rgba(150,170,120,.4); border-radius:12px; padding:11px 18px;
+    font-size:14px; line-height:1.5; color:#dfe6cf; text-shadow:0 1px 2px #000; }
+  #npcTalk.show{ display:block; }
+  #npcTalk .who{ display:block; font-size:10px; font-weight:800; letter-spacing:1.5px; color:#9fc08a; margin-bottom:4px; }
   #cross{ position:fixed; top:50%; left:50%; width:16px; height:16px; margin:-8px 0 0 -8px;
     z-index:8; pointer-events:none; display:none; }
   #cross.show{ display:block; }
@@ -580,6 +586,7 @@
 
   <div id="obj">Find an <b style="color:#8ec98e">EXIT</b>. Drink almond water. Don't stop moving.</div>
 </div>
+<div id="npcTalk"><span class="who">SURVIVOR</span><span id="npcTalkText"></span></div>
 <div id="cross"></div>
 <div id="toast"></div>
 
@@ -1397,7 +1404,7 @@ function enterLevel3(){
   for(const key of [...chunks.keys()]) unloadChunk(key);
   buildQueue.length=0; pickups.length=0; portalSpawned=false; portalObj=null;
   if(entity){ scene.remove(entity.obj); entity=null; }
-  clearChasers(); clearBots();
+  clearChasers(); clearBots(); clearSurvivor();
   level=3; applyAtmosphere(3);
   if(!l3Group) l3Group=buildLevel3Road();
   scene.add(l3Group);
@@ -1971,6 +1978,126 @@ function updateBots(dt){
     b.obj.rotation.y=b.dir;
   }
 }
+
+/* ----------------------------------------------- survivor NPC (Level 0 only)
+   A hurt survivor slumped in a corner near spawn. Approach for his plea; find
+   the first-aid kit elsewhere in the spawn safe-zone, bring it back, and he
+   heals, stands, and follows you around Level 0. */
+const NPC_POS = { x: -2.2, z: -2.2 };        // back corner of the guaranteed-open spawn safe-zone
+const FIRSTAID_POS = { x: 8.6, z: -1.4 };    // elsewhere in that same safe-zone — "around here somewhere"
+const NPC_SKIN=0xcaa07a, NPC_SHIRT=0x3d5a74, NPC_PANTS=0x2c2f38;
+const NPC_LINE="please help, a weird smiler...thing. hurt me. please go find a first aid kit. its around here somewhere...";
+let npc=null, hasFirstAid=false, firstAidRec=null;
+
+function survivorPart(geo, color, rough){ return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color, roughness:rough==null?0.8:rough})); }
+function makeSurvivorRig(){
+  const g=new THREE.Group();
+  const head=survivorPart(new THREE.SphereGeometry(0.24,12,12), NPC_SKIN); head.name='head';
+  const torso=survivorPart(new THREE.CapsuleGeometry(0.26,0.55,4,10), NPC_SHIRT); torso.name='torso';
+  const legL=survivorPart(new THREE.CapsuleGeometry(0.12,0.55,4,8), NPC_PANTS); legL.name='legL';
+  const legR=survivorPart(new THREE.CapsuleGeometry(0.12,0.55,4,8), NPC_PANTS); legR.name='legR';
+  const armL=survivorPart(new THREE.CapsuleGeometry(0.09,0.5,4,8), NPC_SHIRT); armL.name='armL';
+  const armR=survivorPart(new THREE.CapsuleGeometry(0.09,0.5,4,8), NPC_SHIRT); armR.name='armR';
+  const eyeMat=new THREE.MeshBasicMaterial({color:0x20140c});
+  for(const s of [-1,1]){ const e=new THREE.Mesh(new THREE.SphereGeometry(0.03,6,6),eyeMat); e.name='eye'+s; head.add(e); e.position.set(s*0.09,0.02,0.21); }
+  g.add(head,torso,legL,legR,armL,armR);
+  return g;
+}
+function poseSurvivor(seated){
+  const p=npc.obj, get=n=>p.getObjectByName(n);
+  const head=get('head'), torso=get('torso'), legL=get('legL'), legR=get('legR'), armL=get('armL'), armR=get('armR');
+  if(seated){   // slumped: torso leaned back, legs out along the floor, head low
+    torso.position.set(0,0.6,-0.02); torso.rotation.set(-0.22,0,0);
+    head.position.set(0,1.0,0.14);   head.rotation.set(0.2,0,0);
+    legL.position.set(-0.15,0.14,0.5); legL.rotation.set(Math.PI/2,0,0.05);
+    legR.position.set( 0.15,0.14,0.5); legR.rotation.set(Math.PI/2,0,-0.05);
+    armL.position.set(-0.3,0.52,0.08); armL.rotation.set(0.5,0,0.28);
+    armR.position.set( 0.3,0.52,0.08); armR.rotation.set(0.5,0,-0.28);
+  } else {      // upright to follow
+    torso.position.set(0,1.05,0); torso.rotation.set(0,0,0);
+    head.position.set(0,1.62,0);  head.rotation.set(0,0,0);
+    legL.position.set(-0.13,0.4,0); legL.rotation.set(0,0,0);
+    legR.position.set( 0.13,0.4,0); legR.rotation.set(0,0,0);
+    armL.position.set(-0.34,1.05,0); armL.rotation.set(0,0,0);
+    armR.position.set( 0.34,1.05,0); armR.rotation.set(0,0,0);
+  }
+}
+function makeFirstAidKit(){
+  const g=new THREE.Group();
+  g.add(survivorPart(new THREE.BoxGeometry(0.42,0.28,0.3), 0xf4f4f4, 0.55));
+  const crossMat=new THREE.MeshBasicMaterial({color:0xe0342a});
+  const cv=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.07,0.02), crossMat); cv.position.set(0,0,0.16); g.add(cv);
+  const ch=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.22,0.02), crossMat); ch.position.set(0,0,0.16); g.add(ch);
+  g.userData.light=new THREE.PointLight(0xff6a5a,0.0,5,2); g.userData.light.position.set(0,0.5,0); g.add(g.userData.light);
+  return g;
+}
+function spawnSurvivor(){
+  clearSurvivor();
+  const obj=makeSurvivorRig();
+  obj.position.set(NPC_POS.x, 0, NPC_POS.z);
+  const faceYaw=Math.atan2(player.x-NPC_POS.x, player.z-NPC_POS.z);   // look toward spawn
+  obj.rotation.y=faceYaw;
+  scene.add(obj);
+  npc={ obj, x:NPC_POS.x, z:NPC_POS.z, state:'seated', faceYaw, healedT:0 };
+  poseSurvivor(true);
+  const kit=makeFirstAidKit(); kit.position.set(FIRSTAID_POS.x, 0.35, FIRSTAID_POS.z);
+  scene.add(kit); firstAidRec={ mesh:kit, key:'firstaid', kind:'firstaid' }; pickups.push(firstAidRec);
+}
+function clearSurvivor(){
+  if(npc){ scene.remove(npc.obj); npc=null; }
+  if(firstAidRec){
+    if(firstAidRec.mesh.parent) firstAidRec.mesh.parent.remove(firstAidRec.mesh);
+    const idx=pickups.indexOf(firstAidRec); if(idx>=0) pickups.splice(idx,1);
+    firstAidRec=null;
+  }
+  hasFirstAid=false;
+  document.getElementById('npcTalk').classList.remove('show');
+}
+function updateNpc(dt){
+  if(!npc) return;
+  npc.obj.visible=true;
+  const talk=document.getElementById('npcTalk');
+  const d=Math.hypot(npc.x-player.x, npc.z-player.z);
+  if(npc.state==='seated'){
+    const t=npc.obj.getObjectByName('torso'); if(t) t.rotation.z=Math.sin(elapsed*1.3)*0.03;   // faint breathing sway
+    if(d<2.3){
+      if(hasFirstAid){
+        npc.state='standing'; npc.healedT=0; poseSurvivor(false);
+        sanity=Math.min(100, sanity+10);
+        document.getElementById('npcTalkText').textContent="oh... thank you. i can walk now. i'll stay with you.";
+        talk.classList.add('show'); audio.pickup();
+      } else {
+        document.getElementById('npcTalkText').textContent=NPC_LINE;
+        talk.classList.add('show');
+      }
+    } else { talk.classList.remove('show'); }
+    npc.obj.position.set(npc.x, 0, npc.z);
+    return;
+  }
+  if(npc.state==='standing'){
+    npc.healedT+=dt;
+    if(npc.healedT>2.6){ npc.state='following'; talk.classList.remove('show'); }
+    npc.obj.position.set(npc.x, 0, npc.z);
+    npc.obj.rotation.y=npc.faceYaw;
+    return;
+  }
+  // following
+  let bob=0;
+  const followDist=2.0;
+  if(d>followDist){
+    const hx=(player.x-npc.x)/d, hz=(player.z-npc.z)/d;
+    const spd=Math.min(4.6, 1.6 + (d-followDist)*1.2);   // hustles when you pull ahead, ambles when close
+    let nx=npc.x+hx*spd*dt, nz=npc.z+hz*spd*dt;
+    [nx,nz]=collideLevel(nx,nz,0.32);
+    if(Math.hypot(nx-npc.x,nz-npc.z)>0.001) bob=Math.abs(Math.sin(elapsed*7))*0.06;
+    npc.x=nx; npc.z=nz;
+    const ty=Math.atan2(hx,hz);
+    let d0=ty-npc.faceYaw; while(d0>Math.PI)d0-=2*Math.PI; while(d0<-Math.PI)d0+=2*Math.PI;
+    npc.faceYaw+=d0*Math.min(1,dt*8);
+  }
+  npc.obj.position.set(npc.x, bob, npc.z);
+  npc.obj.rotation.y=npc.faceYaw;
+}
 const BOT_REPLIES=[
   "...", "i hear you too.", "don't stop moving.", "the lights are buzzing again.",
   "i've been here for hours.", "did you find an exit yet?", "shh. it's listening.",
@@ -2272,6 +2399,7 @@ function newGame(){
   if(entity){ scene.remove(entity.obj); entity=null; pendingEntity=false; }
   clearChasers();
   clearBots();
+  clearSurvivor();
   document.getElementById('botChat').classList.add('hide');
   // reset to Level 0
   if(l1Model && l1Model.parent) scene.remove(l1Model);
@@ -2295,6 +2423,7 @@ function newGame(){
   updateChunks(); processQueue(999);   // build initial rings synchronously
   spawnEntity();
   maybeSpawnPortal();
+  spawnSurvivor();
 
   caught=false; catchBlack=false;
   document.getElementById('blackout').style.opacity='0';
@@ -2414,6 +2543,7 @@ function enterLevel1(){
   if(locked) document.exitPointerLock();
   for(const key of [...chunks.keys()]) unloadChunk(key);
   buildQueue.length=0; pickups.length=0;
+  clearSurvivor();   // the survivor is Level-0-scoped; he doesn't make it through the exit
   level=1; scene.add(l1Model); applyAtmosphere(1);
   player.x=0; player.z=0; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.floorY=l1FloorY;
   spawnOrigin={x:player.x,z:player.z};
@@ -2503,6 +2633,7 @@ function showStart(){
   disconnectChat();
   clearChasers();
   clearBots();
+  clearSurvivor();
   botChatOpen=false;
   document.getElementById('botChat').classList.add('hide');
   document.getElementById('blackout').style.opacity='0';
@@ -3192,7 +3323,7 @@ function update(dt){
 
   maxDist=Math.max(maxDist, Math.hypot(player.x-spawnOrigin.x,player.z-spawnOrigin.z));
 
-  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); if(botServerActive) updateBots(dt); }
+  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); if(botServerActive) updateBots(dt); updateNpc(dt); }
   else if(level===1){ updateLightPoolL1(); updateEntity(dt); }
   else if(level===2){ updateLightPoolL2(); updateChasers(dt); }
   else { updateLevel3(dt); }
@@ -3244,6 +3375,16 @@ function updatePickups(dt){
       const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
       if(p.mesh.userData.light) p.mesh.userData.light.intensity = d<14 ? Math.max(0, 3-(d/14)*3) : 0;
       if(d<1.6){ pickups.splice(i,1); enterLevel3(); return; }
+    } else if(p.kind==='firstaid'){
+      p.mesh.rotation.y+=dt*1.6; p.mesh.position.y=0.35+Math.sin(elapsed*2.2)*0.05;
+      const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
+      if(p.mesh.userData.light) p.mesh.userData.light.intensity = d<10 ? Math.max(0, 2.4-(d/10)*2.4) : 0;
+      if(d<0.9){
+        hasFirstAid=true; firstAidRec=null;
+        p.mesh.parent && p.mesh.parent.remove(p.mesh);
+        pickups.splice(i,1); audio.pickup();
+        toast("🩹 First Aid Kit — take it to the survivor");
+      }
     }
   }
 }
