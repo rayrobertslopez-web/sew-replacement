@@ -436,6 +436,19 @@
     border:2px solid #6b6a8f; background:rgba(20,20,32,.78); color:#dfe0ff; cursor:pointer; pointer-events:auto;
     text-shadow:0 1px 2px #000; box-shadow:0 0 18px rgba(90,90,160,.35); }
   #tvPrompt.show{ display:block; }
+  #megPrompt{ position:fixed; bottom:calc(env(safe-area-inset-bottom) + 84px); left:50%; transform:translateX(-50%);
+    z-index:9; display:none; padding:10px 20px; border-radius:12px; font-weight:800; font-size:14px; letter-spacing:.5px;
+    border:2px solid #8a8f98; background:rgba(22,24,28,.82); color:#e7ebf0; text-align:center; max-width:82vw;
+    text-shadow:0 1px 2px #000; box-shadow:0 0 18px rgba(140,150,165,.3); }
+  #megPrompt.show{ display:block; }
+  #megPrompt.warn{ border-color:#d94631; color:#ffd9d2; box-shadow:0 0 18px rgba(217,70,49,.4); }
+  #megOxy{ position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:calc(env(safe-area-inset-left) + 16px);
+    z-index:9; display:none; font-family:"Courier New",ui-monospace,monospace; font-size:13px; letter-spacing:1px; color:#ffe14a;
+    background:rgba(20,20,10,.6); border:1px solid #6a6a2a; border-radius:8px; padding:6px 12px; }
+  #megOxy.show{ display:flex; align-items:center; gap:7px; }
+  #visor{ position:fixed; inset:0; z-index:8; pointer-events:none; display:none;
+    box-shadow: inset 0 0 20vmin 6vmin rgba(120,110,20,.14); }
+  #visor.show{ display:block; }
   #runBanner{ position:fixed; inset:0; z-index:33; display:flex; align-items:center; justify-content:center;
     pointer-events:none; opacity:0; transition:opacity .3s ease; }
   #runBanner.show{ opacity:1; }
@@ -749,6 +762,9 @@
   <div id="tvRecFade"></div>
 </div>
 <button id="tvPrompt">▶ WATCH RECORDING</button>
+<div id="megPrompt"></div>
+<div id="megOxy">&#9673; OXYGEN <b>STABLE</b></div>
+<div id="visor"></div>
 <div id="runBanner"><span>RUN</span></div>
 <div id="toBeContinued"><span>to be continued...</span></div>
 <div id="adminBanner"></div>
@@ -897,6 +913,10 @@ let stomper = null;         // {obj, x, z, faceYaw, life, far, stompPhase, lastF
 let stomperCooldown = 22;   // seconds before the first spawn roll is allowed
 let stomperShake = 0;       // transient camera-shake impulse from a heavy footfall
 let killedByStomper = false;
+
+// M.E.G. staging room — the briefing chamber you start in when you press OFFLINE
+let megActive=false, megGroup=null, megSuit=null, megSuitY=0.06, megT=0, hasHazmat=false;
+let megBlockers=[], megWatchers=[];
 
 // level 2 chase pack — several always-hunting howler instances (independently loaded, not clones,
 // since the model is a skinned rig and plain Object3D.clone() doesn't rebind skeletons correctly)
@@ -2681,7 +2701,7 @@ let isAdmin=(function(){
 function setupDesktop(){
   addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
   addEventListener('keyup',e=>{ keys[e.code]=false; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=false; });
-  renderer.domElement.addEventListener('click',()=>{ if((running||creatorMode) && !locked) renderer.domElement.requestPointerLock(); });
+  renderer.domElement.addEventListener('click',()=>{ if((running||creatorMode||megActive) && !locked) renderer.domElement.requestPointerLock(); });
   document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===renderer.domElement); });
   document.addEventListener('mousemove',e=>{ if(!locked) return;
     player.yaw -= e.movementX*0.0022*lookSens; player.pitch -= e.movementY*0.0022*lookSens;
@@ -2763,7 +2783,7 @@ function pollGamepad(dt){
   const DZ=0.18;
   const ax=n=>{ const v=gp.axes[n]||0; return Math.abs(v)<DZ ? 0 : (v-Math.sign(v)*DZ)/(1-DZ); };
   const down=n=>{ const b=gp.buttons[n]; return b ? (b.pressed || b.value>0.45) : false; };
-  const inPlay = (running && !settingsOpen && !shutdownActive && !botChatOpen && !cineActive) || creatorMode;
+  const inPlay = (running && !settingsOpen && !shutdownActive && !botChatOpen && !cineActive) || creatorMode || megActive;
   if(inPlay){
     input.joyX = ax(0);
     input.joyZ = -ax(1);
@@ -3097,6 +3117,10 @@ function showStart(){
   clearSurvivor();
   clearTv();
   clearStomper(); audio.setChase(false,1);
+  megActive=false; clearMeg();
+  document.getElementById('megOxy').classList.remove('show');
+  document.getElementById('visor').classList.remove('show');
+  const _cd=document.getElementById('countdown'); if(_cd) _cd.style.display='';
   if(tvPlaying) endTvRec();
   botChatOpen=false;
   document.getElementById('botChat').classList.add('hide');
@@ -3736,6 +3760,196 @@ function closePosts(){
 }
 
 /* ---------------------------------------------------------------- loop */
+/* ------------------------------------------- M.E.G. staging room (briefing) */
+const MEG_WALL  = new THREE.MeshLambertMaterial({color:0x6d7075});
+const MEG_FLOOR = new THREE.MeshLambertMaterial({color:0x46494e});
+const MEG_STEP  = new THREE.MeshLambertMaterial({color:0x60636a});
+const MEG_PANEL = new THREE.MeshBasicMaterial({color:0xeef1f4, fog:true});
+const MEG_GLASS = new THREE.MeshBasicMaterial({color:0x0d1620, transparent:true, opacity:0.72, fog:false});
+const MEG_DARK  = new THREE.MeshBasicMaterial({color:0x0a0c10});
+function megBeyondTexture(){
+  const c=document.createElement('canvas'); c.width=256; c.height=256; const x=c.getContext('2d');
+  const g=x.createRadialGradient(128,150,8,128,150,175);
+  g.addColorStop(0,'#6a5622'); g.addColorStop(0.42,'#241c0c'); g.addColorStop(1,'#060503');
+  x.fillStyle=g; x.fillRect(0,0,256,256);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+function megSignTexture(){
+  const c=document.createElement('canvas'); c.width=512; c.height=256; const x=c.getContext('2d');
+  x.fillStyle='#3a3f47'; x.fillRect(0,0,512,256);
+  x.strokeStyle='#e9d84e'; x.lineWidth=8; x.strokeRect(6,6,500,244);
+  x.textAlign='center'; x.fillStyle='#f6f8fb'; x.font='bold 150px "Courier New",monospace';
+  x.fillText('M.E.G', 256, 150);
+  x.fillStyle='#d6d9df'; x.font='bold 33px "Courier New",monospace';
+  x.fillText('MAJOR EXPLORER GROUP', 256, 205);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+function makeHazmatSuit(){
+  const g=new THREE.Group();
+  const Y=new THREE.MeshStandardMaterial({color:0xf2d21a, roughness:0.6, metalness:0.05, emissive:0x2a2600, emissiveIntensity:0.35});
+  const D=new THREE.MeshStandardMaterial({color:0x14141a, roughness:0.4});
+  const legL=new THREE.Mesh(new THREE.CapsuleGeometry(0.13,0.55,4,8),Y); legL.position.set(-0.14,0.5,0);
+  const legR=legL.clone(); legR.position.x=0.14;
+  const torso=new THREE.Mesh(new THREE.CapsuleGeometry(0.28,0.5,5,10),Y); torso.position.set(0,1.15,0);
+  const armL=new THREE.Mesh(new THREE.CapsuleGeometry(0.09,0.5,4,8),Y); armL.position.set(-0.35,1.14,0); armL.rotation.z=0.14;
+  const armR=armL.clone(); armR.position.x=0.35; armR.rotation.z=-0.14;
+  const helmet=new THREE.Mesh(new THREE.SphereGeometry(0.24,16,14),Y); helmet.position.set(0,1.74,0);
+  const visor=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),D); visor.scale.set(1,0.72,0.42); visor.position.set(0,1.74,0.18);
+  const tank=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.5,10),D); tank.position.set(0,1.12,-0.26);
+  g.add(legL,legR,torso,armL,armR,helmet,visor,tank);
+  const gl=new THREE.PointLight(0xffe14a,0.7,4.5,2); gl.position.set(0,1.4,0.2); g.add(gl);
+  return g;
+}
+function buildMegRoom(){
+  const g=new THREE.Group();
+  megBlockers.length=0; megWatchers.length=0;
+  const box=(w,h,d,x,y,z,mat)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat||MEG_WALL); m.position.set(x,y,z); g.add(m); return m; };
+  // floor + ceiling
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(16,20),MEG_FLOOR); fl.rotation.x=-Math.PI/2; fl.position.set(0,0,0); g.add(fl);
+  const ce=new THREE.Mesh(new THREE.PlaneGeometry(16,20),MEG_WALL); ce.rotation.x=Math.PI/2; ce.position.set(0,5,0); g.add(ce);
+  // side walls
+  box(0.4,5,20, -8.2,2.5,0); box(0.4,5,20, 8.2,2.5,0);
+  // front wall with a big doorway (opening x:-2..2, y:0..3.4)
+  box(6,5,0.4, -5,2.5,-10.2); box(6,5,0.4, 5,2.5,-10.2); box(4,1.6,0.4, 0,4.2,-10.2);
+  // back wall with an observation-window opening (x:-2.5..2.5, y:1.2..3.6)
+  box(5.5,5,0.4, -5.25,2.5,10.2); box(5.5,5,0.4, 5.25,2.5,10.2);
+  box(5,1.2,0.4, 0,0.6,10.2); box(5,1.4,0.4, 0,4.3,10.2);
+  // the glass observation window + M.E.G sign beneath it
+  const glass=new THREE.Mesh(new THREE.PlaneGeometry(5,2.4),MEG_GLASS); glass.position.set(0,2.4,10.0); glass.rotation.y=Math.PI; g.add(glass);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.2,0.95),new THREE.MeshBasicMaterial({map:megSignTexture(),fog:false}));
+  sign.position.set(0,0.62,9.98); sign.rotation.y=Math.PI; g.add(sign);
+  // people watching, dimly backlit behind the glass
+  for(let i=0;i<4;i++){
+    const s=new THREE.Mesh(new THREE.CapsuleGeometry(0.18,0.7,4,8),MEG_DARK); s.position.set(-1.8+i*1.2,2.15,10.95); s.userData.ph=i*1.3;
+    const h=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8),MEG_DARK); h.position.set(0,0.6,0); s.add(h);
+    megWatchers.push(s); g.add(s);
+  }
+  const bwall=new THREE.Mesh(new THREE.PlaneGeometry(6,3.6),new THREE.MeshLambertMaterial({color:0x2a3038})); bwall.position.set(0,2.4,11.7); bwall.rotation.y=Math.PI; g.add(bwall);
+  const backlite=new THREE.PointLight(0x9fc0e0,3.2,7,2); backlite.position.set(0,2.9,11.5); g.add(backlite);
+  // side staircases flanking the window, climbing toward a gallery landing
+  const stairs=(cx)=>{ const steps=7, sw=2.2, sd=0.55, rise=0.34;
+    for(let i=0;i<steps;i++){ const h=rise*(i+1); box(sw,h,sd, cx,h/2,4.9+i*sd, MEG_STEP); }
+    box(sw+0.4, rise*steps, 1.6, cx, rise*steps/2, 4.9+steps*sd+0.7, MEG_STEP);
+    megBlockers.push([cx-sw/2-0.2, cx+sw/2+0.2, 4.4, 9.9]);
+  };
+  stairs(-5.6); stairs(5.6);
+  // ceiling light panels + soft lights
+  for(const p of [[-3,-4],[3,-4],[-3,3],[3,3],[0,8]]){ const pn=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.4),MEG_PANEL); pn.rotation.x=Math.PI/2; pn.position.set(p[0],4.98,p[1]); g.add(pn); }
+  const l1=new THREE.PointLight(0xdfe6ee,1.3,26,2); l1.position.set(0,4.5,-3); g.add(l1);
+  const l2=new THREE.PointLight(0xdfe6ee,1.15,26,2); l2.position.set(0,4.5,5); g.add(l2);
+  const l3=new THREE.PointLight(0xdfe6ee,0.8,22,2); l3.position.set(0,4.5,1); g.add(l3);
+  // beyond the doorway: a dim, warm descent into the Backrooms
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(4.4,3.6),new THREE.MeshBasicMaterial({map:megBeyondTexture(),fog:false}));
+  back.position.set(0,1.8,-12.8); g.add(back);
+  box(0.4,3.6,3.2, -2.2,1.8,-11.4, MEG_DARK); box(0.4,3.6,3.2, 2.2,1.8,-11.4, MEG_DARK);
+  box(4.4,0.4,3.2, 0,3.5,-11.4, MEG_DARK); box(4.4,0.4,3.2, 0,0.1,-11.4, MEG_DARK);   // tunnel ceiling + floor frame the corridor
+  // the hazmat suit, in the back corner by the observation window
+  megSuit=makeHazmatSuit(); megSuit.position.set(-3.7, megSuitY, 7.6); g.add(megSuit);
+  return g;
+}
+function applyMegAtmosphere(){
+  scene.background.setHex(0x3a3e45); scene.fog.color.setHex(0x3a3e45); scene.fog.near=9; scene.fog.far=72; fogFarBase=72;
+  ambient.color.setHex(0xc4cad2); ambient.intensity=1.3;
+  hemi.color.setHex(0xeaf0f6); hemi.groundColor.setHex(0x4a4e54); hemi.intensity=1.05;
+  fillLight.color.setHex(0xe6eaef); fillLight.intensity=0.65;
+  for(const L of lightPool) L.intensity=0;
+}
+function collideMeg(x,z){
+  const r=PLAYER_R;
+  x=Math.max(-7.8+r, Math.min(7.8-r, x));
+  z=Math.min(9.8-r, z);
+  const inDoor=(x>-1.8 && x<1.8);
+  if(z < -9.8+r && !(inDoor && hasHazmat)) z=-9.8+r;   // front wall — the doorway only opens once you're suited
+  for(const b of megBlockers) [x,z]=pushOut(x,z,r,b);
+  return [x,z];
+}
+function updateMegPrompt(){
+  const p=document.getElementById('megPrompt');
+  if(!hasHazmat){
+    const nearDoor = player.z < -8 && Math.abs(player.x) < 2.6;
+    if(nearDoor){ p.className='show warn'; p.textContent='⚠ PUT ON THE HAZMAT SUIT FIRST — no oxygen without it'; }
+    else { p.className='show'; p.textContent='Find the yellow HAZMAT SUIT and put it on'; }
+  } else {
+    p.className='show'; p.textContent='Walk through the open DOOR to enter the Backrooms';
+  }
+}
+function equipHazmat(){
+  if(hasHazmat) return;
+  hasHazmat=true;
+  if(megSuit){ if(megGroup) megGroup.remove(megSuit); megSuit=null; }
+  document.getElementById('megOxy').classList.add('show');
+  document.getElementById('visor').classList.add('show');
+  audio.pickup && audio.pickup();
+  toast('🧑‍🚀 Hazmat suit equipped — oxygen stable');
+}
+function enterMegRoom(){
+  if(creatorMode) return;
+  ['start','online','win','levels','threat','posts','settings','loadcard','levelcard'].forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('hide'); });
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('gameover').classList.remove('show');
+  const cd=document.getElementById('countdown'); if(cd) cd.style.display='none';
+  document.getElementById('settingsBtn').classList.add('hide');
+  clearMeg();
+  megGroup=buildMegRoom(); scene.add(megGroup);
+  applyMegAtmosphere();
+  player.x=0; player.z=4; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player._lastStep=0; player.floorY=0;
+  hasHazmat=false; megActive=true; running=false; megT=0;
+  document.getElementById('megOxy').classList.remove('show');
+  document.getElementById('visor').classList.remove('show');
+  document.getElementById('cross').classList.toggle('show', !isTouch);
+  if(isTouch) document.getElementById('touch').classList.add('show');
+  updateMegPrompt();
+  audio.ensure(); audio.resume();
+  clock.getDelta();
+  toast('M.E.G. Staging Area — suit up before you enter.');
+}
+function clearMeg(){
+  if(megGroup){ scene.remove(megGroup); megGroup=null; }
+  megBlockers.length=0; megWatchers.length=0; megSuit=null;
+  document.getElementById('megPrompt').className='';
+}
+function exitMegToBackrooms(){
+  megActive=false;
+  clearMeg();
+  document.getElementById('megOxy').classList.remove('show');
+  document.getElementById('visor').classList.remove('show');
+  document.getElementById('settingsBtn').classList.remove('hide');
+  const cd=document.getElementById('countdown'); if(cd) cd.style.display='';
+  newGame();   // spins up Level 0; hasHazmat carries into the run
+}
+function updateMeg(dt){
+  if(!megActive) return;
+  megT+=dt;
+  if(!isTouch) readKeys();
+  let mx=(input.r-input.l)+input.joyX, mz=(input.f-input.b)+input.joyZ;
+  const mag=Math.hypot(mx,mz); if(mag>1){ mx/=mag; mz/=mag; }
+  const moving=mag>0.08;
+  const speed=(input.sprint||gpSprint)?3.9:2.4;
+  const sinY=Math.sin(player.yaw), cosY=Math.cos(player.yaw);
+  const fwdX=-sinY, fwdZ=-cosY, rgtX=cosY, rgtZ=-sinY;
+  const vx=(fwdX*mz+rgtX*mx)*speed, vz=(fwdZ*mz+rgtZ*mx)*speed;
+  let nx=player.x+vx*dt, nz=player.z+vz*dt;
+  [nx,nz]=collideMeg(nx,nz);
+  const realMove=Math.hypot(nx-player.x, nz-player.z);
+  player.x=nx; player.z=nz;
+  if(moving && realMove>0.0005){
+    player.stepPhase+=realMove*1.9; player.bob=Math.sin(player.stepPhase*Math.PI)*0.05;
+    if(player.stepPhase-(player._lastStep||0)>=1){ player._lastStep=Math.floor(player.stepPhase); audio.step(); }
+  } else player.bob*=0.8;
+  // walked through the door (only possible while suited) -> into the Backrooms
+  if(hasHazmat && player.z <= -10.2){ exitMegToBackrooms(); return; }
+  // suit pickup + idle animation
+  if(megSuit && !hasHazmat){
+    megSuit.rotation.y += dt*0.8; megSuit.position.y = megSuitY + Math.sin(megT*1.8)*0.05;
+    if(Math.hypot(player.x-megSuit.position.x, player.z-megSuit.position.z) < 1.5) equipHazmat();
+  }
+  for(const s of megWatchers){ s.rotation.z=Math.sin(megT*0.9+s.userData.ph)*0.04; }
+  updateMegPrompt();
+  camera.position.set(player.x, EYE+player.bob, player.z);
+  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  fillLight.position.set(player.x, EYE, player.z);
+}
+
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
@@ -3743,6 +3957,7 @@ function tick(){
   let inGame=false;
   if(tvPlaying){ updateTvRec(dt); }
   else if(cineActive){ updateCine(dt); }
+  else if(megActive){ updateMeg(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
@@ -4026,7 +4241,7 @@ setupDesktop();
 setupTouch();
 setupGamepad();
 if(isTouch){ document.getElementById('ctrlsDesk').innerHTML='Left thumb — move &nbsp;·&nbsp; right — look &nbsp;·&nbsp; <b>RUN</b> to sprint'; }
-document.getElementById('playBtn').addEventListener('click',()=>{ audio.ensure(); newGame(); });
+document.getElementById('playBtn').addEventListener('click',()=>{ audio.ensure(); enterMegRoom(); });
 document.getElementById('tvPrompt').addEventListener('click',()=>{ if(tvNear) playTvRec(); });
 document.getElementById('goRetry').addEventListener('click',()=>{ startAtLevel(deathLevel); });   // retry the level you died on
 document.getElementById('goQuit').addEventListener('click', showStart);
