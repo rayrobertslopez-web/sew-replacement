@@ -890,6 +890,14 @@ let entityProto = null;   // loaded GLB scene (the "howler" model)
 let entityFoot = 0;       // y offset so the model's feet rest on the floor
 let pendingEntity = false; // spawn requested before the model finished loading
 
+// the Stomper — a distinct Level 0 entity: a pale mask-face suspended in long, dark
+// spider legs. spawns by chance around the player, stomps toward you (heavy footfalls
+// that shake the screen), hunts with the chase loop, and retreats if you keep away.
+let stomper = null;         // {obj, x, z, faceYaw, life, far, stompPhase, lastFoot}
+let stomperCooldown = 22;   // seconds before the first spawn roll is allowed
+let stomperShake = 0;       // transient camera-shake impulse from a heavy footfall
+let killedByStomper = false;
+
 // level 2 chase pack — several always-hunting howler instances (independently loaded, not clones,
 // since the model is a skinned rig and plain Object3D.clone() doesn't rebind skeletons correctly)
 let chasers = [];   // {obj, x, z, foot, faceYaw}
@@ -943,7 +951,7 @@ let creatorKeyframes = [], creatorPlaying = false, creatorPlayIdx = 0, creatorPl
 const CREATOR_BOUND = 95, CREATOR_STEP = 0.4, CREATOR_ROT_STEP = Math.PI/12, CREATOR_SEG_DUR = 1.2;
 
 // death cinematic (entity catch) + game over
-let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0, lastDeathByEntity = false;
+let caught = false, caughtT = 0, catchBlack = false, catchYaw = 0, catchPitch = 0, catchFloorY = 0, deathLevel = 0, lastDeathByEntity = false, catchFoot = 0;
 
 // wayfinding: black arrows painted on nearby walls, pointing to the nearest exit
 let arrowPool = [], guideTarget = null, guideT = -9, guideRefresh = -9;
@@ -1431,7 +1439,7 @@ function enterLevel3(){
   for(const key of [...chunks.keys()]) unloadChunk(key);
   buildQueue.length=0; pickups.length=0; portalSpawned=false; portalObj=null;
   if(entity){ scene.remove(entity.obj); entity=null; }
-  clearChasers(); clearBots(); clearSurvivor(); clearTv();
+  clearChasers(); clearBots(); clearSurvivor(); clearTv(); clearStomper();
   level=3; applyAtmosphere(3);
   if(!l3Group) l3Group=buildLevel3Road();
   scene.add(l3Group);
@@ -1752,9 +1760,11 @@ function exitCreator(){
 
 /* -------------------------------------------- death cinematic (the catch) */
 let catchObj=null;   // whichever creature (entity or a level-2 chaser) actually caught the player
-function startCatch(obj){
+function startCatch(obj, foot, byStomper){
   if(caught) return;
   caught=true; caughtT=0; catchBlack=false; catchObj=obj||null;
+  catchFoot = (foot==null? entityFoot : foot);
+  killedByStomper = !!byStomper;
   catchYaw=player.yaw; catchPitch=player.pitch; catchFloorY=floorAt(player.x,player.z);
   audio.setGrowl(0.5); audio.grab();
 }
@@ -1767,7 +1777,7 @@ function updateCatch(dt){
                                 : 0.7-smooth01(t,1.2,1.55)*0.62; // lunge / stab
   d=Math.max(0.1,d);
   if(catchObj){
-    catchObj.position.set(player.x+fwdX*d, catchFloorY+entityFoot, player.z+fwdZ*d);
+    catchObj.position.set(player.x+fwdX*d, catchFloorY+catchFoot, player.z+fwdZ*d);
     const faceYaw=Math.atan2(-fwdX,-fwdZ);                       // skull turned to your face
     const s = t>1.2 ? (Math.random()-0.5)*0.12 : 0;
     catchObj.rotation.set(s*0.6, faceYaw, s);
@@ -1913,6 +1923,106 @@ function updateEntity(dt){
   const near=Math.max(0,1-dist/22);
   audio.setGrowl((e.state==='chase'?0.6:0.15)*near + (e.state==='chase'?0.2:0));
   if(dist<1.1){ startCatch(e.obj); }
+}
+
+/* ------------------------------------------------- the Stomper (Level 0) */
+const STOMP_DARK  = new THREE.MeshStandardMaterial({ color:0x0b0b0d, roughness:0.92, metalness:0.0 });
+const STOMP_PALE  = new THREE.MeshStandardMaterial({ color:0xd9d2c2, roughness:0.55, metalness:0.0, emissive:0x171512, emissiveIntensity:0.55 });
+const STOMP_VOID  = new THREE.MeshBasicMaterial({ color:0x050505 });
+// a tapered bone (cylinder) stretched between two local points a->b
+function stompBone(ax,ay,az, bx,by,bz, r0,r1){
+  const a=new THREE.Vector3(ax,ay,az), b=new THREE.Vector3(bx,by,bz);
+  const len=a.distanceTo(b)||0.001;
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r0,len,7), STOMP_DARK);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), b.clone().sub(a).normalize());
+  return m;
+}
+function makeStomperRig(){
+  const g=new THREE.Group();
+  const legs=[]; const N=6, HUB=2.15;
+  for(let k=0;k<N;k++){
+    const a=(k/N)*Math.PI*2 + 0.3;
+    const ca=Math.cos(a), sa=Math.sin(a);
+    const pivot=new THREE.Group(); pivot.position.set(0,HUB,0);
+    // in pivot-local space the hub is the origin: leg arches UP-and-OUT to a knee, then drops to the floor
+    const Rk=1.55, Hk=2.9, Rf=1.95;
+    const kx=ca*Rk, ky=Hk-HUB, kz=sa*Rk;      // knee (near wall/ceiling)
+    const fx=ca*Rf, fy=0-HUB,  fz=sa*Rf;       // foot (planted on the floor)
+    pivot.add(stompBone(0,0,0, kx,ky,kz, 0.07,0.05));   // thigh
+    pivot.add(stompBone(kx,ky,kz, fx,fy,fz, 0.05,0.028)); // shin
+    g.add(pivot); legs.push({pivot, phase:(k/N)*Math.PI*2});
+  }
+  const hub=new THREE.Mesh(new THREE.SphereGeometry(0.3,12,10), STOMP_DARK); hub.position.set(0,HUB,0); g.add(hub);
+  // pale mask-face hanging in the middle of the legs (faces local +Z toward the player)
+  const head=new THREE.Group(); head.position.set(0,1.55,0.06); head.name='shead';
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.34,16,14), STOMP_PALE));
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.1,0.75,8), STOMP_DARK); neck.position.set(0,0.52,0); head.add(neck);
+  for(const s of [-1,1]){ const e=new THREE.Mesh(new THREE.SphereGeometry(0.075,8,8), STOMP_VOID); e.position.set(s*0.12,0.05,0.28); head.add(e); }
+  const mouth=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.05,0.05), STOMP_VOID); mouth.position.set(0,-0.14,0.3); head.add(mouth);
+  g.add(head);
+  g.userData.legs=legs; g.userData.head=head;
+  return g;
+}
+function spawnStomperAt(x,z){
+  const obj=makeStomperRig(); obj.position.set(x, floorAt(x,z), z);
+  obj.rotation.y=Math.atan2(player.x-x, player.z-z); scene.add(obj);
+  stomper={ obj, x, z, faceYaw:obj.rotation.y, life:0, far:0, stompPhase:0, lastFoot:0 };
+  audio.stomp && audio.stomp(1);
+  unlockAchievement('stomper');
+  toast('You hear something heavy in the walls…');
+}
+function trySpawnStomper(){
+  for(let t=0;t<16;t++){
+    const a=Math.random()*Math.PI*2, d=7+Math.random()*6;
+    let x=player.x+Math.cos(a)*d, z=player.z+Math.sin(a)*d;
+    if(pointSolid(x,z)) continue;
+    [x,z]=collide(x,z,0.5);
+    if(pointSolid(x,z)) continue;
+    spawnStomperAt(x,z); return true;
+  }
+  return false;
+}
+function clearStomper(){ if(stomper){ if(stomper.obj.parent) scene.remove(stomper.obj); stomper=null; } }
+function updateStomper(dt){
+  if(level!==0){ if(stomper) clearStomper(); return; }
+  if(!stomper){
+    stomperCooldown-=dt;
+    if(stomperCooldown<=0 && elapsed>12){
+      if(Math.random()<0.12){ if(trySpawnStomper()) return; }
+      stomperCooldown=3.0;                       // roll again shortly — it's a chance, not a guarantee
+    }
+    return;
+  }
+  const s=stomper; s.life+=dt;
+  const dx=player.x-s.x, dz=player.z-s.z, dist=Math.hypot(dx,dz)||0.001;
+  const dread=(100-sanity)/100, speed=2.7+dread*1.5;
+  const hx=dx/dist, hz=dz/dist;
+  let nx=s.x+hx*speed*dt, nz=s.z+hz*speed*dt;
+  [nx,nz]=collide(nx,nz,0.45); s.x=nx; s.z=nz;
+  // turn to face the player
+  const targetYaw=Math.atan2(hx,hz);
+  let d0=targetYaw-s.faceYaw; while(d0>Math.PI)d0-=2*Math.PI; while(d0<-Math.PI)d0+=2*Math.PI;
+  s.faceYaw+=d0*Math.min(1,dt*6);
+  // lurching stomp: heavy body bob + skittering legs + swaying mask
+  const gait=6.5, bob=Math.abs(Math.sin(elapsed*gait))*0.14;
+  s.obj.position.set(s.x, floorAt(s.x,s.z)+bob, s.z);
+  s.obj.rotation.set(Math.sin(elapsed*gait*0.5)*0.03, s.faceYaw, Math.sin(elapsed*gait)*0.04);
+  const legs=s.obj.userData.legs;
+  if(legs) for(const L of legs){ L.pivot.rotation.x=Math.sin(elapsed*gait+L.phase)*0.12; L.pivot.rotation.z=Math.cos(elapsed*gait+L.phase)*0.08; }
+  const head=s.obj.userData.head;
+  if(head){ head.rotation.set(Math.sin(elapsed*1.7)*0.07, Math.sin(elapsed*1.1)*0.06, 0); head.position.y=1.55+Math.sin(elapsed*2.0)*0.04; }
+  // heavy footfalls: low thud + screen shake, louder the closer it is
+  s.stompPhase+=dt*gait;
+  if(s.stompPhase - s.lastFoot >= Math.PI){
+    s.lastFoot += Math.PI;
+    const near=Math.max(0,1-dist/24);
+    if(near>0){ audio.stomp && audio.stomp(near); stomperShake=Math.max(stomperShake, near*0.06); }
+  }
+  if(dist<1.35){ startCatch(s.obj, 0, true); return; }        // it reaches you -> death
+  // it loses interest if you keep your distance, or after a long hunt
+  if(dist>34) s.far+=dt; else s.far=0;
+  if(s.far>4 || s.life>55){ clearStomper(); stomperCooldown=28+Math.random()*20; }
 }
 
 /* ------------------------------------------ level 2 chase pack (always-hunt) */
@@ -2516,6 +2626,16 @@ const audio = (function(){
     const o=ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(180,t); o.frequency.exponentialRampToValueAtTime(38,t+0.3);
     const g2=ctx.createGain(); g2.gain.value=0.4; o.connect(g2); g2.connect(master); g2.gain.exponentialRampToValueAtTime(0.001,t+0.36); o.start(t); o.stop(t+0.38);
   }
+  function stomp(v){ if(!ctx) return; v=v==null?1:Math.max(0,Math.min(1,v));   // heavy footfall of the Stomper
+    const t=ctx.currentTime;
+    const o=ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(92,t); o.frequency.exponentialRampToValueAtTime(31,t+0.22);
+    const g=ctx.createGain(); g.gain.value=0.0001; o.connect(g); g.connect(master);
+    g.gain.linearRampToValueAtTime(0.5*v,t+0.02); g.gain.exponentialRampToValueAtTime(0.001,t+0.42); o.start(t); o.stop(t+0.44);
+    const src=ctx.createBufferSource(); src.buffer=noiseBuf;
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=360;
+    const g2=ctx.createGain(); g2.gain.value=0.26*v; src.connect(lp); lp.connect(g2); g2.connect(master);
+    g2.gain.setValueAtTime(0.26*v,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.2); src.start(t); src.stop(t+0.22);
+  }
   let chaseGain=0;   // eased 0..1 loudness for the entity-chase loop
   function setChase(on, dt){
     dt = dt||0;
@@ -2527,7 +2647,7 @@ const audio = (function(){
     if(!on && chaseGain===0 && !chaseAudio.paused){ chaseAudio.pause(); }
   }
   return {
-    ensure, step, zap, pickup, grab, stab, setChase,
+    ensure, step, zap, pickup, grab, stab, stomp, setChase,
     resume(){ if(ctx&&ctx.state==='suspended') ctx.resume(); },
     setGrowl(v){ if(growlGain) growlGain.gain.value += (Math.min(0.5,v)-growlGain.gain.value)*0.1; },
     setVolume(v){ vol=Math.max(0,Math.min(1,v)); if(master) master.gain.value=vol; try{ localStorage.setItem('backrooms_volume',vol); }catch(e){} },
@@ -2735,6 +2855,8 @@ function newGame(){
   clearBots();
   clearSurvivor();
   clearTv();
+  clearStomper();
+  stomperCooldown=22; stomperShake=0;
   document.getElementById('botChat').classList.add('hide');
   // reset to Level 0
   if(l1Model && l1Model.parent) scene.remove(l1Model);
@@ -2784,6 +2906,8 @@ function newGame(){
 const ACHIEVEMENTS = {
   firstdeath:   { icon:'&#128128;', title:'FIRST DEATH!', sub:'congrats on your first death!' },
   meetbacteria: { icon:'&#129440;', title:'MEET THE BACTERIA', sub:"you got killed by the entity bacteria! don't let him catch you next time!" },
+  stomper:      { icon:'&#128375;', title:'THE STOMPER', sub:'something huge found you in the lobby. run.' },
+  stompkilled:  { icon:'&#128128;', title:'STOMPED', sub:'the Stomper caught you. those legs were faster than they looked.' },
   endlessroad:  { icon:'&#128308;', title:'TO BE CONTINUED', sub:'you found the hole and jumped. the road is still out there.' },
   adminchosen:  { icon:'&#128081;', title:"THE ADMIN'S CHOSEN ONE", sub:'you got noticed. that rarely ends well.' },
 };
@@ -2815,14 +2939,14 @@ function die(reason,title){          // non-catch deaths (e.g. sanity) -> straig
 }
 function gameOver(){
   running=false; caught=false;
-  audio.setGrowl(0);
+  audio.setGrowl(0); audio.setChase(false,1); clearStomper();
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
   document.getElementById('hud').classList.remove('show');
   document.getElementById('gameover').classList.add('show');
   if(locked) document.exitPointerLock();
   unlockAchievement('firstdeath');
-  if(lastDeathByEntity) unlockAchievement('meetbacteria');
+  if(lastDeathByEntity){ unlockAchievement(killedByStomper ? 'stompkilled' : 'meetbacteria'); }
 }
 function winGame(){
   if(!running) return; running=false;
@@ -2972,6 +3096,7 @@ function showStart(){
   clearBots();
   clearSurvivor();
   clearTv();
+  clearStomper(); audio.setChase(false,1);
   if(tvPlaying) endTvRec();
   botChatOpen=false;
   document.getElementById('botChat').classList.add('hide');
@@ -3622,7 +3747,7 @@ function tick(){
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
   const chasing = inGame && !caught && !transitioning &&
-                  ((entity && entity.state==='chase') || (level===2 && chasers.length>0));
+                  ((entity && entity.state==='chase') || stomper || (level===2 && chasers.length>0));
   audio.setChase(chasing, dt);
   renderer.render(scene,camera);
 }
@@ -3668,7 +3793,7 @@ function update(dt){
 
   maxDist=Math.max(maxDist, Math.hypot(player.x-spawnOrigin.x,player.z-spawnOrigin.z));
 
-  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); if(botServerActive) updateBots(dt); updateNpc(dt); updateTvScreen(); }
+  if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); updateStomper(dt); if(botServerActive) updateBots(dt); updateNpc(dt); updateTvScreen(); }
   else if(level===1){ updateLightPoolL1(); updateEntity(dt); }
   else if(level===2){ updateLightPoolL2(); updateChasers(dt); }
   else { updateLevel3(dt); }
@@ -3681,6 +3806,7 @@ function update(dt){
     let drain = 0.5 + (dark?2.6:0);
     if(!moving) drain += 0.3;
     if(entity && entity.state==='chase') drain += 1.4;
+    if(stomper) drain += 1.5;                        // the Stomper's presence eats at you
     if(level===2 && chasers.length) drain += 1.6;   // constant pursuit, constant dread
     sanity=Math.max(0, sanity - drain*dt);
     if(sanity<=0){ die("your mind stayed behind","YOU BROKE"); return; }
@@ -3691,6 +3817,12 @@ function update(dt){
 
   // ---- camera ----
   camera.position.set(player.x, player.floorY+EYE+player.bob, player.z);
+  if(stomperShake>0){                              // heavy footfalls rattle the view
+    camera.position.x+=(Math.random()-0.5)*stomperShake;
+    camera.position.y+=(Math.random()-0.5)*stomperShake;
+    camera.position.z+=(Math.random()-0.5)*stomperShake;
+    stomperShake=Math.max(0, stomperShake-dt*0.5);
+  }
   camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
   fillLight.position.set(player.x, player.floorY+EYE, player.z);
 
