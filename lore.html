@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Backrooms — Lore &amp; Entities</title>
+<meta name="description" content="The lore, levels, and entities of The Backrooms.">
+<style>
+  :root{
+    --bg:#0b0a06; --bg2:#100e08; --panel:#14120b; --panel2:#191509;
+    --line:#3a340f; --line2:#514713;
+    --accent:#e9d84e; --accent-dim:#b6a63e; --red:#d94631; --red-dim:#8a2a1e;
+    --text:#ded7c2; --muted:#948e78; --muted2:#6f6a57;
+    --mono:"Courier New",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+    line-height:1.65; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  /* atmospheric overlays */
+  body::before{ content:""; position:fixed; inset:0; pointer-events:none; z-index:60;
+    box-shadow:inset 0 0 24vmin 6vmin rgba(0,0,0,.7); }
+  body::after{ content:""; position:fixed; inset:0; pointer-events:none; z-index:59; opacity:.04;
+    background-image:repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 3px); }
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---- nav ---- */
+  nav{ position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:18px;
+    padding:12px 20px; background:rgba(9,8,4,.86); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line); font-family:var(--mono); }
+  nav .brand{ color:var(--accent); font-weight:700; letter-spacing:2px; text-transform:uppercase; font-size:14px; }
+  nav .brand b{ color:#fff; }
+  nav .links{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap }
+  nav .links a{ color:var(--muted); font-size:12px; letter-spacing:1.5px; text-transform:uppercase;
+    padding:6px 11px; border:1px solid transparent; border-radius:6px; }
+  nav .links a:hover{ color:var(--accent); border-color:var(--line2); text-decoration:none; background:var(--panel) }
+  nav .links a.play{ color:#0b0a06; background:var(--accent); border-color:var(--accent); font-weight:700 }
+  nav .links a.play:hover{ background:#fff }
+
+  /* ---- hero ---- */
+  header.hero{ position:relative; min-height:66vh; display:flex; flex-direction:column; justify-content:flex-end;
+    padding:40px 24px 44px; overflow:hidden; }
+  header.hero .bg{ position:absolute; inset:0; background:url('./lore-hero.jpg') center/cover no-repeat; filter:brightness(.62) saturate(1.05); z-index:0; }
+  header.hero .bg::after{ content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(11,10,6,.35) 0%, rgba(11,10,6,.2) 40%, rgba(11,10,6,.96) 100%); }
+  header.hero .wrap{ position:relative; z-index:2; max-width:1000px; margin:0 auto; width:100% }
+  header.hero .tag{ font-family:var(--mono); color:var(--accent); letter-spacing:5px; font-size:12px; text-transform:uppercase; margin-bottom:10px }
+  header.hero h1{ font-family:var(--mono); font-size:clamp(38px,9vw,86px); line-height:.98; margin:0 0 14px;
+    letter-spacing:2px; color:#fff; text-shadow:0 3px 30px rgba(0,0,0,.8); }
+  header.hero h1 span{ color:var(--accent) }
+  header.hero p.lede{ max-width:640px; color:#cfc9b6; font-size:clamp(15px,2.3vw,18px); margin:0 }
+
+  /* ---- layout ---- */
+  main{ max-width:1000px; margin:0 auto; padding:0 24px }
+  section{ padding:64px 0; border-top:1px solid var(--line) }
+  section:first-of-type{ border-top:none }
+  .kicker{ font-family:var(--mono); color:var(--accent-dim); letter-spacing:4px; font-size:12px; text-transform:uppercase; margin:0 0 6px }
+  h2.title{ font-family:var(--mono); font-size:clamp(26px,5vw,40px); margin:0 0 8px; color:#fff; letter-spacing:1px }
+  .sub{ color:var(--muted); max-width:640px; margin:0 0 30px }
+
+  /* ---- lore prose ---- */
+  .lore-block{ margin:0 0 26px }
+  .lore-block h3{ font-family:var(--mono); color:var(--accent); font-size:19px; letter-spacing:1px; margin:0 0 8px; text-transform:uppercase }
+  .lore-block p{ margin:0 0 12px; color:#d3ccb9 }
+  .lore-block p em{ color:#e7e0c9; font-style:italic }
+  .pull{ border-left:3px solid var(--accent); padding:6px 0 6px 18px; margin:26px 0; color:#efe8cf;
+    font-family:var(--mono); font-size:clamp(16px,2.6vw,21px); line-height:1.5 }
+  .graffiti{ font-family:var(--mono); color:var(--red); letter-spacing:1px }
+
+  /* ---- levels (the requested layout: square image + description, stacked rows) ---- */
+  .levels{ display:flex; flex-direction:column; gap:22px }
+  .level-row{ display:flex; gap:20px; align-items:stretch }
+  .level-thumb{ flex:0 0 200px; width:200px; height:200px; border:2px solid var(--line2); border-radius:10px;
+    background-size:cover; background-position:center; position:relative; overflow:hidden; box-shadow:0 6px 26px rgba(0,0,0,.55) }
+  .level-thumb::after{ content:attr(data-code); position:absolute; left:0; bottom:0; font-family:var(--mono);
+    font-size:12px; letter-spacing:2px; color:#0b0a06; background:var(--accent); padding:3px 9px; border-top-right-radius:8px; font-weight:700 }
+  .level-thumb.yellow{ filter:saturate(1.1) contrast(1.02) }
+  .level-thumb.gray{ filter:grayscale(.9) contrast(1.06) brightness(1.06) }
+  .level-thumb.red{ filter:saturate(1.15) contrast(1.03) }
+  .level-thumb.red::after{ background:var(--red); color:#120503 }
+  .level-desc{ flex:1; min-width:0; border:2px solid var(--line); border-radius:10px; background:var(--panel);
+    padding:18px 22px; display:flex; flex-direction:column; justify-content:center }
+  .level-desc h3{ font-family:var(--mono); margin:0 0 4px; font-size:20px; color:#fff; letter-spacing:1px }
+  .level-desc .status{ font-family:var(--mono); font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--accent-dim); margin:0 0 10px }
+  .level-desc .status.danger{ color:var(--red) }
+  .level-desc p{ margin:0; color:#c9c2ae; font-size:15px }
+
+  /* ---- entities ---- */
+  .ent-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:18px }
+  .ent{ border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden; display:flex; flex-direction:column }
+  .ent.feat{ grid-column:1 / -1; flex-direction:row }
+  .ent .pic{ background:#000 center/cover no-repeat; }
+  .ent.feat .pic{ flex:0 0 46%; min-height:280px; background-image:url('./lore-stomper.jpg') }
+  .ent .body{ padding:18px 20px }
+  .ent h3{ font-family:var(--mono); margin:0 0 4px; font-size:20px; color:#fff; letter-spacing:1px }
+  .ent .cls{ display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--accent); border:1px solid var(--line2); border-radius:20px; padding:2px 10px; margin:0 0 12px }
+  .ent .cls.red{ color:var(--red); border-color:var(--red-dim) }
+  .ent .cls.calm{ color:#7fb0c9; border-color:#2c4653 }
+  .ent p{ margin:0; color:#c7c0ac; font-size:14.5px }
+  .ent .glyph{ font-size:34px; line-height:1; margin:0 0 8px }
+
+  footer{ border-top:1px solid var(--line); padding:40px 24px 70px; text-align:center; color:var(--muted2); font-size:13px; font-family:var(--mono) }
+  footer a{ color:var(--accent-dim) }
+  .warn{ color:var(--red); font-family:var(--mono); font-size:12px; letter-spacing:1px; margin-top:8px }
+
+  @media (max-width:720px){
+    .level-row{ flex-direction:column }
+    .level-thumb{ width:100%; flex-basis:auto; height:190px }
+    .ent-grid{ grid-template-columns:1fr }
+    .ent.feat{ flex-direction:column }
+    .ent.feat .pic{ min-height:210px }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">The <b>Backrooms</b></span>
+  <span class="links">
+    <a href="#lore">Lore</a>
+    <a href="#levels">Levels</a>
+    <a href="#entities">Entities</a>
+    <a class="play" href="./backrooms.html">▶ Play</a>
+  </span>
+</nav>
+
+<header class="hero">
+  <div class="bg"></div>
+  <div class="wrap">
+    <div class="tag">Field Archive · Do Not Stop Moving</div>
+    <h1>THE <span>BACKROOMS</span></h1>
+    <p class="lede">You noclipped out of reality and fell through into the space behind it — endless yellow rooms, buzzing lights, and the things that live in the walls. This is what we know.</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ LORE ============ -->
+  <section id="lore">
+    <p class="kicker">01 — The Story</p>
+    <h2 class="title">What the Backrooms Are</h2>
+    <p class="sub">Pieced together from the walls, the tapes, and the ones who came back different.</p>
+
+    <div class="lore-block">
+      <h3>The Noclip</h3>
+      <p>Reality is rendered. It has a <em>front</em> — the part meant to be seen — and a <em>back</em>: the long yellow service corridors that hold everything up, humming under lights nobody was ever supposed to look at. You were never supposed to see the back.</p>
+      <p>But minds slip. A panic attack in an empty stairwell. A fall. A single second where you dissociate so hard your soul catches the wrong edge — and you <b>noclip</b> straight through the front of the world and land behind it. The wallpaper is damp. The carpet goes on forever. The lights buzz a note that never stops. That's the Backrooms: not a place someone built, but the place the universe was built on top of, so you'd never have to know it was there.</p>
+    </div>
+
+    <div class="pull">The exit isn't a door. It's finding a spot thin enough to fall <em>back through.</em></div>
+
+    <div class="lore-block">
+      <h3>Almond Water — the mercy that isn't one</h3>
+      <p>You'll find it in machines and crates, tucked exactly where the Backrooms want you to keep moving. It tastes like almonds and static, and it steadies your mind — drink it and the walls stop breathing.</p>
+      <p>Here's the cost no one tells you: every bottle stitches you a little more permanently into this place. It saves your sanity and spends your <em>self.</em> Drink enough and you stop being a visitor and start being furniture — a fixed point the Backrooms own. That's why one survivor scrawled <span class="graffiti">DON'T DRINK IT</span> on a wall, and then, months later in the same shaking hand, <span class="graffiti">drink it. it's better.</span></p>
+    </div>
+
+    <div class="lore-block">
+      <h3>John &amp; Jason — the tape that lies</h3>
+      <p>Two of them fell through at the same time — which almost never happens, so they had the one thing this place can't manufacture: each other. They filmed everything, certain that documenting it would help someone find the way out.</p>
+      <p>The tape still playing on the televisions in Level 0 is their <em>last</em> one. And the Backrooms kept it on purpose. They replay it for every new arrival as <b>bait</b> — because when you watch two people make it that far, you think <em>if they got here, I can get further</em>, and you walk straight toward the places that killed them. Their hope became the hook. If you ever get out, break every television you pass.</p>
+    </div>
+
+    <div class="lore-block">
+      <h3>The Admin</h3>
+      <p>Something is <em>running</em> this place, and it watches. The countdown in the corner — <b>ADMIN ABUSE STARTS IN…</b> — is not a joke. When it hits zero, the one in control reaches into a level and edits it while you're standing in it: moves the walls, deletes the exit you were walking toward, spawns something behind you. Once in a long while it takes a personal interest in someone and marks them the <b>Admin's Chosen One</b> — which is the last title most of them ever earn.</p>
+      <p>Nobody knows who the Admin is. A survivor who found the control room and went mad. A moderator treating you like a bug to patch. Or — the theory none of us can shake — <em>you, from a loop you already finished, come back to run the place, the memory taken as the price of the door.</em> Which would mean the voice warning you and the hand deleting your exit are the same person. Maybe that's why the doors move.</p>
+    </div>
+  </section>
+
+  <!-- ============ LEVELS ============ -->
+  <section id="levels">
+    <p class="kicker">02 — The Levels</p>
+    <h2 class="title">Where You Are</h2>
+    <p class="sub">Each level is a deeper layer of the same wrong building. It gets worse the further down you go.</p>
+
+    <div class="levels">
+
+      <div class="level-row">
+        <div class="level-thumb yellow" data-code="LEVEL 0" style="background-image:url('./lore-lv0.jpg')"></div>
+        <div class="level-desc">
+          <h3>The Lobby</h3>
+          <div class="status">Class 3 · Entity Presence Confirmed</div>
+          <p>The shallow end — endless yellow wallpaper, damp carpet, and fluorescent lights that never fully turn off. Everyone starts here. It feels almost safe, which is the trick: keep moving, follow the black arrows, drink the almond water, and don't let the buzzing convince you to stop and rest.</p>
+        </div>
+      </div>
+
+      <div class="level-row">
+        <div class="level-thumb gray" data-code="LEVEL 1" style="background-image:url('./lore-lv1.jpg')"></div>
+        <div class="level-desc">
+          <h3>Habitable Zone</h3>
+          <div class="status">Class 2 · Breathable · "Almost Livable"</div>
+          <p>Cold concrete and dead grey light. It's the most livable level down here — and that is exactly the trap. People stop in the Habitable Zone. They make a little home in the quiet. They are never seen again. Comfort is how this place keeps you.</p>
+        </div>
+      </div>
+
+      <div class="level-row">
+        <div class="level-thumb red" data-code="LEVEL 2" style="background-image:url('./lore-lv2.jpg')"></div>
+        <div class="level-desc">
+          <h3>Backstage of Reality</h3>
+          <div class="status danger">Class 6 · Extremely Hostile · Do Not Stop</div>
+          <p>The paint comes off. Red emergency light, tighter walls, air that tastes like a warning. This is what the Backrooms actually look like without the yellow wallpaper to soften them — and it's where the howler pack nests. There are no safe rooms here. You do not walk in Level 2. You run.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ ENTITIES ============ -->
+  <section id="entities">
+    <p class="kicker">03 — The Entities</p>
+    <h2 class="title">What Lives Here</h2>
+    <p class="sub">Some hunt to feed. Some hunt because they're still looking for the way out, and they think you might know.</p>
+
+    <div class="ent-grid">
+
+      <div class="ent feat">
+        <div class="pic"></div>
+        <div class="body">
+          <h3>The Stomper</h3>
+          <span class="cls red">Apex · Level 0 · Chance Encounter</span>
+          <p>The oldest thing down here, and the only one that was human. A wanderer who drank too much almond water, went hollow, and kept growing in the dark until no body could hold a shape — so it became long black legs and a pale mask of a face it half-remembers. It has a chance to appear anywhere in the Lobby: you'll hear something heavy in the walls, and then it comes, stomping, shaking the floor with every step. It doesn't hunt to eat. It hunts because that mask is still looking for the exit. Keep your distance and it loses interest. Let it reach you and there's nothing left to say.</p>
+        </div>
+      </div>
+
+      <div class="ent">
+        <div class="body">
+          <div class="glyph">🦠</div>
+          <h3>The Bacteria</h3>
+          <span class="cls red">Hostile · The Howler</span>
+          <p>Not a monster — a symptom. The Backrooms were sterile once, until something rotted in the dark and needed a body. The bacteria are the infection given legs and a howl and an appetite for anything still warm. They're drawn to you because you're fresh: you still taste like the front of the world.</p>
+        </div>
+      </div>
+
+      <div class="ent">
+        <div class="body">
+          <div class="glyph">🩸</div>
+          <h3>The Howler Pack</h3>
+          <span class="cls red">Multiple · Level 2</span>
+          <p>The bacteria that got organized. Where a single howler wanders, the pack <em>hunts</em> — several of them, always awake, always closing. Level 2 is their nest, which is why the one rule down there is the only rule that matters: never stop moving.</p>
+        </div>
+      </div>
+
+      <div class="ent">
+        <div class="body">
+          <div class="glyph">👁️</div>
+          <h3>The Admin</h3>
+          <span class="cls">Unknown · Omnipresent</span>
+          <p>The one running the place. It watches through the walls and edits levels live when the countdown hits zero — moving walls, deleting exits, spawning things behind you. If it ever makes you its Chosen One, that is very rarely good news.</p>
+        </div>
+      </div>
+
+      <div class="ent">
+        <div class="body">
+          <div class="glyph">📼</div>
+          <h3>John &amp; Jason</h3>
+          <span class="cls calm">Lost · The Tape</span>
+          <p>Two people who fell through together and filmed their way toward an exit they never reached. Their final tape now loops on every television in the Lobby — not as a memorial, but as bait for the next person who dares to hope.</p>
+        </div>
+      </div>
+
+      <div class="ent">
+        <div class="body">
+          <div class="glyph">🧍</div>
+          <h3>The Survivor</h3>
+          <span class="cls calm">Human · Level 0</span>
+          <p>Proof the Backrooms aren't <em>only</em> death — a person still breathing in the Lobby, hurt by a "smiler thing," waiting for a first-aid kit. Heal him and he'll follow you anywhere. Just don't think too hard about why he wants to stay so close.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  The Backrooms — an original fan game. All lore, levels, and entities here are original works.<br>
+  <a href="./backrooms.html">▶ Enter the Lobby</a>
+  <div class="warn">DON'T STOP MOVING · DON'T FINISH THE ALMOND WATER · TURN OFF THE TELEVISIONS</div>
+</footer>
+
+</body>
+</html>
