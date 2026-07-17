@@ -2141,6 +2141,8 @@ const JOHN_SIDE=2.0, JOHN_AHEAD=0.9;                    // John walks this far t
 const tvAudio1=new Audio('./tv-rec-1.mp3'), tvAudio2=new Audio('./tv-rec-2.mp3');
 const tvAudio3=new Audio('./tv-rec-3.mp3'), tvAudio4=new Audio('./tv-rec-4.mp3');   // #3 John begging, #4 Jason
 [tvAudio1,tvAudio2,tvAudio3,tvAudio4].forEach(a=>a.preload='auto');
+// entity chase loop — plays whenever something is actively hunting you; loops seamlessly until the chase ends
+const chaseAudio=new Audio('./entity-chase.mp3'); chaseAudio.loop=true; chaseAudio.preload='auto';
 // gore-sequence state (entity kill after John's line)
 let tvA3Played=false, tvA4Played=false, tvT_cut=0, tvT_grab=0, tvT_rip=0, tvT_after=0;
 let tvEntityCut=null, tvEntityFoot=0, tvJason=null, tvJohnHead=null, tvFlyHead=null, tvBloodPool=null;
@@ -2514,8 +2516,18 @@ const audio = (function(){
     const o=ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(180,t); o.frequency.exponentialRampToValueAtTime(38,t+0.3);
     const g2=ctx.createGain(); g2.gain.value=0.4; o.connect(g2); g2.connect(master); g2.gain.exponentialRampToValueAtTime(0.001,t+0.36); o.start(t); o.stop(t+0.38);
   }
+  let chaseGain=0;   // eased 0..1 loudness for the entity-chase loop
+  function setChase(on, dt){
+    dt = dt||0;
+    // fast attack when a chase begins, slightly slower fade-out (~0.4s) when it ends
+    chaseGain += ((on?1:0) - chaseGain) * Math.min(1, dt*(on?9:3));
+    if(chaseGain < 0.0006) chaseGain = 0;
+    if(on && chaseAudio.paused){ try{ chaseAudio.currentTime=0; }catch(e){} const p=chaseAudio.play(); if(p&&p.catch) p.catch(()=>{}); }
+    chaseAudio.volume = Math.max(0, Math.min(1, chaseGain*vol));   // ride the master volume slider
+    if(!on && chaseGain===0 && !chaseAudio.paused){ chaseAudio.pause(); }
+  }
   return {
-    ensure, step, zap, pickup, grab, stab,
+    ensure, step, zap, pickup, grab, stab, setChase,
     resume(){ if(ctx&&ctx.state==='suspended') ctx.resume(); },
     setGrowl(v){ if(growlGain) growlGain.gain.value += (Math.min(0.5,v)-growlGain.gain.value)*0.1; },
     setVolume(v){ vol=Math.max(0,Math.min(1,v)); if(master) master.gain.value=vol; try{ localStorage.setItem('backrooms_volume',vol); }catch(e){} },
@@ -3603,10 +3615,15 @@ function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
   pollGamepad(dt);
+  let inGame=false;
   if(tvPlaying){ updateTvRec(dt); }
   else if(cineActive){ updateCine(dt); }
   else if(creatorMode){ updateCreator(dt); }
-  else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); }
+  else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
+  // entity chase loop: on while something is actively hunting you, fades out the moment it stops
+  const chasing = inGame && !caught && !transitioning &&
+                  ((entity && entity.state==='chase') || (level===2 && chasers.length>0));
+  audio.setChase(chasing, dt);
   renderer.render(scene,camera);
 }
 
