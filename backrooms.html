@@ -1647,7 +1647,7 @@ function updateCreator(dt){
   if(!isTouch) readKeys();
   let mx=(input.r-input.l)+input.joyX, mz=(input.f-input.b)+input.joyZ;
   const mag=Math.hypot(mx,mz); if(mag>1){ mx/=mag; mz/=mag; }
-  const speed = input.sprint ? 6.5 : 3.5;
+  const speed = (input.sprint||gpSprint) ? 6.5 : 3.5;
   const sinY=Math.sin(player.yaw), cosY=Math.cos(player.yaw);
   const fwdX=-sinY, fwdZ=-cosY, rgtX=cosY, rgtZ=-sinY;
   const vx=(fwdX*mz+rgtX*mx)*speed, vz=(fwdZ*mz+rgtZ*mx)*speed;
@@ -2153,6 +2153,60 @@ function setupTouch(){
   touch.addEventListener('touchmove',onMove,{passive:false});
   touch.addEventListener('touchend',onEnd);
   touch.addEventListener('touchcancel',onEnd);
+}
+
+/* ---------------------------------------------------------------- gamepad
+   Left stick = move, right stick = look, RT/LT/A/L3 = run. When a controller
+   is present, A on any menu fires that screen's primary button so the whole
+   game can be played without touching a keyboard or the screen. */
+let gpIndex=null, gpConnected=false, gpSprint=false, gpBtnPrev={};
+function setupGamepad(){
+  addEventListener('gamepadconnected', e=>{
+    gpIndex=e.gamepad.index; gpConnected=true;
+    if(!isTouch) document.getElementById('ctrlsDesk').innerHTML='<kbd>L&#8209;Stick</kbd> move &nbsp;·&nbsp; <kbd>R&#8209;Stick</kbd> look &nbsp;·&nbsp; <kbd>RT</kbd>/<kbd>A</kbd> run &nbsp;·&nbsp; <kbd>A</kbd> to start';
+    toast('🎮 Controller connected');
+  });
+  addEventListener('gamepaddisconnected', e=>{
+    if(gpIndex===e.gamepad.index){ gpIndex=null; gpConnected=false; gpSprint=false; input.joyX=0; input.joyZ=0; }
+  });
+}
+function activeGamepad(){
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  if(gpIndex!=null && pads[gpIndex] && pads[gpIndex].connected){ gpConnected=true; return pads[gpIndex]; }
+  for(const p of pads){ if(p && p.connected){ gpIndex=p.index; gpConnected=true; return p; } }
+  gpConnected=false; return null;
+}
+function pollGamepad(dt){
+  const gp=activeGamepad();
+  if(!gp) return;
+  const DZ=0.18;
+  const ax=n=>{ const v=gp.axes[n]||0; return Math.abs(v)<DZ ? 0 : (v-Math.sign(v)*DZ)/(1-DZ); };
+  const down=n=>{ const b=gp.buttons[n]; return b ? (b.pressed || b.value>0.45) : false; };
+  const inPlay = (running && !settingsOpen && !shutdownActive && !botChatOpen && !cineActive) || creatorMode;
+  if(inPlay){
+    input.joyX = ax(0);
+    input.joyZ = -ax(1);
+    const rx=ax(2), ry=ax(3);
+    if(rx||ry){
+      const rate = 2.8 * lookSens;
+      player.yaw   -= rx * rate * dt;
+      player.pitch -= ry * rate * dt;
+      player.pitch = Math.max(-1.35, Math.min(1.35, player.pitch));
+    }
+    gpSprint = down(7)||down(6)||down(0)||down(10);   // RT / LT / A / L3
+  } else {
+    gpSprint=false; input.joyX=0; input.joyZ=0;        // don't leak a held stick into menus
+  }
+  const a = down(0);
+  if(a && !gpBtnPrev[0] && !inPlay) gamepadConfirm();
+  gpBtnPrev[0]=a;
+}
+function gamepadConfirm(){
+  // press the most prominent action button on whatever screen is currently visible
+  for(const id of ['warnBtn','goRetry','lcBtn','againBtn','playBtn']){
+    const el=document.getElementById(id);
+    if(el && el.offsetParent!==null){ el.click(); return; }
+  }
 }
 
 /* ---------------------------------------------------------------- setup */
@@ -3090,6 +3144,7 @@ function closePosts(){
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
+  pollGamepad(dt);
   if(cineActive){ updateCine(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); }
@@ -3108,7 +3163,7 @@ function update(dt){
   if(mag>1){ mx/=mag; mz/=mag; }
   const moving=mag>0.08;
 
-  const wantSprint = input.sprint && (stamina>2 || level===3) && moving;
+  const wantSprint = (input.sprint||gpSprint) && (stamina>2 || level===3) && moving;
   const speed = wantSprint ? 4.8 : 2.7;
   // level 3's wall chase needs sustained sprinting for its full 40s — normal stamina limits (~4s bursts)
   // would make it nearly unwinnable, so adrenaline overrides fatigue for this one scripted setpiece
@@ -3351,6 +3406,7 @@ loadEntityModel();
 loadLevel1();
 setupDesktop();
 setupTouch();
+setupGamepad();
 if(isTouch){ document.getElementById('ctrlsDesk').innerHTML='Left thumb — move &nbsp;·&nbsp; right — look &nbsp;·&nbsp; <b>RUN</b> to sprint'; }
 document.getElementById('playBtn').addEventListener('click',()=>{ audio.ensure(); newGame(); });
 document.getElementById('goRetry').addEventListener('click',()=>{ startAtLevel(deathLevel); });   // retry the level you died on
