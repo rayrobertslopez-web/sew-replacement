@@ -2139,7 +2139,16 @@ const TV_TURN=0.9, TV_END_FADE=0.85, TV_WALK_SPD=0.8;   // slow enough to stay i
 const TV_EYE=1.55;                                      // standing eye height for the walker (not on the floor)
 const JOHN_SIDE=2.0, JOHN_AHEAD=0.9;                    // John walks this far to the walker's right, a touch ahead
 const tvAudio1=new Audio('./tv-rec-1.mp3'), tvAudio2=new Audio('./tv-rec-2.mp3');
-tvAudio1.preload='auto'; tvAudio2.preload='auto';
+const tvAudio3=new Audio('./tv-rec-3.mp3'), tvAudio4=new Audio('./tv-rec-4.mp3');   // #3 John begging, #4 Jason
+[tvAudio1,tvAudio2,tvAudio3,tvAudio4].forEach(a=>a.preload='auto');
+// gore-sequence state (entity kill after John's line)
+let tvA3Played=false, tvA4Played=false, tvT_cut=0, tvT_grab=0, tvT_rip=0, tvT_after=0;
+let tvEntityCut=null, tvEntityFoot=0, tvJason=null, tvJohnHead=null, tvFlyHead=null, tvBloodPool=null;
+let tvBlood=[];
+const TV_CUT=0.5, TV_RIP_HOLD=0.55, TV_GORE_END_FADE=1.0;
+const _bloodMat=new THREE.MeshBasicMaterial({color:0x8a0d08});
+// gore tableau, staged in the open spawn safe-zone
+const GORE = { entity:[3.4, 1.0], john:[2.75, 1.55], jason:[1.1, 3.2], cam:[2.3, 6.6], look:[3.0, 1.4] };
 
 function makeTV(){
   const g=new THREE.Group();
@@ -2200,6 +2209,71 @@ function makeJohnRig(){
   npc=savedNpc;
   return rig;
 }
+function makeJasonRig(){
+  const savedNpc=npc; npc={obj:makeSurvivorRig()};
+  const rig=npc.obj;
+  rig.getObjectByName('torso').material.color.setHex(0x35507a);
+  rig.getObjectByName('armL').material.color.setHex(0x35507a);
+  rig.getObjectByName('armR').material.color.setHex(0x35507a);
+  rig.getObjectByName('head').material.color.setHex(0xc9a37e);
+  poseSurvivor(false);
+  npc=savedNpc;
+  rig.rotation.set(-Math.PI/2, 0.6, 0);   // knocked flat on his back on the floor
+  return rig;
+}
+function spawnBloodBurst(x,y,z,n,power){
+  for(let i=0;i<n;i++){
+    const r=0.03+Math.random()*0.05;
+    const m=new THREE.Mesh(new THREE.SphereGeometry(r,5,5), _bloodMat);
+    m.position.set(x+(Math.random()-0.5)*0.1, y, z+(Math.random()-0.5)*0.1);
+    const ang=Math.random()*Math.PI*2, up=1.6+Math.random()*power, out=(0.6+Math.random()*1.8)*power*0.4;
+    m.userData.v=[Math.cos(ang)*out, up, Math.sin(ang)*out];
+    scene.add(m); tvBlood.push(m);
+  }
+}
+function updateBlood(dt){
+  for(let i=tvBlood.length-1;i>=0;i--){
+    const m=tvBlood[i], v=m.userData.v;
+    v[1]-=11*dt;
+    m.position.x+=v[0]*dt; m.position.y+=v[1]*dt; m.position.z+=v[2]*dt;
+    if(m.position.y<=0.02){ m.position.y=0.02; v[0]*=0.3; v[2]*=0.3; v[1]=0; }   // settle into the pool
+  }
+}
+function setupTvGore(){
+  // camera cuts to a fixed third-person angle on the killing
+  tvCamX=GORE.cam[0]; tvCamZ=GORE.cam[1];
+  // John: hoisted off the floor, grabbed, dangling
+  if(tvJohn){
+    tvJohn.visible=true;
+    tvJohn.position.set(GORE.john[0], 0.95, GORE.john[1]);
+    tvJohn.rotation.set(0.12, Math.PI*0.15, 0.05);
+    tvJohnHead=tvJohn.getObjectByName('head'); if(tvJohnHead) tvJohnHead.visible=true;
+  }
+  // the entity, looming, doing the grabbing
+  if(tvEntityCut){
+    tvEntityCut.visible=true;
+    tvEntityCut.position.set(GORE.entity[0], tvEntityFoot, GORE.entity[1]);
+    tvEntityCut.rotation.y=Math.atan2(GORE.cam[0]-GORE.entity[0], GORE.cam[1]-GORE.entity[1]);   // face the camera
+  }
+  // Jason, knocked to the ground nearby, watching
+  if(tvJason){ tvJason.visible=true; tvJason.position.set(GORE.jason[0], 0.28, GORE.jason[1]); }
+}
+function doRip(){
+  if(!tvJohn) return;
+  const hx=tvJohn.position.x, hy=tvJohn.position.y+1.45, hz=tvJohn.position.z;
+  if(tvJohnHead) tvJohnHead.visible=false;   // head comes off
+  // a head torn loose, flung
+  tvFlyHead=new THREE.Mesh(new THREE.SphereGeometry(0.24,12,12), new THREE.MeshStandardMaterial({color:0xd8b48c, roughness:0.8}));
+  tvFlyHead.position.set(hx,hy,hz);
+  tvFlyHead.userData.v=[(Math.random()-0.2)*1.4, 3.0, 1.2+Math.random()];
+  scene.add(tvFlyHead); tvBlood.push(tvFlyHead);   // reuse the physics updater (it has .userData.v)
+  // spreading pool under him
+  const pool=new THREE.Mesh(new THREE.CircleGeometry(0.05,20), new THREE.MeshBasicMaterial({color:0x5c0906}));
+  pool.rotation.x=-Math.PI/2; pool.position.set(hx,0.015,hz);
+  scene.add(pool); tvBloodPool=pool;
+  spawnBloodBurst(hx,hy,hz, 60, 2.2);
+  audio.stab && audio.stab();
+}
 function playTvRec(){
   if(tvPlaying || !tvObj) return;
   tvPlaying=true;
@@ -2219,11 +2293,21 @@ function playTvRec(){
   tvCamX=2.5; tvCamZ=8.5; tvCamYaw=0;
   // John walks alongside on the right, revealed after the turn
   tvJohn=makeJohnRig(); tvJohn.visible=false; scene.add(tvJohn);
+  // Jason (the walker) becomes a visible body on the ground for the gore shot
+  tvJason=makeJasonRig(); tvJason.visible=false; scene.add(tvJason);
+  // load the killer entity for the gore cut (cached from boot, so it's ready well before the walk ends)
+  tvEntityCut=null;
+  loadEntityInstance((root,foot)=>{
+    if(!root) return;
+    if(tvPlaying){ tvEntityCut=root; tvEntityFoot=foot; root.visible=false; scene.add(root); }
+    else if(root.parent) root.parent.remove(root);   // tape already ended -> discard the late load
+  });
   applyAtmosphere(0);
   document.getElementById('tvRecFade').style.opacity='1';
   document.getElementById('tvRec').classList.add('show');
-  tvT=0; tvPhase='walk1'; tvA1Played=false; tvA2Played=false;
-  try{ tvAudio1.currentTime=0; tvAudio2.currentTime=0; }catch(e){}
+  tvT=0; tvPhase='walk1'; tvA1Played=false; tvA2Played=false; tvA3Played=false; tvA4Played=false;
+  tvBlood.length=0; tvFlyHead=null; tvBloodPool=null; tvJohnHead=null;
+  try{ [tvAudio1,tvAudio2,tvAudio3,tvAudio4].forEach(a=>a.currentTime=0); }catch(e){}
   clock.getDelta();
 }
 function tvDur(a, fallback){ return (a && isFinite(a.duration) && a.duration>0) ? a.duration : fallback; }
@@ -2235,6 +2319,9 @@ function updateTvRec(dt){
 
   // aim the view at John (right + slightly ahead) — constant since both move at the same pace
   const johnTargetYaw = Math.atan2(-JOHN_SIDE, JOHN_AHEAD);
+
+  const D3=tvDur(tvAudio3,2.3), D4=tvDur(tvAudio4,2.7);
+  const walkPhase = (tvPhase==='walk1'||tvPhase==='turn'||tvPhase==='walk2');
 
   if(tvPhase==='walk1'){
     if(!tvA1Played){ tvA1Played=true; tvAudio1.play().catch(()=>{}); }
@@ -2258,17 +2345,53 @@ function updateTvRec(dt){
     tvCamYaw = johnTargetYaw;
     if(tvJohn){ tvJohn.position.set(tvCamX+JOHN_SIDE, bob*0.6, tvCamZ-JOHN_AHEAD); tvJohn.rotation.y=Math.PI; }
     fade.style.opacity='0';
-    if(tvT >= D1+TV_TURN+D2){ tvPhase='end'; tvT_end=0; }
+    if(tvT >= D1+TV_TURN+D2){ tvPhase='cut'; tvT_cut=0; setupTvGore(); }   // John stops talking -> hard cut to the kill
+  } else if(tvPhase==='cut'){
+    tvT_cut+=dt;
+    fade.style.opacity = tvT_cut<TV_CUT ? Math.max(0, 1-(tvT_cut/TV_CUT)*1.7).toFixed(2) : '0';
+    if(tvT_cut>=TV_CUT){ tvPhase='grab'; tvT_grab=0; }
+  } else if(tvPhase==='grab'){
+    tvT_grab+=dt;
+    if(!tvA3Played){ tvA3Played=true; tvAudio3.play().catch(()=>{}); }   // John begging, about to say "please"
+    fade.style.opacity='0';
+    if(tvJohn){   // dangling, struggling in the entity's grip
+      tvJohn.position.set(GORE.john[0], 0.95+Math.sin(tvT_grab*6)*0.05, GORE.john[1]);
+      tvJohn.rotation.set(0.12+Math.sin(tvT_grab*5)*0.07, Math.PI*0.15, 0.05+Math.sin(tvT_grab*4)*0.06);
+    }
+    if(tvEntityCut) tvEntityCut.rotation.z=Math.sin(tvT_grab*3.2)*0.035;
+    if(tvT_grab>=D3){ doRip(); tvPhase='rip'; tvT_rip=0; }   // on "please", the head comes apart
+  } else if(tvPhase==='rip'){
+    tvT_rip+=dt;
+    updateBlood(dt);
+    if(tvJohn) tvJohn.rotation.set(0.42, Math.PI*0.15, 0.12);   // body goes limp
+    if(tvT_rip>=TV_RIP_HOLD){ tvPhase='aftermath'; tvT_after=0; }
+  } else if(tvPhase==='aftermath'){
+    tvT_after+=dt;
+    if(!tvA4Played){ tvA4Played=true; tvAudio4.play().catch(()=>{}); }   // Jason, on the ground
+    updateBlood(dt);
+    if(tvBloodPool) tvBloodPool.scale.setScalar(Math.min(15, 1+tvT_after*7));
+    if(Math.random()<0.5 && tvJohn){   // blood keeps pulsing from the neck
+      spawnBloodBurst(tvJohn.position.x, tvJohn.position.y+1.35, tvJohn.position.z, 3, 1.1);
+    }
+    if(tvT_after>=D4){ tvPhase='end'; tvT_end=0; }
   } else if(tvPhase==='end'){
     tvT_end=(tvT_end||0)+dt;
-    fade.style.opacity=Math.min(1, tvT_end/TV_END_FADE).toFixed(2);
-    if(tvT_end>=TV_END_FADE){ endTvRec(); return; }
+    updateBlood(dt);
+    fade.style.opacity=Math.min(1, tvT_end/TV_GORE_END_FADE).toFixed(2);
+    if(tvT_end>=TV_GORE_END_FADE){ endTvRec(); return; }
   }
 
-  // drive the camera as the "tape"
-  camera.position.set(tvCamX, TV_EYE+bob, tvCamZ);
-  camera.rotation.set(-0.02, tvCamYaw, 0, 'YXZ');
-  fillLight.position.copy(camera.position);
+  // camera: eye-level walk for the tape, fixed vantage for the kill
+  if(walkPhase){
+    camera.position.set(tvCamX, TV_EYE+bob, tvCamZ);
+    camera.rotation.set(-0.02, tvCamYaw, 0, 'YXZ');
+    fillLight.position.copy(camera.position);
+  } else {
+    let sh = tvPhase==='rip' ? Math.max(0,(TV_RIP_HOLD-tvT_rip)/TV_RIP_HOLD)*0.14 : 0;
+    camera.position.set(GORE.cam[0]+(Math.random()-0.5)*sh, 1.5+(Math.random()-0.5)*sh, GORE.cam[1]);
+    camera.lookAt(GORE.look[0], 1.35, GORE.look[1]);
+    fillLight.position.set(GORE.john[0], 2.6, GORE.john[1]);   // light the tableau, not the far camera
+  }
   // REC timecode
   const tc=Math.max(0,tvT), mm=Math.floor(tc/60), ss=Math.floor(tc%60), ff=Math.floor((tc%1)*30);
   const p2=n=>('0'+n).slice(-2);
@@ -2276,8 +2399,13 @@ function updateTvRec(dt){
 }
 function endTvRec(){
   tvPlaying=false;
-  try{ tvAudio1.pause(); tvAudio1.currentTime=0; tvAudio2.pause(); tvAudio2.currentTime=0; }catch(e){}
+  try{ [tvAudio1,tvAudio2,tvAudio3,tvAudio4].forEach(a=>{ a.pause(); a.currentTime=0; }); }catch(e){}
   if(tvJohn){ scene.remove(tvJohn); tvJohn=null; }
+  if(tvJason){ scene.remove(tvJason); tvJason=null; }
+  if(tvEntityCut){ scene.remove(tvEntityCut); tvEntityCut=null; }
+  if(tvBloodPool){ scene.remove(tvBloodPool); tvBloodPool=null; }
+  for(const b of tvBlood) scene.remove(b);
+  tvBlood.length=0; tvFlyHead=null; tvJohnHead=null;
   if(entity) entity.obj.visible=tvEntityWasVisible;
   if(npc) npc.obj.visible=tvNpcWasVisible;
   document.getElementById('tvRec').classList.remove('show');
