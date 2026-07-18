@@ -503,6 +503,10 @@
     <div class="setLabel">Look sensitivity<span id="sensVal">100%</span></div>
     <input type="range" id="sensSlider" class="slider" min="50" max="200" value="100">
   </div>
+  <div class="setRow">
+    <div class="setLabel">Realistic FX<span id="fxVal">ON</span></div>
+    <input type="range" id="fxToggle" class="slider" min="0" max="1" step="1" value="1">
+  </div>
   <button class="btn2" id="settingsClose">CLOSE</button>
 </div>
 
@@ -917,6 +921,10 @@ let killedByStomper = false;
 // M.E.G. staging room — the briefing chamber you start in when you press OFFLINE
 let megActive=false, megGroup=null, megSuit=null, megSuitY=0.06, megT=0, hasHazmat=false;
 let megBlockers=[], megWatchers=[];
+
+// cinematic realism post-processing (film grain, bloom, chromatic aberration, vignette, filmic grade)
+let fxOn = (function(){ try{ return localStorage.getItem('backrooms_fx')!=='0'; }catch(e){ return true; } })();
+let fxTarget=null, fxScene=null, fxCam=null, fxMat=null;
 
 // level 2 chase pack — several always-hunting howler instances (independently loaded, not clones,
 // since the model is a skinned rig and plain Object3D.clone() doesn't rebind skeletons correctly)
@@ -2595,6 +2603,14 @@ const audio = (function(){
     if(ctx) return;
     ctx=new (window.AudioContext||window.webkitAudioContext)();
     master=ctx.createGain(); master.gain.value=vol; master.connect(ctx.destination);
+    // convolver reverb — gives every sound a real room tail (dry stays on master->destination)
+    try{
+      const conv=ctx.createConvolver(); const irLen=Math.floor(ctx.sampleRate*1.6);
+      const ir=ctx.createBuffer(2, irLen, ctx.sampleRate);
+      for(let ch=0;ch<2;ch++){ const d=ir.getChannelData(ch); for(let i=0;i<irLen;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/irLen,2.6); }
+      conv.buffer=ir; const wet=ctx.createGain(); wet.gain.value=0.2;
+      master.connect(conv); conv.connect(wet); wet.connect(ctx.destination);
+    }catch(e){}
     // fluorescent hum
     const hg=ctx.createGain(); hg.gain.value=0.05; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=760;
     const o1=ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=60;
@@ -2819,6 +2835,7 @@ function initGraphics(){
   renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05;
   document.body.appendChild(renderer.domElement);
   _aniso=Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  initFX();
 
   scene=new THREE.Scene();
   const fogCol=new THREE.Color(0x151203);
@@ -2848,6 +2865,8 @@ function initGraphics(){
     const w=(window.visualViewport&&window.visualViewport.width)||innerWidth;
     const h=(window.visualViewport&&window.visualViewport.height)||innerHeight;
     camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h);
+    const s=new THREE.Vector2(); renderer.getDrawingBufferSize(s);
+    if(fxTarget){ fxTarget.setSize(Math.max(2,s.x|0),Math.max(2,s.y|0)); fxMat.uniforms.uResolution.value.copy(s); }
   }
   addEventListener('resize', syncViewport);
   addEventListener('orientationchange', ()=>{ syncViewport(); setTimeout(syncViewport,60); setTimeout(syncViewport,300); });
@@ -3138,6 +3157,8 @@ function openSettings(){
   document.getElementById('volVal').textContent=Math.round(audio.getVolume()*100)+'%';
   document.getElementById('sensSlider').value=Math.round(lookSens*100);
   document.getElementById('sensVal').textContent=Math.round(lookSens*100)+'%';
+  document.getElementById('fxToggle').value=fxOn?'1':'0';
+  document.getElementById('fxVal').textContent=fxOn?'ON':'OFF';
   document.getElementById('settings').classList.remove('hide');
   document.getElementById('settingsBtn').classList.add('hide');
   settingsOpen=true;
@@ -3950,6 +3971,53 @@ function updateMeg(dt){
   fillLight.position.set(player.x, EYE, player.z);
 }
 
+/* ------------------------------------------------- cinematic post-processing */
+function initFX(){
+  const size=new THREE.Vector2(); renderer.getDrawingBufferSize(size);
+  fxTarget=new THREE.WebGLRenderTarget(Math.max(2,size.x|0), Math.max(2,size.y|0), {minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter});
+  fxTarget.texture.colorSpace=THREE.LinearSRGBColorSpace;   // scene is tonemapped-linear here; we encode sRGB ourselves
+  fxMat=new THREE.ShaderMaterial({
+    depthTest:false, depthWrite:false,
+    uniforms:{ tDiffuse:{value:fxTarget.texture}, uResolution:{value:size.clone()}, uTime:{value:0}, uAmount:{value:1.0} },
+    vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }',
+    fragmentShader:[
+      'precision highp float;',
+      'uniform sampler2D tDiffuse; uniform vec2 uResolution; uniform float uTime; uniform float uAmount; varying vec2 vUv;',
+      'float hash(vec2 p){ p=fract(p*vec2(443.897,441.423)); p+=dot(p,p+19.19); return fract(p.x*p.y); }',
+      'vec3 tosRGB(vec3 c){ c=max(c,0.0); return mix(c*12.92, 1.055*pow(c,vec3(0.4166667))-0.055, step(0.0031308,c)); }',
+      'void main(){',
+      '  vec2 uv=vUv; vec2 c=uv-0.5; float r2=dot(c,c);',
+      '  float ca=(0.0011+r2*0.005)*uAmount;',                                 // chromatic aberration grows toward edges
+      '  vec3 col; col.r=texture2D(tDiffuse,uv+c*ca).r; col.g=texture2D(tDiffuse,uv).g; col.b=texture2D(tDiffuse,uv-c*ca).b;',
+      '  vec3 bloom=vec3(0.0); vec2 px=1.0/uResolution;',                      // soft glow off bright (linear) areas
+      '  for(int i=0;i<8;i++){ float a=float(i)*0.7853981634; vec2 o=vec2(cos(a),sin(a));',
+      '    bloom+=max(texture2D(tDiffuse,uv+o*px*5.0).rgb-0.5,0.0); }',
+      '  col+=bloom*(0.12*uAmount);',
+      '  col=tosRGB(col);',                                                    // -> display space
+      '  col=(col-0.5)*(1.0+0.05*uAmount)+0.5;',                              // gentle filmic contrast
+      '  float lum=dot(col,vec3(0.299,0.587,0.114)); col=mix(vec3(lum),col,1.0-0.04*uAmount);',
+      '  float vig=smoothstep(0.78,0.12,r2); col*=mix(1.0,mix(0.82,1.0,vig),uAmount);',   // soft vignette (outer frame only)
+      '  float g=hash(uv*uResolution*0.9+vec2(uTime*53.0,uTime*29.0)); col+=(g-0.5)*0.05*uAmount;',   // film grain
+      '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+      '}'
+    ].join('\n')
+  });
+  fxScene=new THREE.Scene();
+  fxCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  fxScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), fxMat));
+}
+function renderScene(dt){
+  if(fxOn && fxTarget && fxMat){
+    fxMat.uniforms.uTime.value += dt;
+    renderer.setRenderTarget(fxTarget);
+    renderer.render(scene,camera);
+    renderer.setRenderTarget(null);
+    renderer.render(fxScene,fxCam);
+  } else {
+    renderer.render(scene,camera);
+  }
+}
+
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
@@ -3964,7 +4032,7 @@ function tick(){
   const chasing = inGame && !caught && !transitioning &&
                   ((entity && entity.state==='chase') || stomper || (level===2 && chasers.length>0));
   audio.setChase(chasing, dt);
-  renderer.render(scene,camera);
+  renderScene(dt);
 }
 
 function update(dt){
@@ -4030,15 +4098,22 @@ function update(dt){
   // occasional flicker zap when a near light is strobing
   if(localLight>0 && localLight<0.4 && Math.random()<0.02) audio.zap();
 
-  // ---- camera ----
-  camera.position.set(player.x, player.floorY+EYE+player.bob, player.z);
+  // ---- camera (immersive: bob, lateral sway, breathing, roll, sprint FOV) ----
+  const tph=player.stepPhase*Math.PI;
+  const swayX = moving ? Math.sin(tph*0.5)*0.035*(wantSprint?1.35:1) : 0;      // step-synced lateral sway
+  const breathe = moving ? 0 : Math.sin(elapsed*1.6)*0.012;                    // subtle idle breathing
+  let camx=player.x + rgtX*swayX, camy=player.floorY+EYE+player.bob+breathe, camz=player.z + rgtZ*swayX;
+  const turnRate=player.yaw-(player._pyaw!==undefined?player._pyaw:player.yaw); player._pyaw=player.yaw;
+  let roll = -mx*0.02 - turnRate*0.5 + (moving?Math.sin(tph*0.5)*0.006:Math.sin(elapsed*1.6)*0.004);
+  roll=Math.max(-0.06,Math.min(0.06,roll));
   if(stomperShake>0){                              // heavy footfalls rattle the view
-    camera.position.x+=(Math.random()-0.5)*stomperShake;
-    camera.position.y+=(Math.random()-0.5)*stomperShake;
-    camera.position.z+=(Math.random()-0.5)*stomperShake;
+    camx+=(Math.random()-0.5)*stomperShake; camy+=(Math.random()-0.5)*stomperShake; camz+=(Math.random()-0.5)*stomperShake;
     stomperShake=Math.max(0, stomperShake-dt*0.5);
   }
-  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  camera.position.set(camx,camy,camz);
+  camera.rotation.set(player.pitch, player.yaw, roll, 'YXZ');
+  const targetFov = wantSprint?77:72;              // gentle FOV kick when sprinting
+  if(Math.abs(camera.fov-targetFov)>0.03){ camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*6); camera.updateProjectionMatrix(); }
   fillLight.position.set(player.x, player.floorY+EYE, player.z);
 
   // ---- fx / hud ----
@@ -4285,6 +4360,10 @@ document.getElementById('volSlider').addEventListener('input', e=>{
 document.getElementById('sensSlider').addEventListener('input', e=>{
   lookSens=(+e.target.value)/100; document.getElementById('sensVal').textContent=e.target.value+'%';
   try{ localStorage.setItem('backrooms_sens', lookSens); }catch(err){}
+});
+document.getElementById('fxToggle').addEventListener('input', e=>{
+  fxOn = e.target.value==='1'; document.getElementById('fxVal').textContent = fxOn?'ON':'OFF';
+  try{ localStorage.setItem('backrooms_fx', fxOn?'1':'0'); }catch(err){}
 });
 if(isDev) document.getElementById('shutdownBtn').classList.remove('hide');
 document.getElementById('shutdownBtn').addEventListener('click', openShutdownConfirm);
