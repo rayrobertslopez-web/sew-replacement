@@ -289,13 +289,7 @@ let monster=null, mixer=null, runAction=null, monsterReady=false;
 let monsterInner=null;
 new GLTFLoader().load(MONSTER_URL,(gltf)=>{
   monsterInner = gltf.scene;
-  // model length axis is X — rotate so its forward lines up with +Z, then lookAt() steers the group
-  monsterInner.rotation.y = -Math.PI/2;
-  const box = new THREE.Box3().setFromObject(monsterInner);
-  const h = box.max.y-box.min.y;
-  const s = 2.3/h;                       // ~2.3 units tall — bigger than you
-  monsterInner.scale.setScalar(s);
-  monsterInner.position.y = -box.min.y*s;
+  // the crawl animation already faces +Z, so the group's rotation.y steers it directly
   monsterInner.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; } });
   monster = new THREE.Group();
   monster.add(monsterInner);
@@ -305,6 +299,23 @@ new GLTFLoader().load(MONSTER_URL,(gltf)=>{
     mixer = new THREE.AnimationMixer(monsterInner);
     runAction = mixer.clipAction(gltf.animations[0]);
     runAction.play();
+  }
+  // this rig's bind-pose bounding box is wildly off (huge armature transforms), so
+  // calibrate size + ground offset from the animated skeleton's world-space bone spread
+  const boneBounds=()=>{
+    monster.updateMatrixWorld(true);
+    let minY=1e9,maxY=-1e9;
+    monsterInner.traverse(b=>{ if(b.isBone){ const y=b.matrixWorld.elements[13];
+      if(y<minY)minY=y; if(y>maxY)maxY=y; }});
+    return {minY,maxY,span:maxY-minY};
+  };
+  if(mixer) mixer.update(0.4);           // settle into the crawl pose
+  const b0=boneBounds();
+  if(b0.span>1e-4){
+    monsterInner.scale.multiplyScalar(1.8/b0.span);   // skeleton ~1.8 tall -> body ~2.4, towers over you
+    monsterInner.position.y=0;
+    const b1=boneBounds();
+    monsterInner.position.y = -b1.minY + 0.05;        // feet on the ground
   }
   monsterReady=true; readyCheck();
 },undefined,()=>toast('Monster failed to load — reload the page.'));
@@ -515,12 +526,12 @@ runBtn.addEventListener('touchend',e=>{ e.preventDefault(); runHeld=false; runBt
 let bobT=0;
 function playerTick(dt){
   let ix=0, iz=0;
-  if(keys['KeyW']||keys['ArrowUp']) iz-=1;
-  if(keys['KeyS']||keys['ArrowDown']) iz+=1;
+  if(keys['KeyW']||keys['ArrowUp']) iz+=1;
+  if(keys['KeyS']||keys['ArrowDown']) iz-=1;
   if(keys['KeyA']||keys['ArrowLeft']) ix-=1;
   if(keys['KeyD']||keys['ArrowRight']) ix+=1;
   const kd=Math.hypot(ix,iz); if(kd>0){ ix/=kd; iz/=kd; }
-  ix+=joy.dx; iz+=joy.dy;
+  ix+=joy.dx; iz-=joy.dy;
   const wantRun=(keys['ShiftLeft']||keys['ShiftRight']||runHeld) && (Math.abs(ix)+Math.abs(iz))>0.1;
   player.running = wantRun && player.stam>0.5;
   const sp = player.running? 5.4 : 3.1;
@@ -769,8 +780,17 @@ function tick(){
   }
   if(!scareActive) renderer.render(scene,camera);
 }
-window.__sb={ player, mon, get monster(){return monster;}, get running(){return running;}, get got(){return got;}, get scare(){return scareActive;},
-  startGame, cellToWorld, teleport(px,pz,mx,mz){ player.x=px; player.z=pz; if(mx!=null){ mon.x=mx; mon.z=mz; } } };
+window.__sb={ player, mon, get monster(){return monster;}, get inner(){return monsterInner;}, get running(){return running;}, get got(){return got;}, get scare(){return scareActive;},
+  startGame, cellToWorld, teleport(px,pz,mx,mz){ player.x=px; player.z=pz; if(mx!=null){ mon.x=mx; mon.z=mz; } },
+  pause(){ running=false; },
+  measure(){ const o={minY:1e9,maxY:-1e9,minX:1e9,maxX:-1e9,minZ:1e9,maxZ:-1e9,bones:0};
+    monsterInner.updateMatrixWorld(true);
+    monsterInner.traverse(b=>{ if(b.isBone){ o.bones++; const e=b.matrixWorld.elements;
+      o.minX=Math.min(o.minX,e[12]); o.maxX=Math.max(o.maxX,e[12]);
+      o.minY=Math.min(o.minY,e[13]); o.maxY=Math.max(o.maxY,e[13]);
+      o.minZ=Math.min(o.minZ,e[14]); o.maxZ=Math.max(o.maxZ,e[14]); }});
+    o.pos={x:monster.position.x,y:monster.position.y,z:monster.position.z};
+    o.innerY=monsterInner.position.y; o.scale=monsterInner.scale.x; return o; } };
 
 /* idle menu backdrop */
 genMaze(); buildMaze(); buildGate(); placeBananas(); playerSpawn();
