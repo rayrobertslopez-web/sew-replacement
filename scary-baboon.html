@@ -312,7 +312,7 @@ new GLTFLoader().load(MONSTER_URL,(gltf)=>{
   if(mixer) mixer.update(0.4);           // settle into the crawl pose
   const b0=boneBounds();
   if(b0.span>1e-4){
-    monsterInner.scale.multiplyScalar(1.8/b0.span);   // skeleton ~1.8 tall -> body ~2.4, towers over you
+    monsterInner.scale.multiplyScalar(2.7/b0.span);   // skeleton ~2.7 tall -> body ~3.5, a wall of teeth
     monsterInner.position.y=0;
     const b1=boneBounds();
     monsterInner.position.y = -b1.minY + 0.05;        // feet on the ground
