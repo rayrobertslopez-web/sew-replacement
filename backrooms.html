@@ -665,6 +665,9 @@
     <button class="btn2" id="threatBtn">THREAT INDEX</button>
     <button class="btn2" id="postsBtn">POSTS</button>
   </div>
+  <div class="menuRow" id="vrRow" style="display:none">
+    <button class="btn" id="vrBtn" style="border-color:#7bd3ff;color:#bfeaff">&#129488; ENTER VR</button>
+  </div>
   <div class="ctrls" id="ctrlsDesk">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
@@ -925,6 +928,10 @@ let megBlockers=[], megWatchers=[];
 // cinematic realism post-processing (film grain, bloom, chromatic aberration, vignette, filmic grade)
 let fxOn = (function(){ try{ return localStorage.getItem('backrooms_fx')!=='0'; }catch(e){ return true; } })();
 let fxTarget=null, fxScene=null, fxCam=null, fxMat=null;
+
+// WebXR / VR — camera lives on a "player rig" group; locomotion moves the rig, the headset drives the head
+let xrOn=false, playerRig=null, xrRigYaw=0;
+const _xrFwd=new THREE.Vector3();
 
 // level 2 chase pack — several always-hunting howler instances (independently loaded, not clones,
 // since the model is a skinned rig and plain Object3D.clone() doesn't rebind skeletons correctly)
@@ -2799,7 +2806,7 @@ function pollGamepad(dt){
   const DZ=0.18;
   const ax=n=>{ const v=gp.axes[n]||0; return Math.abs(v)<DZ ? 0 : (v-Math.sign(v)*DZ)/(1-DZ); };
   const down=n=>{ const b=gp.buttons[n]; return b ? (b.pressed || b.value>0.45) : false; };
-  const inPlay = (running && !settingsOpen && !shutdownActive && !botChatOpen && !cineActive) || creatorMode || megActive;
+  const inPlay = !xrOn && ((running && !settingsOpen && !shutdownActive && !botChatOpen && !cineActive) || creatorMode || megActive);
   if(inPlay){
     input.joyX = ax(0);
     input.joyZ = -ax(1);
@@ -2843,6 +2850,11 @@ function initGraphics(){
   scene.fog=new THREE.Fog(fogCol, FOG_NEAR, FOG_FAR);
 
   camera=new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.05, 80);
+  // WebXR: parent the camera to a movable rig. In flat mode the rig stays at identity
+  // (so camera world pose == the values we set each frame); in VR the rig is the player's
+  // body and the headset drives the head relative to it.
+  renderer.xr.enabled=true;
+  playerRig=new THREE.Group(); scene.add(playerRig); playerRig.add(camera);
 
   ambient=new THREE.AmbientLight(0x37331a, 0.62); scene.add(ambient);
   hemi=new THREE.HemisphereLight(0xbaa94a, 0x2a2410, 0.6); scene.add(hemi);
@@ -3966,9 +3978,10 @@ function updateMeg(dt){
   }
   for(const s of megWatchers){ s.rotation.z=Math.sin(megT*0.9+s.userData.ph)*0.04; }
   updateMegPrompt();
+  fillLight.position.set(player.x, EYE, player.z);
+  if(xrOn) return;                                 // VR: headset drives the camera
   camera.position.set(player.x, EYE+player.bob, player.z);
   camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
-  fillLight.position.set(player.x, EYE, player.z);
 }
 
 /* ------------------------------------------------- cinematic post-processing */
@@ -4006,7 +4019,55 @@ function initFX(){
   fxCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
   fxScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), fxMat));
 }
+/* ------------------------------------------------------------- WebXR / VR */
+function xrCollide(nx,nz){ return megActive ? collideMeg(nx,nz) : collideLevel(nx,nz,PLAYER_R); }
+function updateXR(dt){
+  const session=renderer.xr.getSession(); if(!session) return;
+  // read the two thumbsticks from the VR controllers
+  let lx=0,ly=0,rx=0,sprint=false; const DZ=0.15;
+  for(const src of session.inputSources){
+    const gp=src.gamepad; if(!gp||!gp.axes) continue;
+    const ax=gp.axes; const sx=ax.length>=4?ax[2]:(ax[0]||0), sy=ax.length>=4?ax[3]:(ax[1]||0);
+    const pressed = gp.buttons && ((gp.buttons[1]&&gp.buttons[1].pressed) || (gp.buttons[0]&&gp.buttons[0].pressed));
+    if(src.handedness==='right'){ rx=sx; if(pressed) sprint=true; }
+    else { lx=sx; ly=sy; if(pressed) sprint=true; }   // left or unknown hand -> movement stick
+  }
+  const dz=v=>Math.abs(v)<DZ?0:v;
+  lx=dz(lx); ly=dz(ly); rx=dz(rx);
+  // smooth turn (right stick X)
+  xrRigYaw -= rx * 2.0 * dt;
+  // head-relative smooth locomotion (left stick)
+  const xrCam=renderer.xr.getCamera(); xrCam.getWorldDirection(_xrFwd); _xrFwd.y=0;
+  if(_xrFwd.lengthSq()<1e-5) _xrFwd.set(Math.sin(xrRigYaw),0,-Math.cos(xrRigYaw));
+  _xrFwd.normalize();
+  const rX=-_xrFwd.z, rZ=_xrFwd.x;                 // right vector on the floor plane
+  let mx=lx, mz=-ly; const mag=Math.hypot(mx,mz); if(mag>1){ mx/=mag; mz/=mag; }
+  const moving=mag>0.08, spd=sprint?4.4:2.5;
+  let nx=player.x+(rX*mx+_xrFwd.x*mz)*spd*dt, nz=player.z+(rZ*mx+_xrFwd.z*mz)*spd*dt;
+  [nx,nz]=xrCollide(nx,nz);
+  if(moving){ player.stepPhase+=Math.hypot(nx-player.x,nz-player.z)*1.9; if(player.stepPhase-(player._lastStep||0)>=1){ player._lastStep=Math.floor(player.stepPhase); audio.step(); } }
+  player.x=nx; player.z=nz; player.floorY=megActive?0:floorAt(nx,nz); player.yaw=xrRigYaw; player.bob=0;
+  // stop any leaked flat inputs from also moving the player in update()/updateMeg()
+  input.f=input.b=input.l=input.r=0; input.joyX=input.joyZ=0; input.sprint=false; gpSprint=false;
+  // drive the rig; the headset adds head pose on top
+  playerRig.position.set(player.x, player.floorY, player.z);
+  playerRig.rotation.set(0, xrRigYaw, 0);
+}
+async function enterVR(){
+  if(!navigator.xr){ toast('WebXR not available on this device.'); return; }
+  try{
+    audio.ensure(); audio.resume();
+    const session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','bounded-floor','hand-tracking']});
+    renderer.xr.setReferenceSpaceType('local-floor');
+    await renderer.xr.setSession(session);
+    xrRigYaw=0; xrOn=true;
+    enterMegRoom();                                  // begin the experience in the M.E.G. staging room
+    session.addEventListener('end', ()=>{ xrOn=false; if(playerRig){ playerRig.position.set(0,0,0); playerRig.rotation.set(0,0,0); } });
+  }catch(e){ toast('Could not start VR: '+(e&&e.message||e)); }
+}
+
 function renderScene(dt){
+  if(renderer.xr.isPresenting){ renderer.render(scene,camera); return; }   // stereo XR framebuffer — no custom post
   if(fxOn && fxTarget && fxMat){
     fxMat.uniforms.uTime.value += dt;
     renderer.setRenderTarget(fxTarget);
@@ -4019,9 +4080,10 @@ function renderScene(dt){
 }
 
 function tick(){
-  requestAnimationFrame(tick);
   const dt=Math.min(0.05, clock.getDelta());
+  xrOn = renderer.xr.isPresenting;
   pollGamepad(dt);
+  if(xrOn) updateXR(dt);                            // VR locomotion moves the player before the world ticks
   let inGame=false;
   if(tvPlaying){ updateTvRec(dt); }
   else if(cineActive){ updateCine(dt); }
@@ -4099,6 +4161,7 @@ function update(dt){
   if(localLight>0 && localLight<0.4 && Math.random()<0.02) audio.zap();
 
   // ---- camera (immersive: bob, lateral sway, breathing, roll, sprint FOV) ----
+  if(xrOn){ fillLight.position.set(player.x, player.floorY+EYE, player.z); return; }   // VR: headset drives the camera
   const tph=player.stepPhase*Math.PI;
   const swayX = moving ? Math.sin(tph*0.5)*0.035*(wantSprint?1.35:1) : 0;      // step-synced lateral sway
   const breathe = moving ? 0 : Math.sin(elapsed*1.6)*0.012;                    // subtle idle breathing
@@ -4317,6 +4380,10 @@ setupTouch();
 setupGamepad();
 if(isTouch){ document.getElementById('ctrlsDesk').innerHTML='Left thumb — move &nbsp;·&nbsp; right — look &nbsp;·&nbsp; <b>RUN</b> to sprint'; }
 document.getElementById('playBtn').addEventListener('click',()=>{ audio.ensure(); enterMegRoom(); });
+document.getElementById('vrBtn').addEventListener('click', enterVR);
+if(navigator.xr && navigator.xr.isSessionSupported){
+  navigator.xr.isSessionSupported('immersive-vr').then(ok=>{ if(ok) document.getElementById('vrRow').style.display=''; }).catch(()=>{});
+}
 document.getElementById('tvPrompt').addEventListener('click',()=>{ if(tvNear) playTvRec(); });
 document.getElementById('goRetry').addEventListener('click',()=>{ startAtLevel(deathLevel); });   // retry the level you died on
 document.getElementById('goQuit').addEventListener('click', showStart);
@@ -4424,7 +4491,7 @@ document.getElementById('botChatInput').addEventListener('keydown', e=>{
   setInterval(tickCountdown,1000);
 })();
 
-tick();
+renderer.setAnimationLoop(tick);   // drives the loop in both flat and WebXR (stereo) modes
 </script>
 </body>
 </html>
