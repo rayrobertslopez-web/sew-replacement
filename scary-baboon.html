@@ -312,7 +312,7 @@ new GLTFLoader().load(MONSTER_URL,(gltf)=>{
   if(mixer) mixer.update(0.4);           // settle into the crawl pose
   const b0=boneBounds();
   if(b0.span>1e-4){
-    monsterInner.scale.multiplyScalar(2.7/b0.span);   // skeleton ~2.7 tall -> body ~3.5, a wall of teeth
+    monsterInner.scale.multiplyScalar(4.0/b0.span);   // skeleton ~4 tall -> body ~5m, a giant looming over the maze walls
     monsterInner.position.y=0;
     const b1=boneBounds();
     monsterInner.position.y = -b1.minY + 0.05;        // feet on the ground
@@ -696,13 +696,13 @@ function triggerJumpscare(){
   let t=0;
   const iv=setInterval(()=>{
     t+=0.05;
-    const lunge = 2.6 - Math.min(1,t/0.55)*1.8;    // 2.6m -> 0.8m, in your face
+    const lunge = 4.6 - Math.min(1,t/0.55)*2.4;    // 4.6m -> 2.2m — close enough that the giant's face fills the view
     monster.position.set(player.x+fwdX*lunge, 0, player.z+fwdZ*lunge);
     monster.rotation.y=Math.atan2(player.x-monster.position.x, player.z-monster.position.z);
     camera.position.set(player.x+(Math.random()-.5)*0.09, 1.35+(Math.random()-.5)*0.09, player.z);
     camera.rotation.order='YXZ';
     camera.rotation.y=player.yaw+(Math.random()-.5)*0.06;
-    camera.rotation.x=-0.22+(Math.random()-.5)*0.05;   // glare down into its face
+    camera.rotation.x=0.42+(Math.random()-.5)*0.05;    // stare up into the giant's face
     if(mixer) mixer.update(0.075);
     renderer.render(scene,camera);
     if(t>1.5){
