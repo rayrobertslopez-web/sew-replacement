@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Eaglercraft — Night Stalker</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000;
+    font-family: "Minecraft", Consolas, "Courier New", monospace;
+    -webkit-user-select: none; user-select: none; touch-action: none; }
+  canvas { display: block; }
+
+  /* HUD */
+  .hud { position: fixed; z-index: 10; color: #fff; pointer-events: none;
+    text-shadow: 2px 2px 0 rgba(0,0,0,.75); font-weight: 700; }
+  #clockPill { top: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.45); padding: 5px 16px; border-radius: 4px;
+    font-size: 15px; letter-spacing: 1px; }
+  #hint { bottom: 96px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: #eaeaea; text-align: center; line-height: 1.5;
+    background: rgba(0,0,0,.3); padding: 4px 10px; border-radius: 4px;
+    transition: opacity .6s; }
+  #crosshair { top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 22px; height: 22px; z-index: 8; }
+  #crosshair:before, #crosshair:after { content: ""; position: absolute; background: rgba(255,255,255,.85);
+    box-shadow: 0 0 2px rgba(0,0,0,.6); }
+  #crosshair:before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair:after  { top: 10px; left: 0; height: 2px; width: 22px; }
+
+  /* creeping darkness + red as the monster nears */
+  #vig { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0;
+    transition: opacity .3s;
+    box-shadow: inset 0 0 220px 70px rgba(0,0,0,.92), inset 0 0 560px 150px rgba(90,0,0,.5); }
+
+  /* jumpscare */
+  #jump { position: fixed; inset: 0; z-index: 9999; background: #000; display: none;
+    align-items: center; justify-content: center; pointer-events: none; }
+  #jump canvas { width: min(90vw, 90vh); height: min(90vw, 90vh); }
+  @keyframes jsShake {
+    0%,100% { transform: translate(0,0) }   20% { transform: translate(-16px,12px) }
+    40% { transform: translate(14px,-14px) } 60% { transform: translate(-12px,-10px) }
+    80% { transform: translate(12px,14px) } }
+  .jsShake { animation: jsShake .16s infinite; }
+
+  /* start screen */
+  #start { position: fixed; inset: 0; z-index: 50; color: #fff; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; background: radial-gradient(circle at 50% 30%, #16324a, #050912 70%); }
+  #start h1 { font-size: clamp(30px, 8vw, 58px); margin: 0 0 4px; letter-spacing: 2px;
+    color: #eaf6ff; text-shadow: 3px 3px 0 #0a3a1e, 6px 6px 14px rgba(0,0,0,.7); }
+  #start .sub { color: #8fd3ff; font-size: 14px; margin-bottom: 18px; letter-spacing: 3px; }
+  #start p { font-size: 14px; line-height: 1.7; max-width: 440px; color: #cfe4ff; margin: 4px 0; }
+  #start .warn { color: #ff8a8a; font-weight: 700; margin-top: 14px; }
+  #play { margin-top: 22px; font-size: 22px; font-weight: 800; padding: 14px 46px; border: 0;
+    border-radius: 6px; cursor: pointer; color: #06210f; letter-spacing: 1px;
+    background: linear-gradient(#8be06a, #4fae3a); box-shadow: 0 6px 0 #2f7a25; }
+  #play:active { transform: translateY(3px); box-shadow: 0 3px 0 #2f7a25; }
+
+  /* mobile controls */
+  .touchBtn { position: fixed; z-index: 12; border: 0; color: #fff;
+    background: rgba(20,10,30,.6); box-shadow: 0 3px 0 rgba(0,0,0,.4);
+    border-radius: 10px; font-size: 20px; font-weight: 800; }
+  #jumpBtn { right: 18px; bottom: 90px; width: 74px; height: 74px; border-radius: 50%; font-size: 26px; }
+  #nightBtn { right: 18px; top: 54px; width: 46px; height: 46px; border-radius: 50%; }
+  #toggleBtn { right: 74px; top: 54px; width: 46px; height: 46px; border-radius: 50%; }
+  .touchBtn:active { transform: translateY(2px); }
+  #toast { position: fixed; bottom: 30%; left: 50%; transform: translateX(-50%); z-index: 13;
+    background: rgba(0,0,0,.78); color: #fff; padding: 9px 18px; border-radius: 6px;
+    font-size: 15px; font-weight: 700; display: none; text-align: center; max-width: 84vw; }
+
+  /* game HUD */
+  #carrots { top: 10px; left: 10px; font-size: 16px; color: #ffe08a; }
+  #nights { top: 34px; left: 10px; font-size: 12px; color: #cfe0f0; }
+  #survival { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 11;
+    display: flex; flex-direction: column; align-items: center; gap: 5px; pointer-events: none; }
+  #status { display: flex; justify-content: space-between; width: min(92vw, 380px); font-size: 15px; }
+  #hearts, #hunger { text-shadow: 1px 1px 2px #000; letter-spacing: 1px; line-height: 1; }
+  #hunger { direction: rtl; }
+  #hotbar { display: flex; gap: 2px; background: rgba(0,0,0,.32); padding: 3px;
+    border: 2px solid rgba(0,0,0,.55); border-radius: 3px; }
+  .slot { position: relative; width: 42px; height: 42px; background: rgba(139,139,139,.5);
+    border: 2px solid rgba(255,255,255,.22); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .slot.sel { border-color: #fff; box-shadow: inset 0 0 0 1px #fff; }
+  .slot .ct { position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-weight: 800; color: #fff; text-shadow: 1px 1px 1px #000; }
+
+  /* win / lose screen */
+  #endScreen { position: fixed; inset: 0; z-index: 60; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: #fff; padding: 26px; }
+  #endScreen.win  { background: radial-gradient(circle at 50% 32%, #14431f, #04120a 72%); }
+  #endScreen.lose { background: radial-gradient(circle at 50% 32%, #451414, #120404 72%); }
+  #endScreen h1 { font-size: clamp(30px, 8vw, 56px); margin: 0 0 10px; letter-spacing: 2px;
+    text-shadow: 3px 3px 0 rgba(0,0,0,.6); }
+  #endScreen p { max-width: 430px; line-height: 1.65; color: #e8eefb; font-size: 15px; }
+  #restart { margin-top: 22px; font-size: 21px; font-weight: 800; padding: 13px 44px; border: 0;
+    border-radius: 6px; cursor: pointer; color: #06210f; letter-spacing: 1px;
+    background: linear-gradient(#8be06a, #4fae3a); box-shadow: 0 6px 0 #2f7a25; }
+  #restart:active { transform: translateY(3px); box-shadow: 0 3px 0 #2f7a25; }
+</style>
+</head>
+<body>
+<div class="hud" id="clockPill">☀️ DAY</div>
+<div class="hud" id="carrots">🥕 0/10</div>
+<div class="hud" id="nights">Night 0</div>
+<div class="hud" id="hint">WASD move · mouse look · SPACE jump · N = night · M = monster on/off</div>
+<div id="survival">
+  <div id="status"><div id="hearts"></div><div id="hunger"></div></div>
+  <div id="hotbar"></div>
+</div>
+<div id="crosshair"></div>
+<div id="vig"></div>
+<div id="toast"></div>
+
+<div id="endScreen">
+  <h1 id="endTitle"></h1>
+  <p id="endMsg"></p>
+  <button id="restart">PLAY AGAIN</button>
+</div>
+
+<button class="touchBtn" id="toggleBtn" title="Monster on/off">😱</button>
+<button class="touchBtn" id="nightBtn" title="Bring the night">🌙</button>
+<button class="touchBtn" id="jumpBtn">⤴</button>
+
+<div id="jump"><canvas id="jsFace" width="512" height="512"></canvas></div>
+
+<div id="start">
+  <h1>EAGLERCRAFT</h1>
+  <div class="sub">NIGHT&nbsp;STALKER&nbsp;MOD</div>
+  <p>🥕 Find and grab all <b>10 glowing carrots</b> hidden across the grassy hills.</p>
+  <p>☀️ By day it's calm. 🌙 But at <b>night</b> a tall long-necked rabbit wakes and
+     <b>hunts you</b> — it freezes when you look at it and <b>rushes</b> when you look away.</p>
+  <p>❤️ Get caught and you take damage and respawn. Lose all your hearts and it's
+     <b>GAME OVER</b>. Collect every carrot to <b>escape</b>.</p>
+  <p class="warn">⚠️ Contains sudden scares &amp; loud sound. Play with sound on.</p>
+  <button id="play">PLAY</button>
+</div>
+
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ======================================================================
+   EAGLERCRAFT — a tiny voxel Minecraft-style world (Three.js)
+   with the 👹 NIGHT STALKER mod baked in.
+   ====================================================================== */
+
+var WORLD = 80;            // world is WORLD x WORLD blocks
+var HALF = WORLD / 2;
+var EYE = 1.62;            // camera height above the player's feet
+
+/* ---------- renderer / scene ---------- */
+var scene = new THREE.Scene();
+var DAY_SKY = new THREE.Color(0x8fd0ff), NIGHT_SKY = new THREE.Color(0x05070f);
+scene.background = DAY_SKY.clone();
+scene.fog = new THREE.Fog(0x8fd0ff, 30, 140);
+
+var camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 1000);
+camera.rotation.order = 'YXZ';
+
+var renderer = new THREE.WebGLRenderer({ antialias: (devicePixelRatio || 1) <= 1, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', function () {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+var hemi = new THREE.HemisphereLight(0xcfe8ff, 0x3f6b2e, 1.15);
+scene.add(hemi);
+var sun = new THREE.DirectionalLight(0xfff4e0, 1.25);
+sun.position.set(60, 120, 40);
+scene.add(sun);
+
+// first-person arm (classic Minecraft view-model)
+scene.add(camera);
+var viewArm = new THREE.Group();
+(function () {
+  var skin = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.72, 0.22), new THREE.MeshLambertMaterial({ color: 0xe7a06a }));
+  skin.position.y = -0.3; viewArm.add(skin);
+  var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.26), new THREE.MeshLambertMaterial({ color: 0x59b25a }));
+  sleeve.position.y = 0.08; viewArm.add(sleeve);
+  viewArm.position.set(0.82, -0.55, -0.95);
+  viewArm.rotation.set(0.12, 0.15, -0.4);
+  camera.add(viewArm);
+})();
+
+/* ---------- deterministic value-noise heightmap ---------- */
+function hash(x, z) {
+  var n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+function vnoise(x, z) {
+  var xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+  function fade(t) { return t * t * (3 - 2 * t); }
+  var a = hash(xi, zi), b = hash(xi + 1, zi), c = hash(xi, zi + 1), d = hash(xi + 1, zi + 1);
+  var u = fade(xf), v = fade(zf);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+var HEIGHTS = new Int16Array(WORLD * WORLD);
+function hIndex(x, z) { return (x + HALF) * WORLD + (z + HALF); }
+function inWorld(x, z) { return x >= -HALF && x < HALF && z >= -HALF && z < HALF; }
+for (var gx = -HALF; gx < HALF; gx++) {
+  for (var gz = -HALF; gz < HALF; gz++) {
+    var e = vnoise(gx * 0.06, gz * 0.06) * 6 + vnoise(gx * 0.15, gz * 0.15) * 2.2;
+    HEIGHTS[hIndex(gx, gz)] = Math.max(0, Math.round(e));   // top solid block index
+  }
+}
+function dist2d(ax, az, bx, bz) { var dx = ax - bx, dz = az - bz; return Math.sqrt(dx * dx + dz * dz); }
+function topY(x, z) {                       // integer top block index at column
+  x = Math.round(x); z = Math.round(z);
+  if (!inWorld(x, z)) return 0;
+  return HEIGHTS[hIndex(x, z)];
+}
+function surfaceY(x, z) { return topY(x, z) + 1; }   // world Y of the walkable top face
+
+/* ---------- build the world as InstancedMesh columns ---------- */
+var snow = [], dirt = [], stone = [], wood = [], leaf = [], ice = [];
+for (var x = -HALF; x < HALF; x++) {
+  for (var z = -HALF; z < HALF; z++) {
+    var h = HEIGHTS[hIndex(x, z)];
+    // lowest neighbour so we can fill exposed cliff faces
+    var lo = h;
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
+      var nx = x + d[0], nz = z + d[1];
+      var nh = inWorld(nx, nz) ? HEIGHTS[hIndex(nx, nz)] : -1;
+      if (nh < lo) lo = nh;
+    });
+    if (h <= 0) ice.push([x, 0, z]);        // frozen ground in the low basins
+    else snow.push([x, h, z]);              // snow cap
+    for (var y = h - 1; y > lo; y--) {      // fill the cliff below the cap
+      if (y >= h - 2) dirt.push([x, y, z]); else stone.push([x, y, z]);
+    }
+  }
+}
+// scatter snowy spruce trees
+for (var t = 0; t < 90; t++) {
+  var tx = Math.floor((hash(t, 7) - 0.5) * (WORLD - 6));
+  var tz = Math.floor((hash(t, 19) - 0.5) * (WORLD - 6));
+  if (!inWorld(tx, tz)) continue;
+  var th = HEIGHTS[hIndex(tx, tz)];
+  if (th <= 0) continue;                    // no trees on the ice
+  var trunk = 3 + Math.floor(hash(t, 3) * 3);
+  for (var yy = 1; yy <= trunk; yy++) wood.push([tx, th + yy, tz]);
+  var crown = th + trunk;
+  for (var ly = 0; ly < 3; ly++) {          // layered canopy, narrowing upward
+    var rad = ly === 0 ? 2 : ly === 1 ? 1 : 0;
+    for (var lx = -rad; lx <= rad; lx++) for (var lz = -rad; lz <= rad; lz++) {
+      if (Math.abs(lx) === 2 && Math.abs(lz) === 2) continue;
+      leaf.push([tx + lx, crown - 1 + ly, tz + lz]);
+    }
+  }
+  leaf.push([tx, crown + 1, tz]);
+}
+
+var dummy = new THREE.Object3D();
+function instanced(color, coords, opts) {
+  if (!coords.length) return null;
+  var mat = new THREE.MeshLambertMaterial(Object.assign({ color: color }, opts || {}));
+  var mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat, coords.length);
+  for (var i = 0; i < coords.length; i++) {
+    dummy.position.set(coords[i][0], coords[i][1] + 0.5, coords[i][2]);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  scene.add(mesh);
+  return mesh;
+}
+// grass-blade tuft texture (green blades on transparent)
+function grassTuftTex() {
+  var c = document.createElement('canvas'); c.width = c.height = 32;
+  var x = c.getContext('2d'); x.clearRect(0, 0, 32, 32);
+  for (var i = 0; i < 26; i++) {
+    var bx = Math.floor(hash(i, i * 3 + 1) * 30) + 1, h = 8 + hash(i * 5, i) * 20;
+    var g = 120 + Math.floor(hash(i, i * 7) * 70);
+    x.strokeStyle = 'rgb(' + Math.floor(g * 0.45) + ',' + g + ',' + Math.floor(g * 0.3) + ')';
+    x.lineWidth = 1.4;
+    x.beginPath(); x.moveTo(bx, 32); x.lineTo(bx + (hash(i, i + 9) * 4 - 2), 32 - h); x.stroke();
+  }
+  var t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; return t;
+}
+function buildGrassTufts(tops) {
+  var pos = [], uv = [], idx = [], v = 0, s = 0.5, hgt = 0.85, n = 0;
+  for (var i = 0; i < tops.length && n < 900; i++) {
+    var cx = tops[i][0], cz = tops[i][2];
+    if (hash(cx * 13 + 5, cz * 7 + 2) > 0.3) continue;      // sprinkle ~30% of grass blocks
+    var by = tops[i][1] + 1;
+    var quads = [
+      [[cx - s, by, cz], [cx + s, by, cz], [cx + s, by + hgt, cz], [cx - s, by + hgt, cz]],
+      [[cx, by, cz - s], [cx, by, cz + s], [cx, by + hgt, cz + s], [cx, by + hgt, cz - s]]
+    ];
+    for (var q = 0; q < 2; q++) {
+      for (var k = 0; k < 4; k++) pos.push(quads[q][k][0], quads[q][k][1], quads[q][k][2]);
+      uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+      idx.push(v, v + 1, v + 2, v, v + 2, v + 3); v += 4;
+    }
+    n++;
+  }
+  if (!n) return;
+  var nor = []; for (var m = 0; m < pos.length / 3; m++) nor.push(0, 1, 0);  // lit like the ground
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setIndex(idx);
+  var mat = new THREE.MeshLambertMaterial({ map: grassTuftTex(), alphaTest: 0.4, transparent: true, side: THREE.DoubleSide });
+  scene.add(new THREE.Mesh(geo, mat));
+}
+
+instanced(0x6cae3e, snow);                                    // grass caps
+instanced(0x86613a, dirt);                                    // dirt
+instanced(0x8a8f96, stone);                                   // stone
+instanced(0x6e4a28, wood);                                    // oak trunk
+instanced(0x4f9e33, leaf);                                    // oak leaves
+instanced(0x3f74d6, ice, { transparent: true, opacity: 0.86 }); // water
+buildGrassTufts(snow);
+
+/* ---------- player ---------- */
+var startX = 0, startZ = 0;
+var player = { x: startX + 0.5, z: startZ + 0.5, y: surfaceY(startX, startZ), vy: 0, onGround: true };
+var yaw = 0, pitch = 0;
+
+function stepBlocked(nx, nz) {              // can't climb walls taller than ~1.1 blocks
+  return surfaceY(nx, nz) - player.y > 1.1;
+}
+
+/* ---------- input ---------- */
+var keys = {};
+addEventListener('keydown', function (e) {
+  var k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === ' ') e.preventDefault();
+  if (k === 'n') document.getElementById('nightBtn').click();   // shortcut: bring the night
+  if (k === 'm') document.getElementById('toggleBtn').click();  // shortcut: monster on/off
+});
+addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+
+var locked = false, dragging = false, lastMX = 0, lastMY = 0;
+renderer.domElement.addEventListener('click', function () {
+  if (started && !isTouch) { try { renderer.domElement.requestPointerLock(); } catch (e) {} }
+});
+document.addEventListener('pointerlockchange', function () {
+  locked = document.pointerLockElement === renderer.domElement;
+});
+// drag-to-look fallback for when pointer lock is unavailable (e.g. in an iframe)
+renderer.domElement.addEventListener('mousedown', function (e) {
+  if (!locked) { dragging = true; lastMX = e.clientX; lastMY = e.clientY; }
+});
+addEventListener('mouseup', function () { dragging = false; });
+addEventListener('mousemove', function (e) {
+  if (locked) { yaw -= e.movementX * 0.0022; pitch -= e.movementY * 0.0022; }
+  else if (dragging) { yaw -= (e.clientX - lastMX) * 0.004; pitch -= (e.clientY - lastMY) * 0.004; lastMX = e.clientX; lastMY = e.clientY; }
+  pitch = Math.max(-1.4, Math.min(1.4, pitch));
+});
+
+// touch: left half = move stick, right half = look, button = jump
+var isTouch = matchMedia('(pointer:coarse)').matches;
+var moveTouch = null, lookTouch = null, mv = { x: 0, z: 0 };
+function onTouchStart(e) {
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var tch = e.changedTouches[i];
+    if (tch.clientX < innerWidth / 2 && moveTouch === null) { moveTouch = { id: tch.identifier, ox: tch.clientX, oy: tch.clientY }; }
+    else if (lookTouch === null) { lookTouch = { id: tch.identifier, x: tch.clientX, y: tch.clientY }; }
+  }
+}
+function onTouchMove(e) {
+  e.preventDefault();
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var tch = e.changedTouches[i];
+    if (moveTouch && tch.identifier === moveTouch.id) {
+      var dx = tch.clientX - moveTouch.ox, dy = tch.clientY - moveTouch.oy, m = Math.hypot(dx, dy) || 1;
+      var cl = Math.min(m, 46) / 46;
+      mv.x = (dx / m) * cl; mv.z = (dy / m) * cl;
+    } else if (lookTouch && tch.identifier === lookTouch.id) {
+      yaw -= (tch.clientX - lookTouch.x) * 0.005;
+      pitch -= (tch.clientY - lookTouch.y) * 0.005;
+      pitch = Math.max(-1.4, Math.min(1.4, pitch));
+      lookTouch.x = tch.clientX; lookTouch.y = tch.clientY;
+    }
+  }
+}
+function onTouchEnd(e) {
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var id = e.changedTouches[i].identifier;
+    if (moveTouch && id === moveTouch.id) { moveTouch = null; mv.x = mv.z = 0; }
+    if (lookTouch && id === lookTouch.id) lookTouch = null;
+  }
+}
+renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+renderer.domElement.addEventListener('touchend', onTouchEnd);
+document.getElementById('jumpBtn').addEventListener('touchstart', function (e) { e.preventDefault(); doJump(); });
+document.getElementById('jumpBtn').addEventListener('click', doJump);
+function doJump() { if (player.onGround) { player.vy = 8.4; player.onGround = false; } }
+
+/* ---------- audio (all synthesised) ---------- */
+var actx = null;
+function ensureAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+var noiseBuf = null;
+function noise() {
+  if (!actx) return null;
+  if (!noiseBuf) {
+    noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+    var d = noiseBuf.getChannelData(0);
+    for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return noiseBuf;
+}
+function heartbeat(vol) {
+  if (!actx) return;
+  [0, 0.14].forEach(function (off, k) {
+    var t = actx.currentTime + off, o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(64, t);
+    o.frequency.exponentialRampToValueAtTime(40, t + 0.16);
+    g.gain.setValueAtTime((vol || 0.1) * (k ? 0.7 : 1), t);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + 0.2);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.22);
+  });
+}
+function drone(vol) {
+  if (!actx) return;
+  var t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(48, t);
+  o.frequency.linearRampToValueAtTime(37, t + 2.4);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol || 0.03, t + 0.9);
+  g.gain.linearRampToValueAtTime(0.0001, t + 2.4);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 2.5);
+}
+function scream() {
+  if (!actx) return;
+  var t = actx.currentTime;
+  [430, 620, 910].forEach(function (f) {
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * 0.28, t + 0.7);
+    g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.9);
+  });
+  var nb = noise();
+  if (nb) {
+    var s = actx.createBufferSource(); s.buffer = nb;
+    var f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500;
+    var ng = actx.createGain(); ng.gain.setValueAtTime(0.22, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    s.connect(f); f.connect(ng); ng.connect(actx.destination); s.start(t); s.stop(t + 0.5);
+  }
+  var bo = actx.createOscillator(), bg = actx.createGain();
+  bo.type = 'sine'; bo.frequency.setValueAtTime(92, t); bo.frequency.exponentialRampToValueAtTime(30, t + 0.6);
+  bg.gain.setValueAtTime(0.33, t); bg.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+  bo.connect(bg); bg.connect(actx.destination); bo.start(t); bo.stop(t + 0.75);
+}
+
+/* ---------- the monster: a tall dark long-necked rabbit that cranes at you ---------- */
+function buildMonster() {
+  var SHADOW = new THREE.MeshBasicMaterial({ color: 0x090909 });
+  var EYE_M = new THREE.MeshBasicMaterial({ color: 0xe9dcff });
+  var g = new THREE.Group();
+  function box(w, h, d) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), SHADOW); }
+  function leg(x, z, len) {                        // pivots at the hip so it can stride
+    var grp = new THREE.Group(); grp.position.set(x, len, z);
+    var m = box(0.15, len, 0.15); m.position.y = -len / 2; grp.add(m);
+    g.add(grp); return grp;
+  }
+  // hunched: taller front legs tip the body forward, toward you
+  var fl = leg(-0.24, 0.5, 1.2), fr = leg(0.24, 0.5, 1.2);
+  var bl = leg(-0.24, -0.55, 0.98), br = leg(0.24, -0.55, 0.98);
+  // barrel torso, tilted head-down
+  var torso = box(0.62, 0.56, 1.4); torso.position.set(0, 1.18, -0.1); torso.rotation.x = -0.16; g.add(torso);
+  // long neck cranes up and forward over the player
+  var neck = new THREE.Group(); neck.position.set(0, 1.4, 0.52); neck.rotation.x = 0.5; g.add(neck);
+  var neckMesh = box(0.23, 1.55, 0.25); neckMesh.position.y = 0.77; neck.add(neckMesh);
+  // rabbit head at the crest of the neck, levelling out to stare
+  var head = new THREE.Group(); head.position.y = 1.55; head.rotation.x = -0.22; neck.add(head);
+  var skull = box(0.38, 0.42, 0.68); skull.position.z = 0.1; head.add(skull);
+  var snout = box(0.24, 0.24, 0.3); snout.position.set(0, -0.05, 0.5); head.add(snout);
+  // tall upright rabbit ears
+  var earGeo = new THREE.BoxGeometry(0.12, 1.2, 0.22);
+  var eL = new THREE.Mesh(earGeo, SHADOW); eL.position.set(-0.13, 0.66, -0.03); eL.rotation.z = 0.13; eL.rotation.x = -0.1; head.add(eL);
+  var eR = new THREE.Mesh(earGeo, SHADOW); eR.position.set( 0.13, 0.66, -0.03); eR.rotation.z = -0.13; eR.rotation.x = -0.1; head.add(eR);
+  // faint glowing eyes
+  var y1 = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), EYE_M); y1.position.set(-0.12, 0.07, 0.43); head.add(y1);
+  var y2 = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), EYE_M); y2.position.set( 0.12, 0.07, 0.43); head.add(y2);
+  g.userData = { fl: fl, fr: fr, bl: bl, br: br, neck: neck, head: head };
+  return g;
+}
+
+/* ---------- day / night + stalker mod ---------- */
+var CYCLE = 95, NIGHT_A = 0.55, NIGHT_B = 0.70, DAWN_A = 0.92;
+var _sky = new THREE.Color();
+function smooth(a, b, t) { t = Math.min(1, Math.max(0, (t - a) / (b - a))); return t * t * (3 - 2 * t); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+var Mod = {
+  clock: 6, nightF: 0, enabled: true, cooldown: 0,
+  hbT: 0, ambT: 4, jumpT: 0, mon: null, moon: null, stars: null
+};
+
+var pill = document.getElementById('clockPill');
+var vig = document.getElementById('vig');
+var jumpEl = document.getElementById('jump');
+var jsFace = document.getElementById('jsFace');
+(function paintScareFace() {
+  var cx = jsFace.getContext('2d');
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, 512, 512);
+  // long upright ears
+  function ear(mx, rot) {
+    cx.save(); cx.translate(mx, 160); cx.rotate(rot);
+    cx.fillStyle = '#121212'; cx.strokeStyle = '#2c2c2c'; cx.lineWidth = 6;
+    cx.beginPath(); cx.ellipse(0, -120, 42, 172, 0, 0, 7); cx.fill(); cx.stroke();
+    cx.fillStyle = '#1c0f14'; cx.beginPath(); cx.ellipse(0, -120, 19, 130, 0, 0, 7); cx.fill();
+    cx.restore();
+  }
+  ear(198, -0.12); ear(314, 0.12);
+  // head
+  cx.fillStyle = '#151515'; cx.strokeStyle = '#303030'; cx.lineWidth = 6;
+  cx.beginPath(); cx.ellipse(256, 302, 152, 176, 0, 0, 7); cx.fill(); cx.stroke();
+  // glowing eyes
+  cx.shadowColor = '#fff'; cx.shadowBlur = 46; cx.fillStyle = '#eef0ff';
+  cx.beginPath(); cx.ellipse(206, 272, 30, 40, 0, 0, 7); cx.fill();
+  cx.beginPath(); cx.ellipse(306, 272, 30, 40, 0, 0, 7); cx.fill();
+  cx.shadowBlur = 0; cx.fillStyle = '#360000';
+  cx.beginPath(); cx.arc(206, 280, 10, 0, 7); cx.fill();
+  cx.beginPath(); cx.arc(306, 280, 10, 0, 7); cx.fill();
+  // nose + snarling grin with teeth
+  cx.fillStyle = '#2a0d0d'; cx.beginPath(); cx.moveTo(256, 344); cx.lineTo(238, 328); cx.lineTo(274, 328); cx.closePath(); cx.fill();
+  cx.strokeStyle = '#e9e9e9'; cx.lineWidth = 6; cx.shadowColor = '#fff'; cx.shadowBlur = 18;
+  cx.beginPath(); cx.moveTo(202, 396); cx.quadraticCurveTo(256, 442, 310, 396); cx.stroke();
+  cx.shadowBlur = 0; cx.lineWidth = 5;
+  for (var i = 0; i < 5; i++) { var tx = 214 + i * 20; cx.beginPath(); cx.moveTo(tx, 400); cx.lineTo(tx + 8, 420); cx.lineTo(tx + 16, 400); cx.stroke(); }
+})();
+var toastEl = document.getElementById('toast'), toastT = 0;
+function toast(m) { toastEl.textContent = m; toastEl.style.display = 'block'; toastT = 2.6; }
+
+function buildSky() {
+  var mc = document.createElement('canvas'); mc.width = mc.height = 128;
+  var mx = mc.getContext('2d');
+  var grd = mx.createRadialGradient(64, 64, 5, 64, 64, 62);
+  grd.addColorStop(0, 'rgba(255,255,245,1)'); grd.addColorStop(0.5, 'rgba(225,232,255,.85)'); grd.addColorStop(1, 'rgba(200,210,255,0)');
+  mx.fillStyle = grd; mx.beginPath(); mx.arc(64, 64, 62, 0, 7); mx.fill();
+  var mt = new THREE.CanvasTexture(mc);
+  Mod.moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: mt, transparent: true, fog: false, depthTest: false, opacity: 0 }));
+  Mod.moon.scale.set(28, 28, 1); Mod.moon.renderOrder = -1; scene.add(Mod.moon);
+  var N = 300, pos = new Float32Array(N * 3);
+  for (var i = 0; i < N; i++) {
+    var th = Math.random() * Math.PI * 2, ph = Math.random() * 0.6 + 0.03, r = 400;
+    pos[i * 3] = Math.cos(th) * Math.sin(ph) * r;
+    pos[i * 3 + 1] = Math.cos(ph) * r + 80;
+    pos[i * 3 + 2] = Math.sin(th) * Math.sin(ph) * r;
+  }
+  var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  Mod.stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthTest: false }));
+  Mod.stars.renderOrder = -2; scene.add(Mod.stars);
+}
+function applySky(n) {
+  _sky.copy(DAY_SKY).lerp(NIGHT_SKY, n);
+  scene.background.copy(_sky);
+  scene.fog.color.copy(_sky);
+  scene.fog.near = lerp(30, 10, n);
+  scene.fog.far = lerp(140, 46, n);
+  sun.intensity = lerp(1.25, 0.14, n);
+  sun.color.setRGB(lerp(1, 0.42, n), lerp(0.95, 0.47, n), lerp(0.88, 0.75, n));
+  hemi.intensity = lerp(1.15, 0.09, n);
+  if (Mod.moon) {
+    Mod.moon.material.opacity = n;
+    Mod.moon.position.set(camera.position.x - 60, camera.position.y + 90, camera.position.z - 120);
+  }
+  if (Mod.stars) Mod.stars.material.opacity = n * 0.9;
+}
+function spawnMonster() {
+  var camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
+  var ang = Math.atan2(-camDir.x, -camDir.z) + (Math.random() - 0.5) * 2.4;  // start out of sight
+  var d = 26 + Math.random() * 14;
+  var mx = player.x + Math.sin(ang) * d, mz = player.z + Math.cos(ang) * d;
+  mx = Math.max(-HALF + 1, Math.min(HALF - 1, mx));
+  mz = Math.max(-HALF + 1, Math.min(HALF - 1, mz));
+  var m = { obj: buildMonster(), x: mx, z: mz, watchT: 0, fade: 0 };
+  scene.add(m.obj); Mod.mon = m; drone(0.05);
+}
+function despawn() { if (Mod.mon) { scene.remove(Mod.mon.obj); Mod.mon = null; } }
+function jumpscare() {
+  Mod.jumpT = 1.4;
+  jumpEl.style.display = 'flex'; jsFace.classList.add('jsShake');
+  scream();
+  if (navigator.vibrate) { try { navigator.vibrate([90, 40, 170]); } catch (e) {} }
+  despawn(); Mod.cooldown = 20;
+  // respawn back at spawn and lose a heart
+  player.x = startX + 0.5; player.z = startZ + 0.5; player.y = surfaceY(startX, startZ); player.vy = 0;
+  Game.hearts = Math.max(0, Game.hearts - 2); updateHud();
+  if (Game.hearts <= 0) lose();
+  else toast('😱 IT GOT YOU! ' + (Game.hearts / 2) + ' ❤️ left');
+}
+
+/* buttons */
+document.getElementById('nightBtn').addEventListener('click', function () {
+  Mod.clock = Mod.nightF < 0.5 ? NIGHT_B * CYCLE : 0.12 * CYCLE;
+});
+document.getElementById('toggleBtn').addEventListener('click', function () {
+  Mod.enabled = !Mod.enabled;
+  this.style.opacity = Mod.enabled ? '1' : '0.4';
+  if (!Mod.enabled) { despawn(); vig.style.opacity = 0; }
+  toast(Mod.enabled ? '👹 The stalker hunts again…' : '😌 Monster disabled.');
+});
+
+function updateMod(dt) {
+  if (!Mod.moon) buildSky();
+  if (Mod.jumpT > 0) { Mod.jumpT -= dt; if (Mod.jumpT <= 0) { jumpEl.style.display = 'none'; jsFace.classList.remove('jsShake'); } }
+
+  Mod.clock = (Mod.clock + dt) % CYCLE;
+  var tod = Mod.clock / CYCLE;
+  var n = smooth(NIGHT_A, NIGHT_B, tod) - smooth(DAWN_A, 1.0, tod);
+  Mod.nightF = n < 0 ? 0 : n;
+  applySky(Mod.nightF);
+
+  var icon = Mod.nightF > 0.65 ? '🌙' : Mod.nightF > 0.25 ? '🌆' : '☀️';
+  var lbl = Mod.nightF > 0.65 ? 'NIGHT' : Mod.nightF > 0.25 ? 'DUSK' : 'DAY';
+  pill.textContent = icon + ' ' + lbl + (Mod.mon ? '   👣 it stalks you…' : '');
+
+  if (Mod.cooldown > 0) Mod.cooldown -= dt;
+  if (Mod.enabled && Mod.nightF > 0.5) { Mod.ambT -= dt; if (Mod.ambT <= 0) { Mod.ambT = 7 + Math.random() * 6; drone(0.02); } }
+
+  if (Mod.enabled && Mod.nightF >= 0.55 && !Mod.mon && Mod.cooldown <= 0) spawnMonster();
+  if (Mod.mon && Mod.nightF < 0.45) {                 // dawn: melt into the ground
+    Mod.mon.fade += dt; Mod.mon.obj.position.y -= dt * 1.2;
+    Mod.mon.obj.traverse(function (o) { if (o.material && 'opacity' in o.material) { o.material.transparent = true; o.material.opacity = Math.max(0, 1 - Mod.mon.fade); } });
+    if (Mod.mon.fade > 1) despawn();
+  }
+
+  if (Mod.mon && Mod.nightF >= 0.45) {
+    var m = Mod.mon;
+    var dx = player.x - m.x, dz = player.z - m.z, d = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    var prox = Math.min(1, Math.max(0, (20 - d) / 18));
+    var camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
+    var watched = (dx * camDir.x + dz * camDir.z) / d > 0.55 && d < 70;   // roughly on-screen?
+
+    var speed;
+    if (watched) {
+      m.watchT += dt;
+      if (d > 9) {
+        speed = 0;                                    // frozen, staring
+        if (m.watchT > 5 && d > 12) {                 // moved the instant you blinked
+          var a = Math.atan2(-camDir.x, -camDir.z) + (Math.random() - 0.5) * 1.2 + Math.PI;
+          m.x = player.x + Math.sin(a) * 14; m.z = player.z + Math.cos(a) * 14;
+          m.x = Math.max(-HALF + 1, Math.min(HALF - 1, m.x));
+          m.z = Math.max(-HALF + 1, Math.min(HALF - 1, m.z));
+          m.watchT = 0; drone(0.045);
+        }
+      } else { speed = 1.1; }                          // up close it still creeps in
+    } else { m.watchT = 0; speed = 6.5 + prox * 2.5; } // look away → it rushes
+
+    m.x += (dx / d) * speed * dt; m.z += (dz / d) * speed * dt;
+
+    var gy = surfaceY(m.x, m.z);
+    m.obj.position.set(m.x, gy, m.z);
+    m.obj.rotation.y = Math.atan2(dx, dz);
+    var now = performance.now();
+    var stride = speed > 2 ? Math.sin(now / 110) : Math.sin(now / 340) * 0.3;
+    var ud = m.obj.userData;
+    ud.fl.rotation.x = stride * 0.5; ud.fr.rotation.x = -stride * 0.5;
+    ud.bl.rotation.x = -stride * 0.5; ud.br.rotation.x = stride * 0.5;
+    ud.neck.rotation.z = Math.sin(now / 560) * 0.06;   // slow, watchful sway
+    ud.head.rotation.y = Math.sin(now / 900) * 0.12;
+    m.obj.position.y = gy + Math.sin(now / 260) * 0.05;
+
+    vig.style.opacity = Math.min(0.92, prox * 1.05);
+    if (prox > 0.02 || d < 26) { Mod.hbT -= dt; if (Mod.hbT <= 0) { Mod.hbT = lerp(1.15, 0.32, prox); heartbeat(0.05 + prox * 0.22); } }
+    if (d < 2.4 && Mod.jumpT <= 0) jumpscare();
+  } else {
+    vig.style.opacity = 0;
+  }
+
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.style.display = 'none'; }
+}
+
+/* ==========================================================================
+   GAME LAYER — objective, health, win/lose, restart
+   Gather every glowing carrot while surviving the night rabbit.
+   ========================================================================== */
+var Game = { hearts: 10, maxHearts: 10, carrots: 0, total: 10, nights: 0, prevNight: false, over: false, list: [] };
+
+(function buildChrome() {                     // fill the hunger row + hotbar once
+  var hunger = ''; for (var i = 0; i < 10; i++) hunger += '🍗';
+  document.getElementById('hunger').textContent = hunger;
+  var hb = document.getElementById('hotbar');
+  for (var s = 0; s < 9; s++) {
+    var d = document.createElement('div');
+    d.className = 'slot' + (s === 0 ? ' sel' : '');
+    if (s === 0) d.innerHTML = '🥕<span class="ct"></span>';
+    hb.appendChild(d);
+  }
+})();
+
+function updateHud() {
+  var h = '';
+  for (var i = 0; i < Game.maxHearts; i++) h += i < Game.hearts ? '❤️' : '🖤';
+  document.getElementById('hearts').textContent = h;
+  document.getElementById('carrots').textContent = '🥕 ' + Game.carrots + '/' + Game.total;
+  document.getElementById('nights').textContent = 'Night ' + Game.nights;
+  var ct = document.querySelector('#hotbar .ct'); if (ct) ct.textContent = Game.carrots || '';
+}
+
+var _glowTex = null;
+function glowTex() {
+  if (_glowTex) return _glowTex;
+  var gc = document.createElement('canvas'); gc.width = gc.height = 64;
+  var gx = gc.getContext('2d');
+  var gr = gx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  gr.addColorStop(0, 'rgba(255,190,90,.95)'); gr.addColorStop(1, 'rgba(255,150,40,0)');
+  gx.fillStyle = gr; gx.fillRect(0, 0, 64, 64);
+  _glowTex = new THREE.CanvasTexture(gc); return _glowTex;
+}
+function buildCarrots() {
+  Game.list.forEach(function (c) { scene.remove(c.obj); });
+  Game.list = [];
+  var placed = 0, i = 0;
+  while (placed < Game.total && i < 500) {
+    var cx = Math.floor((hash(i * 2 + 3, 57) - 0.5) * (WORLD - 10));
+    var cz = Math.floor((hash(i * 5 + 8, 83) - 0.5) * (WORLD - 10));
+    i++;
+    if (!inWorld(cx, cz) || topY(cx, cz) <= 0) continue;      // on land, never on ice
+    var grp = new THREE.Group();
+    var body = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 7), new THREE.MeshBasicMaterial({ color: 0xff8a1e }));
+    body.rotation.x = Math.PI; grp.add(body);
+    var leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 5), new THREE.MeshBasicMaterial({ color: 0x54c23a }));
+    leaf.position.y = 0.5; grp.add(leaf);
+    var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), transparent: true, fog: false, depthWrite: false }));
+    glow.scale.set(2.6, 2.6, 1); grp.add(glow);
+    grp.position.set(cx + 0.5, surfaceY(cx, cz) + 0.85, cz + 0.5);
+    scene.add(grp);
+    Game.list.push({ obj: grp, x: cx + 0.5, z: cz + 0.5, col: cx, colz: cz, got: false });
+    placed++;
+  }
+}
+
+function chime() {
+  if (!actx) return; var t = actx.currentTime;
+  [880, 1320].forEach(function (f, k) {
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f, t + k * 0.07);
+    g.gain.setValueAtTime(0.12, t + k * 0.07); g.gain.exponentialRampToValueAtTime(0.001, t + k * 0.07 + 0.2);
+    o.connect(g); g.connect(actx.destination); o.start(t + k * 0.07); o.stop(t + k * 0.07 + 0.22);
+  });
+}
+function fanfare() {
+  if (!actx) return; var t = actx.currentTime;
+  [523, 659, 784, 1047].forEach(function (f, k) {
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f, t + k * 0.12);
+    g.gain.setValueAtTime(0.12, t + k * 0.12); g.gain.exponentialRampToValueAtTime(0.001, t + k * 0.12 + 0.35);
+    o.connect(g); g.connect(actx.destination); o.start(t + k * 0.12); o.stop(t + k * 0.12 + 0.36);
+  });
+}
+
+function updateGame(dt) {
+  if (Game.over) return;
+  var now = performance.now();
+  // nights-survived counter, on the night -> morning flip
+  if (Game.prevNight && Mod.nightF < 0.3) { Game.nights++; updateHud(); toast('☀️ Survived the night! (' + Game.nights + ')'); }
+  Game.prevNight = Mod.nightF > 0.6;
+  // carrots: spin, bob, pick up
+  for (var i = 0; i < Game.list.length; i++) {
+    var c = Game.list[i]; if (c.got) continue;
+    c.obj.rotation.y += dt * 1.6;
+    c.obj.position.y = surfaceY(c.col, c.colz) + 0.85 + Math.sin(now / 380 + i) * 0.12;
+    if (dist2d(player.x, player.z, c.x, c.z) < 1.9) {
+      c.got = true; c.obj.visible = false; Game.carrots++; chime(); updateHud();
+      if (Game.carrots >= Game.total) win();
+      else toast('🥕 Carrot ' + Game.carrots + '/' + Game.total + '!');
+    }
+  }
+}
+
+function endScreen(kind, title, msg) {
+  Game.over = true; started = false;
+  jumpEl.style.display = 'none'; jsFace.classList.remove('jsShake'); vig.style.opacity = 0;
+  if (document.exitPointerLock) document.exitPointerLock();
+  var es = document.getElementById('endScreen');
+  es.className = kind; es.style.display = 'flex';
+  document.getElementById('endTitle').textContent = title;
+  document.getElementById('endMsg').textContent = msg;
+}
+function win() {
+  fanfare();
+  endScreen('win', '🥕 YOU ESCAPED!', 'You gathered all ' + Game.total + ' carrots and slipped out of the woods — surviving ' +
+    Game.nights + ' night' + (Game.nights === 1 ? '' : 's') + '. The rabbit goes hungry tonight.');
+}
+function lose() {
+  endScreen('lose', '💀 GAME OVER', 'The night rabbit caught you for good. You collected ' + Game.carrots + '/' +
+    Game.total + ' carrots and survived ' + Game.nights + ' night' + (Game.nights === 1 ? '' : 's') + '.');
+}
+function startGame() {
+  Game.hearts = Game.maxHearts; Game.carrots = 0; Game.nights = 0; Game.prevNight = false; Game.over = false;
+  Mod.clock = 6; Mod.cooldown = 6; Mod.jumpT = 0; despawn();
+  jumpEl.style.display = 'none'; jsFace.classList.remove('jsShake'); vig.style.opacity = 0;
+  document.getElementById('endScreen').style.display = 'none';
+  player.x = startX + 0.5; player.z = startZ + 0.5; player.y = surfaceY(startX, startZ); player.vy = 0;
+  yaw = 0; pitch = 0;
+  buildCarrots(); updateHud();
+  var hint = document.getElementById('hint');
+  hint.style.opacity = '1';
+  setTimeout(function () { hint.style.opacity = '0'; }, 7000);
+  started = true;
+}
+
+/* ---------- movement + main loop ---------- */
+var GRAV = 26, SPEED = 5.6, walkBob = 0;
+var vTmp = new THREE.Vector3(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+function updatePlayer(dt) {
+  // desired horizontal move
+  var ix = 0, iz = 0;
+  if (keys['w'] || keys['arrowup']) iz -= 1;
+  if (keys['s'] || keys['arrowdown']) iz += 1;
+  if (keys['a'] || keys['arrowleft']) ix -= 1;
+  if (keys['d'] || keys['arrowright']) ix += 1;
+  ix += mv.x; iz += mv.z;
+  var mag = Math.hypot(ix, iz); if (mag > 1) { ix /= mag; iz /= mag; }
+  if (keys[' ']) doJump();
+
+  camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+  right.crossVectors(fwd, UP).normalize();
+  vTmp.set(0, 0, 0).addScaledVector(fwd, -iz).addScaledVector(right, ix);
+  var nx = player.x + vTmp.x * SPEED * dt;
+  var nz = player.z + vTmp.z * SPEED * dt;
+  nx = Math.max(-HALF + 0.5, Math.min(HALF - 0.5, nx));
+  nz = Math.max(-HALF + 0.5, Math.min(HALF - 0.5, nz));
+  if (!stepBlocked(nx, player.z)) player.x = nx;      // slide along walls per-axis
+  if (!stepBlocked(player.x, nz)) player.z = nz;
+
+  // gravity + ground follow
+  player.vy -= GRAV * dt;
+  player.y += player.vy * dt;
+  var ground = surfaceY(player.x, player.z);
+  if (player.y <= ground) { player.y = ground; player.vy = 0; player.onGround = true; }
+  else player.onGround = false;
+
+  camera.rotation.y = yaw; camera.rotation.x = pitch;
+  camera.position.set(player.x, player.y + EYE, player.z);
+
+  // bob the first-person arm while walking
+  if (mag > 0.05 && player.onGround) walkBob += dt * 9;
+  viewArm.position.y = -0.55 + Math.abs(Math.sin(walkBob)) * 0.04;
+  viewArm.rotation.x = 0.12 + Math.sin(walkBob) * 0.06;
+}
+
+var started = false, last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  var dt = Math.min((now - last) / 1000, 0.1); last = now;
+  if (started) { updatePlayer(dt); updateMod(dt); updateGame(dt); }
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+
+window.__ec = { Mod: Mod, Game: Game, player: player, camera: camera, spawnMonster: spawnMonster, jumpscare: jumpscare, applySky: applySky, setStarted: function (v) { started = v; }, setView: function (y, pi) { yaw = y; pitch = pi; } };
+
+/* ---------- start ---------- */
+document.getElementById('play').addEventListener('click', function () {
+  ensureAudio();
+  if (actx && actx.state === 'suspended') actx.resume();
+  document.getElementById('start').style.display = 'none';
+  startGame();
+  if (!isTouch) renderer.domElement.requestPointerLock();
+});
+document.getElementById('restart').addEventListener('click', function () {
+  ensureAudio();
+  if (actx && actx.state === 'suspended') actx.resume();
+  startGame();
+  if (!isTouch) renderer.domElement.requestPointerLock();
+});
+</script>
+</body>
+</html>
