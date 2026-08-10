@@ -15,8 +15,8 @@
     color:#eee2c8; touch-action:none; -webkit-user-select:none; user-select:none; }
   canvas{ display:block; }
   #vig{ position:fixed; inset:0; z-index:5; pointer-events:none;
-    box-shadow:inset 0 0 22vmin 8vmin rgba(0,0,0,.88); }
-  #grain{ position:fixed; inset:0; z-index:5; pointer-events:none; opacity:.05;
+    box-shadow:inset 0 0 34vmin 14vmin rgba(0,0,0,.95); }
+  #grain{ position:fixed; inset:0; z-index:5; pointer-events:none; opacity:.08;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>"); }
 
   #toast{ position:fixed; top:26%; left:50%; transform:translateX(-50%); z-index:50; pointer-events:none;
@@ -80,19 +80,6 @@
     padding:14px 30px; border-radius:12px; border:2px solid #6b5a37; background:rgba(10,8,4,.7);
     color:#f0e0ab; font-size:14px; font-weight:900; letter-spacing:2px; cursor:pointer; pointer-events:auto; }
   #camBtn.active{ background:rgba(231,184,74,.35); border-color:var(--amber); }
-
-  /* office door overlay panels (CSS, over the 3D backdrop) */
-  #officeOverlay{ position:fixed; inset:0; z-index:6; pointer-events:none; display:none; }
-  #officeOverlay.show{ display:block; }
-  .doorPanel{ position:absolute; top:0; bottom:0; width:16%; background:#161208; border:2px solid #3a2f1c;
-    transform:scaleY(0); transform-origin:top; transition:transform .35s ease; box-shadow:0 0 30px rgba(0,0,0,.7) inset; }
-  .doorPanel.closed{ transform:scaleY(1); }
-  #doorPanelL{ left:8%; }
-  #doorPanelR{ right:8%; }
-  .hallLight{ position:absolute; top:30%; bottom:30%; width:16%; background:rgba(231,184,74,0); transition:background .15s; }
-  .hallLight.on{ background:rgba(231,184,74,.22); }
-  #hallLightL{ left:8%; }
-  #hallLightR{ right:8%; }
 
   /* camera monitor overlay */
   #monitor{ position:fixed; inset:0; z-index:12; display:none; pointer-events:none; }
@@ -175,13 +162,6 @@
   <button id="camBtn">📷 CAMERAS</button>
 </div>
 
-<div id="officeOverlay">
-  <div class="hallLight" id="hallLightL"></div>
-  <div class="hallLight" id="hallLightR"></div>
-  <div class="doorPanel" id="doorPanelL"></div>
-  <div class="doorPanel" id="doorPanelR"></div>
-</div>
-
 <!-- Camera monitor -->
 <div id="monitor">
   <div id="monHead"><span id="monLabel"><span class="dot"></span>CAM</span><span id="monClock"></span><button id="monClose">CLOSE ✕</button></div>
@@ -232,13 +212,24 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.05, 300);
 
-const hemi = new THREE.HemisphereLight(0x554433, 0x0a0705, 1.4);
+const hemi = new THREE.HemisphereLight(0x3d3226, 0x060403, 0.5);
 scene.add(hemi);
-const fill = new THREE.PointLight(0xffcc88, 18, 20, 2);
+const fill = new THREE.PointLight(0xffbb77, 7, 14, 2);
 scene.add(fill);
+scene.fog = new THREE.FogExp2(0x000000, 0.04); // rooms fall off into darkness with distance
 
+/* Widen the vertical FOV on narrow/portrait screens so both office doorways
+   (at ~±31° horizontally) stay in view; capped to avoid extreme fisheye. */
+function fitFov(){
+  const aspect = innerWidth/innerHeight;
+  camera.aspect = aspect;
+  camera.fov = aspect >= 1.2 ? 70
+    : Math.min(100, THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(34))/aspect)));
+  camera.updateProjectionMatrix();
+}
+fitFov();
 addEventListener('resize', ()=>{
-  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  fitFov();
   renderer.setSize(innerWidth, innerHeight);
 });
 
@@ -266,6 +257,35 @@ const NODES = {
   easthall: { pos:[3.5, 1.5, -1],      look:[1.54, 1.3, 0.6],  label:'CAM 6 · EAST HALL' },
 };
 const OFFICE_POS = [0, 1.6, 3.1], OFFICE_LOOK = [0, 1.5, -4];
+
+/* 3D doors + hall door lights — anchored in the scene at the surveyed doorway
+   positions, so they line up with the map from any screen shape (the old CSS
+   overlay panels sat at fixed screen percentages and drifted off the doorways). */
+const DOOR_H = 2.5;
+function makeDoor(x, z, rotY){
+  const geo = new THREE.BoxGeometry(1.8, DOOR_H, 0.14);
+  geo.translate(0, -DOOR_H/2, 0);            // origin at top edge: scaleY grows downward
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color:0x23232b, roughness:0.6, metalness:0.35 }));
+  mesh.position.set(x, DOOR_H+0.02, z);
+  mesh.rotation.y = rotY;
+  mesh.scale.y = 0.001; mesh.visible = false;
+  scene.add(mesh);
+  return mesh;
+}
+const DOORS = {
+  L: makeDoor(-1.53, 0.6, Math.atan2( 1.97, 1.6)),
+  R: makeDoor( 1.54, 0.6, Math.atan2(-1.96, 1.6)),
+};
+const HALL_LIGHTS = {
+  L: new THREE.PointLight(0xffd9a0, 0, 7, 2),
+  R: new THREE.PointLight(0xffd9a0, 0, 7, 2),
+};
+HALL_LIGHTS.L.position.set(-2.2, 2.0, 0.2); scene.add(HALL_LIGHTS.L);
+HALL_LIGHTS.R.position.set( 2.2, 2.0, 0.2); scene.add(HALL_LIGHTS.R);
+/* where a character stands when at a hallway mouth — pulled toward the office
+   doorway so the door light actually reveals them */
+const HALL_STAND = { westhall:[-2.5, 0, -0.1], easthall:[2.5, 0, -0.1] };
 const GRAPH = {
   stage:['dining'], dining:['stage','cove','arcade'],
   cove:['dining','westhall'], arcade:['dining','easthall'],
@@ -305,9 +325,15 @@ function placeCharacterAvatar(ch){
   const n = NODES[ch.node];
   if(!n || ch.node==='office'){ ch.avatar.visible=false; return; }
   ch.avatar.visible = true;
-  ch.avatar.position.set(n.pos[0], n.pos[1]-1.2, n.pos[2]);
-  const toLook = n.look;
-  ch.avatar.lookAt(toLook[0], n.pos[1]-1.2, toLook[2]);
+  const stand = HALL_STAND[ch.node];
+  if(stand){ // at a hallway mouth: stand in the doorway, facing the office
+    ch.avatar.position.set(stand[0], n.pos[1]-1.2, stand[2]);
+    ch.avatar.lookAt(0, n.pos[1]-1.2, 3.1);
+  } else {
+    ch.avatar.position.set(n.pos[0], n.pos[1]-1.2, n.pos[2]);
+    const toLook = n.look;
+    ch.avatar.lookAt(toLook[0], n.pos[1]-1.2, toLook[2]);
+  }
 }
 for(const k in CHARACTERS) placeCharacterAvatar(CHARACTERS[k]);
 
@@ -417,22 +443,22 @@ function openMonitor(){
   monitorOpen=true;
   document.getElementById('monitor').classList.add('show');
   document.getElementById('hud').classList.remove('show');
-  document.getElementById('officeOverlay').classList.remove('show');
+  document.getElementById('camBtn').classList.add('active');
   selectCam(currentCam);
 }
 function closeMonitor(){
   monitorOpen=false;
   document.getElementById('monitor').classList.remove('show');
+  document.getElementById('camBtn').classList.remove('active');
   if(running){
     document.getElementById('hud').classList.add('show');
-    document.getElementById('officeOverlay').classList.add('show');
   }
   setOfficeView();
 }
 
 /* ---------------------------------------------------------------- doors / lights */
 function toggleDoor(side){
-  if(scareActive || !running) return;
+  if(scareActive || !running || blackoutAt!==null) return;
   audio.clunk();
   if(side==='L'){ leftDoor=!leftDoor; }
   else{ rightDoor=!rightDoor; }
@@ -441,13 +467,11 @@ function toggleDoor(side){
 function updateDoorUI(){
   document.getElementById('leftDoorBtn').classList.toggle('active', leftDoor);
   document.getElementById('rightDoorBtn').classList.toggle('active', rightDoor);
-  document.getElementById('doorPanelL').classList.toggle('closed', leftDoor);
-  document.getElementById('doorPanelR').classList.toggle('closed', rightDoor);
 }
 function toggleLight(side){
-  if(scareActive || !running) return;
-  if(side==='L'){ leftLight=!leftLight; document.getElementById('leftLightBtn').classList.toggle('active', leftLight); document.getElementById('hallLightL').classList.toggle('on', leftLight); }
-  else{ rightLight=!rightLight; document.getElementById('rightLightBtn').classList.toggle('active', rightLight); document.getElementById('hallLightR').classList.toggle('on', rightLight); }
+  if(scareActive || !running || blackoutAt!==null) return;
+  if(side==='L'){ leftLight=!leftLight; document.getElementById('leftLightBtn').classList.toggle('active', leftLight); HALL_LIGHTS.L.intensity = leftLight?10:0; }
+  else{ rightLight=!rightLight; document.getElementById('rightLightBtn').classList.toggle('active', rightLight); HALL_LIGHTS.R.intensity = rightLight?10:0; }
 }
 
 /* ---------------------------------------------------------------- animatronic AI */
@@ -536,7 +560,7 @@ function fmtClock(t){
   let h = Math.floor(hoursElapsed);
   const displayH = ((h+11)%12)+1; // 12,1,2,3,4,5
   const m = Math.floor(((hoursElapsed-h))*60);
-  return { text: displayH+':'+('0'+m).slice(-2)+' '+(h===0?'AM':'AM'), hour:h };
+  return { text: displayH+':'+('0'+m).slice(-2)+' AM', hour:h };
 }
 function startNight(n){
   night=n; gameTime=0; power=100; leftDoor=rightDoor=leftLight=rightLight=false; monitorOpen=false; scareActive=false; blackoutAt=null;
@@ -544,12 +568,17 @@ function startNight(n){
   CHARACTERS.vex.node='cove'; CHARACTERS.vex.patience=0; CHARACTERS.vex.rushing=false; CHARACTERS.vex.aiTimer=0;
   placeCharacterAvatar(CHARACTERS.grizzle); placeCharacterAvatar(CHARACTERS.vex);
   updateDoorUI(); updatePowerUI(); closeMonitor(); setOfficeView();
+  hemi.intensity = 0.5; fill.intensity = 7; audio.setHum(1);
+  HALL_LIGHTS.L.intensity = HALL_LIGHTS.R.intensity = 0;
+  DOORS.L.scale.y = DOORS.R.scale.y = 0.001;
+  DOORS.L.visible = DOORS.R.visible = false;
+  document.getElementById('leftLightBtn').classList.remove('active');
+  document.getElementById('rightLightBtn').classList.remove('active');
   document.getElementById('start').classList.add('hide');
   document.getElementById('gameover').classList.remove('show');
   document.getElementById('nightWin').classList.remove('show');
   document.getElementById('scare').classList.remove('show');
   document.getElementById('scareFlash').style.opacity='0';
-  document.getElementById('officeOverlay').classList.add('show');
   document.getElementById('ncTitle').textContent='NIGHT '+n;
   document.getElementById('ncSub').textContent='12:00 AM';
   document.getElementById('nightCard').classList.remove('hide');
@@ -565,7 +594,6 @@ function finishNight(){
   running=false;
   markComplete(night);
   document.getElementById('hud').classList.remove('show');
-  document.getElementById('officeOverlay').classList.remove('show');
   closeMonitor();
   if(night>=5){
     document.getElementById('finalWin').classList.add('show');
@@ -576,7 +604,6 @@ function finishNight(){
 function gameOver(){
   running=false; scareActive=false;
   document.getElementById('hud').classList.remove('show');
-  document.getElementById('officeOverlay').classList.remove('show');
   document.getElementById('scare').classList.remove('show');
   document.getElementById('gameover').classList.add('show');
   document.getElementById('scareFlash').style.opacity='0';
@@ -615,12 +642,32 @@ function tick(){
     updatePowerUI();
     audio.setHum(1 + (1-power/100)*0.6);
 
-    if(power<=0 && !blackoutAt){ blackoutAt = gameTime; }
+    if(power<=0 && blackoutAt===null){
+      blackoutAt = gameTime;
+      // powered systems fail: doors spring open, lights and cameras die
+      leftDoor=rightDoor=false; updateDoorUI();
+      leftLight=rightLight=false;
+      HALL_LIGHTS.L.intensity = HALL_LIGHTS.R.intensity = 0;
+      document.getElementById('leftLightBtn').classList.remove('active');
+      document.getElementById('rightLightBtn').classList.remove('active');
+      if(monitorOpen) closeMonitor();
+      document.getElementById('camBtn').classList.remove('active');
+      hemi.intensity = 0.12;
+      audio.setHum(0.2);
+    }
     if(blackoutAt!==null){
+      fill.intensity = 0.7 + Math.random()*0.9;   // dying flicker
       // power out: office goes dark, a jumpscare becomes inevitable within a short window unless 6am hits first
       if(gameTime - blackoutAt > 4 + Math.random()*10 && !scareActive){
         triggerJumpscare(CHARACTERS.grizzle);
       }
+    }
+    // slide the 3D doors toward their open/closed state
+    for(const s of ['L','R']){
+      const target = (s==='L'?leftDoor:rightDoor) ? 1 : 0.001;
+      const d = DOORS[s];
+      d.scale.y += (target - d.scale.y) * Math.min(1, dt*10);
+      d.visible = d.scale.y > 0.01;
     }
 
     aiTick(dt);
@@ -655,8 +702,8 @@ renderNightList();
 document.getElementById('playBtn').addEventListener('click', ()=>startNight(1));
 function toggleMonitorUI(){
   if(!running) return;
+  if(!monitorOpen && blackoutAt!==null) return; // no power, no cameras
   if(monitorOpen) closeMonitor(); else openMonitor();
-  document.getElementById('camBtn').classList.toggle('active', monitorOpen);
 }
 document.getElementById('camBtn').addEventListener('click', toggleMonitorUI);
 document.getElementById('monClose').addEventListener('click', toggleMonitorUI);
