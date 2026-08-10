@@ -243,6 +243,11 @@
   .ptime{ color:#83838e; font-size:12px; margin-left:auto; }
   .pbody{ font-size:14px; line-height:1.55; }
   .pbody b{ color:#ffd95e; }
+  /* attached photos — the avatar rule above targets .post canvas, so photos
+     need the extra class to win specificity and go full width */
+  .post canvas.pphoto, .post img.pphoto{ display:block; width:100%; height:auto; max-width:100%;
+    border-radius:10px; border:1px solid #3d3d46; margin-top:10px; background:#1e1e24; image-rendering:auto; }
+  .pcap{ font-size:11.5px; color:#83838e; margin-top:5px; font-style:italic; }
   .pactions{ display:flex; gap:18px; margin-top:10px; color:#9a9aa4; font-size:13px; align-items:center; }
   .plike{ cursor:pointer; user-select:none; }
   .plike.liked{ color:#e05a4a; }
@@ -297,6 +302,17 @@
   #postSend:disabled{ background:#3a3a44; color:#83838e; cursor:not-allowed; }
   #postSend:not(:disabled):active{ background:#5f5fc0; }
   #postCool{ font-size:12px; color:#83838e; }
+  #imgBtn{ background:#3a3a44; color:#e8e8e8; border:1px solid #4a4a55; border-radius:8px;
+    padding:10px 14px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  #imgBtn:active{ background:#4a4a55; }
+  #imgFile{ display:none; }
+  #imgPrev{ display:none; margin-top:10px; position:relative; width:max-content; max-width:100%; }
+  #imgPrev.show{ display:block; }
+  #imgPrev img{ display:block; max-width:190px; width:100%; height:auto; border-radius:8px; border:1px solid #4a4a55; }
+  #imgClear{ position:absolute; top:-8px; right:-8px; width:24px; height:24px; border-radius:50%;
+    border:1px solid #4a4a55; background:#26262b; color:#e8e8e8; font-size:13px; line-height:1;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+  #imgClear:active{ background:#3a3a44; }
   #postsClose{ position:fixed; top:14px; right:16px; z-index:61; display:none;
     padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
     color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
@@ -624,8 +640,11 @@
     <textarea id="postText" maxlength="280" placeholder="post something to the feed…"></textarea>
     <div id="composerRow">
       <button id="postSend">POST</button>
+      <button id="imgBtn">&#128247; IMAGE</button>
       <span id="postCool"></span>
     </div>
+    <input type="file" id="imgFile" accept="image/*">
+    <div id="imgPrev"><img id="imgPrevImg" alt="attached image preview"><button id="imgClear" aria-label="remove image">&#10005;</button></div>
   </div>
   <div id="postsFeed"></div>
 </div>
@@ -4765,6 +4784,80 @@ const POST_TPL=[
 ];
 function agoMins(mins){ return mins<1?'now':mins<60?(mins|0)+'m ago':((mins/60)|0)+'h ago'; }
 
+/* ---- procedural "photos" attached to some posts ------------------------
+   Four looks, all drawn on a canvas from the post's own seed so a given post
+   always carries the same picture: a wallpapered hallway, a dark room with
+   something in it, a specimen shot of a Mini, and a garbage VHS grab. Every
+   one gets grain and a vignette so it reads as a bad phone photo. */
+const PHOTO_W=320, PHOTO_H=200;
+function makePostPhoto(seed){
+  const c=document.createElement('canvas'); c.width=PHOTO_W; c.height=PHOTO_H;
+  c.className='pphoto';
+  const g=c.getContext('2d'), R=mulberry32(seed|0), W=PHOTO_W, H=PHOTO_H;
+  const kind=(R()*4)|0;
+
+  if(kind===0){                                   /* hallway with perspective */
+    const vx=W*(0.3+R()*0.4), vy=H*(0.45+R()*0.1);
+    g.fillStyle='#b3a04c'; g.fillRect(0,0,W,H);
+    g.fillStyle='#9c8a3e'; g.fillRect(0,0,W,vy*0.55);            // ceiling
+    g.fillStyle='#6f6229'; g.fillRect(0,vy+H*0.12,W,H);          // carpet
+    for(let i=-6;i<=6;i++){                                       // wall panel lines
+      g.strokeStyle='rgba(66,56,18,.72)'; g.lineWidth=1.4;
+      g.beginPath(); g.moveTo(vx+i*(W/6),0); g.lineTo(vx,vy); g.lineTo(vx+i*(W/6),H); g.stroke();
+    }
+    for(let d=1;d<7;d++){                                         // receding doorways
+      const t=d/7, x0=vx+(0-vx)*(1-t), x1=vx+(W-vx)*(1-t);
+      g.strokeStyle='rgba(70,60,22,.35)';
+      g.beginPath(); g.moveTo(x0,vy-(vy)*(1-t)); g.lineTo(x0,vy+(H-vy)*(1-t)); g.stroke();
+      g.beginPath(); g.moveTo(x1,vy-(vy)*(1-t)); g.lineTo(x1,vy+(H-vy)*(1-t)); g.stroke();
+    }
+    const lg=g.createRadialGradient(vx,vy,2,vx,vy,H*0.62);        // light falls off down the hall
+    lg.addColorStop(0,'rgba(255,244,186,.42)'); lg.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=lg; g.fillRect(0,0,W,H);
+    g.fillStyle='rgba(20,16,4,.30)'; g.fillRect(0,H*0.86,W,H*0.14);   // near floor drops off
+  } else if(kind===1){                            /* dark room, something in it */
+    g.fillStyle='#0d0c08'; g.fillRect(0,0,W,H);
+    const dx=W*(0.25+R()*0.45), dw=W*0.16;
+    g.fillStyle='#241f0d'; g.fillRect(dx,H*0.2,dw,H*0.62);        // doorway
+    g.fillStyle='rgba(190,170,70,.10)'; g.fillRect(dx-6,H*0.2,dw+12,H*0.62);
+    const ex=dx+dw*0.5, ey=H*(0.42+R()*0.12);
+    g.fillStyle='#f2f2ea';                                        // eyes
+    g.fillRect(ex-7,ey,4,3); g.fillRect(ex+3,ey,4,3);
+    if(R()<0.5){ g.fillStyle='rgba(242,242,234,.85)';             // and sometimes a grin
+      g.fillRect(ex-8,ey+8,16,2); g.fillRect(ex-9,ey+6,2,3); g.fillRect(ex+7,ey+6,2,3); }
+  } else if(kind===2){                            /* specimen shot of a Mini */
+    g.fillStyle='#a89442'; g.fillRect(0,0,W,H);
+    g.fillStyle='#907d36'; g.fillRect(0,H*0.72,W,H*0.28);
+    const idx=(R()*MINIS_TOTAL)|0, s=drawMiniSprite(idx), k=4.4;
+    g.save(); g.globalAlpha=0.32; g.fillStyle='#000';
+    g.beginPath(); g.ellipse(W/2,H*0.76,24*k*0.42,7,0,0,Math.PI*2); g.fill(); g.restore();
+    g.imageSmoothingEnabled=false;
+    g.drawImage(s,(W-24*k)/2,H*0.76-32*k,24*k,32*k);
+    g.imageSmoothingEnabled=true;
+  } else {                                        /* VHS grab */
+    g.fillStyle='#111'; g.fillRect(0,0,W,H);
+    for(let i=0;i<60;i++){
+      g.fillStyle=`rgba(${(R()*200)|0},${(R()*190)|0},${(R()*90)|0},${(0.05+R()*0.2).toFixed(2)})`;
+      g.fillRect(0,(R()*H)|0,W,1+((R()*3)|0));
+    }
+    g.fillStyle='rgba(150,135,50,.22)';
+    g.beginPath(); g.moveTo(W*0.42,H); g.lineTo(W*0.5,H*0.3); g.lineTo(W*0.58,H); g.fill();
+    for(let y=0;y<H;y+=3){ g.fillStyle='rgba(0,0,0,.18)'; g.fillRect(0,y,W,1); }
+  }
+
+  const grain=g.getImageData(0,0,W,H), d=grain.data;              // film grain
+  for(let i=0;i<d.length;i+=4){
+    const n=(R()*46)-23; d[i]+=n; d[i+1]+=n; d[i+2]+=n*0.8;
+  }
+  g.putImageData(grain,0,0);
+  const vg=g.createRadialGradient(W/2,H/2,H*0.22,W/2,H/2,H*0.82); // vignette
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.55)');
+  g.fillStyle=vg; g.fillRect(0,0,W,H);
+  return c;
+}
+const PHOTO_CAPS=['no filter','sorry for potato quality','zoom in on the left','this is unedited I swear',
+  'took this 20 seconds before it saw me','screenshot from the files','my hands were shaking'];
+
 /* ---- the dev feed -------------------------------------------------------
    backrooms-devfeed.json holds posts written by the dev. They are not dumped
    all at once: each player gets their own drip start stamped on first open,
@@ -4868,6 +4961,7 @@ function buildDevPost(entry){
 
   if(p.tag){ const tag=document.createElement('div'); tag.className='ptag '+p.tag; tag.textContent=p.tag; el.appendChild(tag); }
   const body=document.createElement('div'); body.className='pbody'; body.innerHTML=p.body; el.appendChild(body);
+  if(p.img){ const im=document.createElement('img'); im.className='pphoto'; im.src=p.img; im.alt=''; el.appendChild(im); }
   if(p.q){ const q=document.createElement('div'); q.className='pq'; q.textContent=p.q; el.appendChild(q); }
 
   /* thread: dev replies shipped in the json, then anything you wrote locally */
@@ -4941,7 +5035,64 @@ function buildUserPost(up){
   top.appendChild(u); top.appendChild(t);
   const body=document.createElement('div'); body.className='pbody'; body.textContent=up.body;
   el.appendChild(top); el.appendChild(body);
+  if(up.img){ const im=document.createElement('img'); im.className='pphoto'; im.src=up.img; im.alt=''; el.appendChild(im); }
   return el;
+}
+
+/* ---- attaching your own image to a post ----
+   Everything stays on the device: the file is downscaled and re-encoded to a
+   jpeg data url, which is what gets kept in localStorage. Nothing uploads. */
+let pendingImg=null;
+const IMG_MAX_DIM=720, IMG_QUALITY=0.68, IMG_MAX_BYTES=20*1024*1024;
+function shrinkImage(file){
+  return new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>reject(new Error('could not read that file'));
+    fr.onload=()=>{
+      const im=new Image();
+      im.onerror=()=>reject(new Error("that doesn't look like an image"));
+      im.onload=()=>{
+        const sc=Math.min(1, IMG_MAX_DIM/Math.max(im.width,im.height));
+        const w=Math.max(1,Math.round(im.width*sc)), h=Math.max(1,Math.round(im.height*sc));
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(im,0,0,w,h);
+        try{ resolve(c.toDataURL('image/jpeg',IMG_QUALITY)); }
+        catch(e){ reject(new Error('could not process that image')); }
+      };
+      im.src=fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+function showPendingImg(){
+  const box=document.getElementById('imgPrev');
+  if(pendingImg){ document.getElementById('imgPrevImg').src=pendingImg; box.classList.add('show'); }
+  else{ box.classList.remove('show'); document.getElementById('imgPrevImg').removeAttribute('src'); }
+}
+function clearPendingImg(){ pendingImg=null; document.getElementById('imgFile').value=''; showPendingImg(); }
+document.getElementById('imgBtn').addEventListener('click', ()=>document.getElementById('imgFile').click());
+document.getElementById('imgClear').addEventListener('click', clearPendingImg);
+document.getElementById('imgFile').addEventListener('change', async e=>{
+  const f=e.target.files && e.target.files[0];
+  if(!f) return;
+  if(!/^image\//.test(f.type)){ feedToast('images only'); clearPendingImg(); return; }
+  if(f.size>IMG_MAX_BYTES){ feedToast('that image is too big'); clearPendingImg(); return; }
+  feedToast('loading image…');
+  try{ pendingImg=await shrinkImage(f); showPendingImg(); feedToast('image attached'); }
+  catch(err){ clearPendingImg(); feedToast(err.message||'image failed'); }
+});
+
+/* localStorage is small and images are not — if the write bounces, shed the
+   oldest attached image and try again rather than losing the post */
+function saveUserPosts(posts){
+  for(;;){
+    try{ localStorage.setItem(USERPOST_KEY, JSON.stringify(posts)); return true; }
+    catch(e){
+      let dropped=false;
+      for(let i=posts.length-1;i>=0;i--) if(posts[i].img){ delete posts[i].img; dropped=true; break; }
+      if(!dropped) return false;
+    }
+  }
 }
 
 /* the composer: one post every 5 minutes, same cadence the dev posts on */
@@ -4967,16 +5118,21 @@ function drawCooldown(){
 function submitUserPost(){
   const ta=document.getElementById('postText');
   const txt=ta.value.trim();
-  if(!txt || cooldownLeft()>0) return;
+  if((!txt && !pendingImg) || cooldownLeft()>0) return;          // an image on its own is a post
   const nick=(localStorage.getItem('backrooms_nick')||'').trim()||('Wanderer'+Math.floor(Math.random()*1000));
   try{ localStorage.setItem('backrooms_nick',nick); localStorage.setItem(LASTPOST_KEY,String(Date.now())); }catch(e){}
   const posts=jload(USERPOST_KEY,[]);
-  posts.unshift({body:txt,nick,at:Date.now(),rank:rankOf(getRep()).name,sprite:5+((Math.random()*35)|0)});
-  jsave(USERPOST_KEY,posts.slice(0,40));
+  const post={body:txt,nick,at:Date.now(),rank:rankOf(getRep()).name,sprite:5+((Math.random()*35)|0)};
+  if(pendingImg) post.img=pendingImg;
+  posts.unshift(post);
+  const kept=posts.slice(0,40);
+  const ok=saveUserPosts(kept);
   ta.value='';
-  addRep(10);
+  const hadImg=!!pendingImg;
+  clearPendingImg();
+  addRep(hadImg?15:10);                                          // pictures are worth more
   renderExtraPosts();
-  feedToast('posted');
+  feedToast(ok?(hadImg?'posted with image':'posted'):'posted (too full to save)');
 }
 
 function renderExtraPosts(){
@@ -5017,7 +5173,16 @@ function renderExtraPosts(){
       like.textContent='♥ '+(like.classList.contains('liked')?likes+1:likes); });
     const rep=document.createElement('span'); rep.textContent='↩ '+((r()*40)|0);
     act.appendChild(like); act.appendChild(rep);
-    post.appendChild(top); post.appendChild(body); post.appendChild(act);
+    post.appendChild(top); post.appendChild(body);
+    /* templates 3 and 7 claim to have seen something, so those always come
+       with a picture; the rest attach one about a third of the time */
+    if(tplI===3 || tplI===7 || r()<0.32){
+      post.appendChild(makePostPhoto(seed^0x5bf03635));
+      const cap=document.createElement('div'); cap.className='pcap';
+      cap.textContent=PHOTO_CAPS[(r()*PHOTO_CAPS.length)|0];
+      post.appendChild(cap);
+    }
+    post.appendChild(act);
     feed.appendChild(post);
   }
 }
