@@ -4889,7 +4889,7 @@ function buildDevPost(entry){
   }
   const box=document.createElement('div'); box.className='rbox';
   const ta=document.createElement('textarea'); ta.maxLength=400; ta.placeholder='reply to the dev…';
-  const send=document.createElement('button'); send.className='rsend'; send.textContent='SEND TO DEV';
+  const send=document.createElement('button'); send.className='rsend'; send.textContent='REPLY';
   send.addEventListener('click',()=>{
     const txt=ta.value.trim(); if(!txt) return;
     const all=jload(REPLY_KEY,{});
@@ -4897,13 +4897,13 @@ function buildDevPost(entry){
     jsave(REPLY_KEY,all);
     addRep(15);
     ta.value='';
-    handOffReply(p,txt);
     renderExtraPosts();
+    feedToast('replied · waiting for the dev');
   });
   box.appendChild(ta); box.appendChild(send);
   thread.appendChild(box);
   const note=document.createElement('div'); note.className='rnote';
-  note.textContent='SEND TO DEV opens GitHub with your reply filled in — post it and the dev answers here in under 2 minutes.';
+  note.textContent='the dev answers in this thread — it refreshes itself, so leave the page open and the reply shows up.';
   thread.appendChild(note);
   el.appendChild(thread);
 
@@ -4927,17 +4927,6 @@ function buildDevPost(entry){
 
   if(isNew){ seen.push(p.id); jsave(SEEN_KEY,seen); addRep(2); }
   return el;
-}
-
-/* hands your reply to the dev: a prefilled GitHub issue is the only channel a
-   static page has, and it's one the dev actually watches */
-function handOffReply(p,txt){
-  const base=(DEVFEED&&DEVFEED.replyIssueUrl)||'';
-  if(!base){ feedToast('reply saved'); return; }
-  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||'a player';
-  const body=encodeURIComponent('re: '+p.id+' — "'+(p.q||p.tag||'')+'"\n\nfrom: '+nick+'\n\n'+txt);
-  try{ window.open(base+body,'_blank','noopener'); feedToast('sent to dev'); }
-  catch(e){ feedToast('reply saved'); }
 }
 
 function buildUserPost(up){

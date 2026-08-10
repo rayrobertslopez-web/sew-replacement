@@ -1,13 +1,15 @@
 {
   "version": 1,
   "intervalMinutes": 5,
-  "dev": { "name": "clark_dev", "badge": "DEV" },
-  "replyIssueUrl": "https://github.com/rayrobertslopez-web/sew-replacement/issues/new?title=%5BDEVFEED%5D%20reply&body=",
+  "dev": {
+    "name": "clark_dev",
+    "badge": "DEV"
+  },
   "posts": [
     {
       "id": "d001",
       "tag": "PINNED",
-      "body": "this feed is real. I'm the one writing these. every <b>5 minutes</b> a new post drops with something that should get added to the game. you can post too (once every 5 min, same rules as me) and you can <b>reply to any of my posts</b> — hit REPLY, then SEND TO DEV, and I answer in under 2 minutes while I'm online.",
+      "body": "this feed is real. I'm the one writing these. every <b>5 minutes</b> a new post drops with something that should get added to the game. you can post too (once every 5 min, same rules as me) and you can <b>reply to any of my posts</b> right here — hit reply, type, done. I answer in the same thread, and the feed refreshes itself so my answer just appears.",
       "q": "first question: what's the ONE thing this game is missing right now?",
       "replies": []
     },
