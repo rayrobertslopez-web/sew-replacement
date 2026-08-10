@@ -973,7 +973,20 @@ const PORTAL_POS = { x: CELL/2 + 3.4, z: CELL/2 + 3.4 };   // inside Level 0's g
 let portalSpawned = false, portalObj = null;
 
 // 3PM event: a one-time cinematic (played once per browser) + the portal it unlocks permanently afterward
-const EVENT_TARGET = new Date(2026,6,18,15,0,0).getTime();   // Saturday, July 18, 2026, 3:00 PM local — Admin Abuse live event
+/* 2-hour live event countdown. The deadline is a wall-clock timestamp persisted
+   in localStorage the first time this version loads — closing the tab, killing
+   the browser, or rebooting does NOT stop or reset it; reopening resumes at
+   wherever real time actually is. Once it hits zero it stays passed forever. */
+const EVENT_KEY = 'backrooms_event_deadline_v2';
+const EVENT_TARGET = (function(){
+  try{
+    const t = parseInt(localStorage.getItem(EVENT_KEY), 10);
+    if(!isNaN(t) && t > 0) return t;
+    const nt = Date.now() + 2*3600*1000;
+    localStorage.setItem(EVENT_KEY, String(nt));
+    return nt;
+  }catch(e){ return Date.now() + 2*3600*1000; }
+})();
 function eventPassed(){ return Date.now() >= EVENT_TARGET; }
 let cineActive = false, cineRunningBefore = false, cineVisibleScreen = null, cineCreatorBefore = false;
 
@@ -4367,7 +4380,7 @@ function finishCine(){
 }
 function maybeStartIntroCutscene(){
   if(!eventPassed()) return;
-  try{ if(localStorage.getItem('backrooms_intro_played')) return; localStorage.setItem('backrooms_intro_played','1'); }catch(e){}
+  try{ if(localStorage.getItem('backrooms_intro_played_v2')) return; localStorage.setItem('backrooms_intro_played_v2','1'); }catch(e){}
   playIntroCutscene();
 }
 
