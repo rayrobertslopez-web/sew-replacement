@@ -258,6 +258,20 @@
   .post.dev .puser{ color:#8fe0a0; }
   .pdev{ font-size:9px; font-weight:800; letter-spacing:1px; background:#3f7a4a; color:#e6ffe9;
     border-radius:4px; padding:2px 5px; margin-left:6px; vertical-align:middle; }
+  /* the game's own developer, on their posts and replies */
+  .devname{ color:#ffd95e; text-shadow:0 0 5px rgba(255,217,94,.95), 0 0 13px rgba(255,196,30,.6); }
+  .pverify{ display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px;
+    border-radius:50%; background:#1d9bf0; margin-left:5px; vertical-align:middle; flex:0 0 auto; }
+  .pverify svg{ width:10px; height:10px; display:block; }
+  .pdeveloper{ font-size:9px; font-weight:800; letter-spacing:1px; background:#d62b2b; color:#fff;
+    border-radius:4px; padding:2px 5px; margin-left:6px; vertical-align:middle; }
+  @media (prefers-reduced-motion: no-preference){
+    .devname{ animation:devGlow 2.6s ease-in-out infinite; }
+    @keyframes devGlow{
+      0%,100%{ text-shadow:0 0 4px rgba(255,217,94,.75), 0 0 11px rgba(255,196,30,.42); }
+      50%    { text-shadow:0 0 8px rgba(255,217,94,1),   0 0 20px rgba(255,196,30,.75); }
+    }
+  }
   .ptag{ display:inline-block; font-size:9px; font-weight:800; letter-spacing:1px; border-radius:4px;
     padding:2px 6px; margin-bottom:7px; background:#3d3d46; color:#c8c8d4; }
   .ptag.IDEA{ background:#3a4d6b; color:#bcd8ff; }
@@ -296,6 +310,9 @@
     padding:12px 14px; margin-bottom:18px; }
   #composer textarea{ width:100%; box-sizing:border-box; resize:vertical; min-height:60px; background:#1e1e24;
     color:#e8e8e8; border:1px solid #4a4a55; border-radius:8px; padding:9px 11px; font:inherit; font-size:14px; }
+  #nickInput{ width:100%; box-sizing:border-box; background:#1e1e24; color:#e8e8e8; border:1px solid #4a4a55;
+    border-radius:8px; padding:7px 11px; font:inherit; font-size:13px; font-weight:700; margin-bottom:8px; }
+  #nickInput.devname{ border-color:#7a6a2a; }
   #composerRow{ display:flex; align-items:center; gap:12px; margin-top:9px; }
   #postSend{ background:#4a4a9a; color:#fff; border:none; border-radius:8px; padding:10px 18px;
     font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
@@ -637,6 +654,7 @@
     <span id="repVal">0 REP</span>
   </div>
   <div id="composer">
+    <input type="text" id="nickInput" maxlength="20" placeholder="your name" autocomplete="off">
     <textarea id="postText" maxlength="280" placeholder="post something to the feed…"></textarea>
     <div id="composerRow">
       <button id="postSend">POST</button>
@@ -4974,7 +4992,13 @@ function buildDevPost(entry){
     .sort((a,b)=>a.at-b.at);
   for(const r of rows){
     const d=document.createElement('div'); d.className='reply '+r.cls;
-    const w=document.createElement('span'); w.className='rwho'; w.textContent=r.who;
+    const w=document.createElement('span'); w.className='rwho';
+    if(r.cls==='me' && isDevUser()){
+      const nm=document.createElement('span'); nm.className='devname'; nm.textContent=r.who;
+      w.appendChild(nm); w.appendChild(verifiedTick());
+      const dv=document.createElement('span'); dv.className='pdeveloper'; dv.textContent='DEVELOPER';
+      w.appendChild(dv);
+    } else w.textContent=r.who;
     d.appendChild(w);
     const bd=document.createElement('span');
     if(r.html) bd.innerHTML=r.body; else bd.textContent=r.body;   // your text is never parsed as html
@@ -5023,14 +5047,43 @@ function buildDevPost(entry){
   return el;
 }
 
+/* the blue verified circle with the white tick inside it */
+function verifiedTick(){
+  const NS='http://www.w3.org/2000/svg';
+  const wrap=document.createElement('span'); wrap.className='pverify'; wrap.title='verified developer';
+  const svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox','0 0 24 24'); svg.setAttribute('aria-hidden','true');
+  const path=document.createElementNS(NS,'path');
+  path.setAttribute('d','M20 6.5 9.5 17 4 11.5');
+  path.setAttribute('fill','none'); path.setAttribute('stroke','#fff'); path.setAttribute('stroke-width','3.4');
+  path.setAttribute('stroke-linecap','round'); path.setAttribute('stroke-linejoin','round');
+  svg.appendChild(path); wrap.appendChild(svg);
+  return wrap;
+}
+/* the ?dev=1 / ?admin=1 unlock the game already ships with decides this, so a
+   random visitor doesn't get to wear the game author's badge. Read live rather
+   than cached, since the admin flag can be unlocked mid-session. */
+function isDevUser(){ return isDev || isAdmin; }
+
 function buildUserPost(up){
   const el=document.createElement('div'); el.className='post';
   const top=document.createElement('div'); top.className='postTop';
   top.appendChild(drawMiniSprite(up.sprite||9));
   const u=document.createElement('span'); u.className='puser';
-  u.textContent=up.nick;
-  const badge=document.createElement('span'); badge.className='pdev'; badge.style.background='#4a4a9a';
-  badge.textContent=up.rank; u.appendChild(badge);
+  const nameEl=document.createElement('span');
+  /* your own feed, so renaming yourself renames every post you've made */
+  nameEl.textContent=(localStorage.getItem('backrooms_nick')||'').trim()||up.nick;
+  const asDev = isDevUser() || up.dev;
+  if(asDev) nameEl.className='devname';
+  u.appendChild(nameEl);
+  if(asDev){
+    u.appendChild(verifiedTick());
+    const dv=document.createElement('span'); dv.className='pdeveloper'; dv.textContent='DEVELOPER';
+    u.appendChild(dv);
+  } else {
+    const badge=document.createElement('span'); badge.className='pdev'; badge.style.background='#4a4a9a';
+    badge.textContent=up.rank; u.appendChild(badge);
+  }
   const t=document.createElement('span'); t.className='ptime'; t.textContent=agoMins((Date.now()-up.at)/60000);
   top.appendChild(u); top.appendChild(t);
   const body=document.createElement('div'); body.className='pbody'; body.textContent=up.body;
@@ -5123,6 +5176,7 @@ function submitUserPost(){
   try{ localStorage.setItem('backrooms_nick',nick); localStorage.setItem(LASTPOST_KEY,String(Date.now())); }catch(e){}
   const posts=jload(USERPOST_KEY,[]);
   const post={body:txt,nick,at:Date.now(),rank:rankOf(getRep()).name,sprite:5+((Math.random()*35)|0)};
+  if(isDevUser()) post.dev=true;                                    // sticks even if the flag is cleared later
   if(pendingImg) post.img=pendingImg;
   posts.unshift(post);
   const kept=posts.slice(0,40);
@@ -5216,6 +5270,17 @@ document.getElementById('postsClose').addEventListener('click', ()=>{
   document.getElementById('postsScreen').classList.remove('show');
   document.getElementById('postsClose').classList.remove('show');
 });
+/* your display name — shared with the rest of the game's nickname */
+(function(){
+  const inp=document.getElementById('nickInput');
+  inp.value=(localStorage.getItem('backrooms_nick')||'').trim();
+  if(isDevUser()) inp.classList.add('devname');
+  inp.addEventListener('input', ()=>{
+    const v=inp.value.trim();
+    try{ if(v) localStorage.setItem('backrooms_nick', v); }catch(e){}
+  });
+  inp.addEventListener('change', ()=>{ if(inp.value.trim()) renderExtraPosts(); });
+})();
 document.getElementById('postSend').addEventListener('click', submitUserPost);
 document.getElementById('postText').addEventListener('keydown', e=>{
   if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); submitUserPost(); }
