@@ -219,6 +219,37 @@
     padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
     color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
   #minisClose.show{ display:block; }
+
+  /* ---- Extra Posts (bot leak feed) ---- */
+  #postsBtn{ position:fixed; right:0; bottom:calc(env(safe-area-inset-bottom) + 18px); z-index:31;
+    padding:12px 12px 12px 16px; border:2px solid #fff; border-right:none; border-radius:12px 0 0 12px;
+    background:rgba(70,70,70,.92); color:#fff; cursor:pointer;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
+  #postsBtn:active{ background:rgba(100,100,100,.95); }
+  #postsScreen{ position:fixed; inset:0; z-index:60; display:none; overflow-y:auto;
+    background:#26262b; color:#e8e8e8; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    padding:20px 4vw calc(env(safe-area-inset-bottom) + 40px); }
+  #postsScreen.show{ display:block; }
+  #postsHead{ font-family:'Segoe Print','Comic Sans MS',cursive; font-size:clamp(30px,7vw,44px);
+    font-weight:900; transform:rotate(-1.5deg); margin:4px 0 2px; }
+  #postsSub{ color:#9a9aa4; font-size:13px; margin-bottom:18px; }
+  .post{ background:#2f2f36; border:1px solid #3d3d46; border-radius:12px; padding:12px 14px;
+    margin-bottom:12px; max-width:640px; }
+  .postTop{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .post canvas{ width:38px; height:38px; image-rendering:pixelated; border-radius:8px; background:#1e1e24; }
+  .puser{ font-weight:700; font-size:14px; }
+  .pbot{ font-size:9px; font-weight:800; letter-spacing:1px; background:#4a4a55; color:#c8c8d4;
+    border-radius:4px; padding:2px 5px; margin-left:6px; vertical-align:middle; }
+  .ptime{ color:#83838e; font-size:12px; margin-left:auto; }
+  .pbody{ font-size:14px; line-height:1.55; }
+  .pbody b{ color:#ffd95e; }
+  .pactions{ display:flex; gap:18px; margin-top:10px; color:#9a9aa4; font-size:13px; }
+  .plike{ cursor:pointer; user-select:none; }
+  .plike.liked{ color:#e05a4a; }
+  #postsClose{ position:fixed; top:14px; right:16px; z-index:61; display:none;
+    padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
+    color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
+  #postsClose.show{ display:block; }
   /* persistent settings button, always shown top-right regardless of screen/game state */
   #settingsBtn{ position:fixed; z-index:30; top:calc(env(safe-area-inset-top) + 46px); right:calc(env(safe-area-inset-right) + 14px);
     width:34px; height:34px; border-radius:8px; background:rgba(8,7,2,.55); border:1px solid rgba(200,180,90,.28);
@@ -528,6 +559,14 @@
   <div id="minisHint">scroll down to view all Minis</div>
 </div>
 <button id="minisClose">CLOSE ✕</button>
+
+<button id="postsBtn">EXTRA POSTS</button>
+<div id="postsScreen">
+  <div id="postsHead">EXTRA POSTS</div>
+  <div id="postsSub">community leaks &amp; ideas · 100% verified real humans</div>
+  <div id="postsFeed"></div>
+</div>
+<button id="postsClose">CLOSE ✕</button>
 
 <button id="settingsBtn" aria-label="Settings">&#9881;</button>
 <div id="settings" class="screen hide">
@@ -4640,6 +4679,71 @@ function closeMinis(){
 }
 document.getElementById('minisBtn').addEventListener('click', openMinis);
 document.getElementById('minisClose').addEventListener('click', closeMinis);
+
+/* ---------------------------------------------------------------- extra posts (bot feed) */
+const PB_NAMES=['leakmaster9000','xX_backroomz_Xx','definitely_not_a_bot','clark_fan_42','entity_watcher',
+  'pixel_paula','stomperfan','wall_clipper','no_clip_nancy','beep_boop_bob','minileaks_daily','sussy_source',
+  'level4ever','the_real_dev_trust','smiler_smile'];
+const POST_TPL=[
+  'LEAK: <b>{m1}</b> is getting a <b>{rar}</b> variant next update. trust me',
+  'my cousin works on the game and says <b>{m1}</b> will be able to OPEN DOORS soon',
+  'PETITION: make <b>{m1}</b> rideable. sign below',
+  'found this in the game files... <b>{m2}</b> boss fight confirmed??',
+  'they should add a shop where you trade Minis. <b>{m1}</b> for <b>{m2}</b> straight up',
+  'LEAK: new map "Level 5 — The Pool Rooms" drops when the timer hits zero',
+  'unpopular opinion: <b>{m1}</b> should be <b>{rar}</b>. its too easy to find',
+  'I saw <b>{m1}</b> and <b>{m2}</b> in the SAME hallway. devs explain',
+  'idea: if you boop the poster 10 times <b>{m1}</b> becomes your friend',
+  'LEAK: flashlight upgrade hidden on the endless road. <b>{m1}</b> guards it',
+  'the timer is NOT a timer. its counting something else. wake up',
+  'add pet <b>{m1}</b> that carries your waters',
+  'beep boop. normal human post. add more <b>{rar}</b> Minis. beep',
+  'if this post gets 100 likes the devs HAVE to add <b>{m2}</b> plushies'
+];
+function timeAgo(mins){ return mins<1?'now':mins<60?(mins|0)+'m ago':((mins/60)|0)+'h ago'; }
+function renderPosts(){
+  const feed=document.getElementById('postsFeed');
+  feed.innerHTML='';
+  const epoch=Math.floor(Date.now()/300000);        // a new bot post every 5 minutes, forever
+  for(let k=0;k<25;k++){
+    const seed=(epoch-k)*2654435761 % 2147483647;
+    const r=mulberry32(seed);
+    const nameI=(r()*PB_NAMES.length)|0, tplI=(r()*POST_TPL.length)|0;
+    const m1=(r()*MINIS_TOTAL)|0; let m2=(r()*MINIS_TOTAL)|0; if(m2===m1)m2=(m2+7)%MINIS_TOTAL;
+    const rar=RARITIES[(r()*RARITIES.length)|0];
+    const likes=(r()*420)|0;
+    const mins=k===0 ? (Date.now()/60000)%5 : k*5 + ((r()*4)|0);
+    const post=document.createElement('div'); post.className='post';
+    const top=document.createElement('div'); top.className='postTop';
+    top.appendChild(drawMiniSprite(5+((r()*35)|0)));
+    const u=document.createElement('span'); u.className='puser';
+    u.innerHTML=PB_NAMES[nameI]+'<span class="pbot">BOT</span>';
+    const t=document.createElement('span'); t.className='ptime'; t.textContent=timeAgo(mins);
+    top.appendChild(u); top.appendChild(t);
+    const body=document.createElement('div'); body.className='pbody';
+    body.innerHTML=POST_TPL[tplI]
+      .replaceAll('{m1}',miniName(m1)).replaceAll('{m2}',miniName(m2))
+      .replaceAll('{rar}',rar.key);
+    const act=document.createElement('div'); act.className='pactions';
+    const like=document.createElement('span'); like.className='plike'; like.textContent='♥ '+likes;
+    like.addEventListener('click',()=>{ like.classList.toggle('liked');
+      like.textContent='♥ '+(like.classList.contains('liked')?likes+1:likes); });
+    const rep=document.createElement('span'); rep.textContent='↩ '+((r()*40)|0);
+    act.appendChild(like); act.appendChild(rep);
+    post.appendChild(top); post.appendChild(body); post.appendChild(act);
+    feed.appendChild(post);
+  }
+}
+document.getElementById('postsBtn').addEventListener('click', ()=>{
+  renderPosts();
+  document.getElementById('postsScreen').classList.add('show');
+  document.getElementById('postsClose').classList.add('show');
+  if(document.pointerLockElement) document.exitPointerLock();
+});
+document.getElementById('postsClose').addEventListener('click', ()=>{
+  document.getElementById('postsScreen').classList.remove('show');
+  document.getElementById('postsClose').classList.remove('show');
+});
 
 /* ---------------------------------------------------------------- countdown */
 (function(){
