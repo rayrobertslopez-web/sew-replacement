@@ -211,6 +211,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:6px; }
   .minicard canvas{ width:70%; image-rendering:pixelated; }
   .minicard .mname{ font-size:12px; letter-spacing:.5px; color:#eee; text-align:center; }
+  .minicard .mrar{ font-size:10px; font-weight:700; letter-spacing:.5px; text-align:center; }
   .minicard.owned{ background:#4c6b4c; }
   .minicard.owned .mname::after{ content:' ★'; color:#ffd95e; }
   #minisHint{ text-align:center; margin-top:26px; color:#c8c8c8; font-size:15px; }
@@ -4591,17 +4592,39 @@ function drawMiniSprite(i){
   }
   return c;
 }
+/* rarity tiers — spawn chance is how likely a wild Mini encounter rolls this tier */
+const RARITIES=[
+  {key:'COMMON',    col:'#c4c4c4', chance:'50%'},
+  {key:'UNCOMMON',  col:'#6bc06b', chance:'30%'},
+  {key:'RARE',      col:'#4a8de0', chance:'12%'},
+  {key:'EPIC',      col:'#b06bd9', chance:'5%'},
+  {key:'LEGENDARY', col:'#e0973d', chance:'2%'},
+  {key:'MYTHIC',    col:'#ffd95e', chance:'0.5%'},
+];
+function miniRarity(i){
+  if(i===0) return 5;            // Entity — Mythic
+  if(i===1||i===4) return 4;     // Stomper, Smiler — Legendary
+  if(i===2||i===3) return 3;     // Crawler, Clark — Epic
+  const r=mulberry32(i*31337+3)();
+  return r<0.42?0 : r<0.72?1 : r<0.90?2 : r<0.97?3 : 4;
+}
 function renderMinis(){
   const owned = new Set(minisOwned());
   document.getElementById('minisCount').textContent = owned.size + '/' + MINIS_TOTAL + ' Minis';
   const grid = document.getElementById('minisGrid');
   grid.innerHTML='';
   for(let i=0;i<MINIS_TOTAL;i++){
+    const R=RARITIES[miniRarity(i)];
     const d=document.createElement('div');
     d.className='minicard'+(owned.has(i)?' owned':'');
+    d.style.borderColor=R.col;
+    if(miniRarity(i)>=4) d.style.boxShadow='0 0 12px '+R.col+'66';
     d.appendChild(drawMiniSprite(i));
     const n=document.createElement('div'); n.className='mname'; n.textContent=miniName(i);
     d.appendChild(n);
+    const rr=document.createElement('div'); rr.className='mrar';
+    rr.style.color=R.col; rr.textContent=R.key+' · '+R.chance+' spawn';
+    d.appendChild(rr);
     grid.appendChild(d);
   }
 }
