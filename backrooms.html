@@ -243,9 +243,60 @@
   .ptime{ color:#83838e; font-size:12px; margin-left:auto; }
   .pbody{ font-size:14px; line-height:1.55; }
   .pbody b{ color:#ffd95e; }
-  .pactions{ display:flex; gap:18px; margin-top:10px; color:#9a9aa4; font-size:13px; }
+  .pactions{ display:flex; gap:18px; margin-top:10px; color:#9a9aa4; font-size:13px; align-items:center; }
   .plike{ cursor:pointer; user-select:none; }
   .plike.liked{ color:#e05a4a; }
+  .preply{ cursor:pointer; user-select:none; }
+  .preply:active{ color:#fff; }
+  /* dev posts — the live feed authored by the dev */
+  .post.dev{ background:#2b332c; border-color:#4b7a52; }
+  .post.dev .puser{ color:#8fe0a0; }
+  .pdev{ font-size:9px; font-weight:800; letter-spacing:1px; background:#3f7a4a; color:#e6ffe9;
+    border-radius:4px; padding:2px 5px; margin-left:6px; vertical-align:middle; }
+  .ptag{ display:inline-block; font-size:9px; font-weight:800; letter-spacing:1px; border-radius:4px;
+    padding:2px 6px; margin-bottom:7px; background:#3d3d46; color:#c8c8d4; }
+  .ptag.IDEA{ background:#3a4d6b; color:#bcd8ff; }
+  .ptag.LEAK{ background:#6b4a2f; color:#ffd6a8; }
+  .ptag.PINNED{ background:#5a4a6b; color:#e0cfff; }
+  .pq{ margin-top:9px; padding:8px 10px; border-left:3px solid #6ba87a; background:#00000026;
+    border-radius:0 8px 8px 0; font-size:13.5px; color:#cfe8d4; }
+  .pnew{ font-size:9px; font-weight:800; letter-spacing:1px; background:#e05a4a; color:#fff;
+    border-radius:4px; padding:2px 5px; margin-left:6px; }
+  /* reply threads */
+  .pthread{ margin-top:10px; border-top:1px solid #3d3d46; padding-top:8px; display:none; }
+  .pthread.show{ display:block; }
+  .reply{ font-size:13px; line-height:1.5; padding:7px 10px; border-radius:8px; margin-bottom:6px;
+    background:#26262b; border-left:3px solid #4a4a55; }
+  .reply.me{ border-left-color:#7a6bd9; }
+  .reply.dev{ border-left-color:#6ba87a; background:#28322a; }
+  .reply .rwho{ font-weight:700; font-size:11.5px; letter-spacing:.5px; color:#9a9aa4; display:block; margin-bottom:3px; }
+  .reply.me .rwho{ color:#b0a4ff; }
+  .reply.dev .rwho{ color:#8fe0a0; }
+  .rbox{ display:flex; gap:8px; margin-top:8px; }
+  .rbox textarea{ flex:1; resize:vertical; min-height:52px; background:#1e1e24; color:#e8e8e8;
+    border:1px solid #4a4a55; border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; }
+  .rsend{ align-self:flex-end; background:#3f7a4a; color:#fff; border:none; border-radius:8px;
+    padding:9px 14px; font:inherit; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .rsend:active{ background:#4f9a5c; }
+  .rnote{ font-size:11.5px; color:#83838e; margin-top:6px; }
+  .rnote a{ color:#8fe0a0; }
+  /* composer + rank bar */
+  #postsBar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; max-width:640px;
+    background:#2f2f36; border:1px solid #3d3d46; border-radius:12px; padding:10px 14px; margin-bottom:14px; }
+  #rankName{ font-weight:800; font-size:13px; letter-spacing:1px; color:#ffd95e; }
+  #repVal{ font-size:12px; color:#9a9aa4; }
+  #repTrack{ flex:1 1 120px; height:6px; background:#1e1e24; border-radius:3px; overflow:hidden; min-width:100px; }
+  #repFill{ height:100%; background:linear-gradient(90deg,#6ba87a,#ffd95e); width:0%; }
+  #composer{ max-width:640px; background:#2f2f36; border:1px solid #3d3d46; border-radius:12px;
+    padding:12px 14px; margin-bottom:18px; }
+  #composer textarea{ width:100%; box-sizing:border-box; resize:vertical; min-height:60px; background:#1e1e24;
+    color:#e8e8e8; border:1px solid #4a4a55; border-radius:8px; padding:9px 11px; font:inherit; font-size:14px; }
+  #composerRow{ display:flex; align-items:center; gap:12px; margin-top:9px; }
+  #postSend{ background:#4a4a9a; color:#fff; border:none; border-radius:8px; padding:10px 18px;
+    font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  #postSend:disabled{ background:#3a3a44; color:#83838e; cursor:not-allowed; }
+  #postSend:not(:disabled):active{ background:#5f5fc0; }
+  #postCool{ font-size:12px; color:#83838e; }
   #postsClose{ position:fixed; top:14px; right:16px; z-index:61; display:none;
     padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
     color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
@@ -563,7 +614,19 @@
 <button id="postsBtn">EXTRA POSTS</button>
 <div id="postsScreen">
   <div id="postsHead">EXTRA POSTS</div>
-  <div id="postsSub">community leaks &amp; ideas · 100% verified real humans</div>
+  <div id="postsSub">community leaks &amp; ideas · <span id="postsLive">live</span></div>
+  <div id="postsBar">
+    <span id="rankName">LURKER</span>
+    <div id="repTrack"><div id="repFill"></div></div>
+    <span id="repVal">0 REP</span>
+  </div>
+  <div id="composer">
+    <textarea id="postText" maxlength="280" placeholder="post something to the feed…"></textarea>
+    <div id="composerRow">
+      <button id="postSend">POST</button>
+      <span id="postCool"></span>
+    </div>
+  </div>
   <div id="postsFeed"></div>
 </div>
 <button id="postsClose">CLOSE ✕</button>
@@ -4700,12 +4763,247 @@ const POST_TPL=[
   'beep boop. normal human post. add more <b>{rar}</b> Minis. beep',
   'if this post gets 100 likes the devs HAVE to add <b>{m2}</b> plushies'
 ];
-function timeAgo(mins){ return mins<1?'now':mins<60?(mins|0)+'m ago':((mins/60)|0)+'h ago'; }
-function renderPosts(){
+function agoMins(mins){ return mins<1?'now':mins<60?(mins|0)+'m ago':((mins/60)|0)+'h ago'; }
+
+/* ---- the dev feed -------------------------------------------------------
+   backrooms-devfeed.json holds posts written by the dev. They are not dumped
+   all at once: each player gets their own drip start stamped on first open,
+   and one more post unlocks every INTERVAL minutes from there, so the feed is
+   always live no matter when you show up. Replies you write are kept locally
+   and can be handed to the dev through a prefilled GitHub issue. */
+const DEVFEED_URL='backrooms-devfeed.json';
+const DRIP_KEY='backrooms_devfeed_start';
+const REPLY_KEY='backrooms_devfeed_replies';
+const USERPOST_KEY='backrooms_userposts';
+const SEEN_KEY='backrooms_devfeed_seen';
+const REP_KEY='backrooms_rep';
+const LASTPOST_KEY='backrooms_lastpost';
+let DEVFEED=null, dripStart=0, postsPollId=0;
+
+function dripStartTime(){
+  try{
+    const t=parseInt(localStorage.getItem(DRIP_KEY),10);
+    if(t>0 && t<=Date.now()) return t;
+    const now=Date.now(); localStorage.setItem(DRIP_KEY,String(now)); return now;
+  }catch(e){ return Date.now(); }
+}
+function jload(key,dflt){ try{ const v=JSON.parse(localStorage.getItem(key)); return v==null?dflt:v; }catch(e){ return dflt; } }
+function jsave(key,val){ try{ localStorage.setItem(key,JSON.stringify(val)); }catch(e){} }
+
+/* ---- rep + ranks: the feed is a game too ---- */
+const RANKS=[
+  {rep:0,    name:'LURKER'},
+  {rep:50,   name:'POSTER'},
+  {rep:150,  name:'LEAKER'},
+  {rep:350,  name:'INSIDER'},
+  {rep:700,  name:'MOD'},
+  {rep:1200, name:'CO-DEV'},
+];
+function getRep(){ const n=parseInt(localStorage.getItem(REP_KEY),10); return n>0?n:0; }
+function addRep(n){
+  const before=rankOf(getRep());
+  const now=getRep()+n;
+  try{ localStorage.setItem(REP_KEY,String(now)); }catch(e){}
+  drawRankBar();
+  if(rankOf(now).name!==before.name) feedToast('RANK UP → '+rankOf(now).name);
+}
+function rankOf(rep){ let r=RANKS[0]; for(const k of RANKS) if(rep>=k.rep) r=k; return r; }
+function nextRank(rep){ return RANKS.find(k=>rep<k.rep)||null; }
+function drawRankBar(){
+  const rep=getRep(), cur=rankOf(rep), nxt=nextRank(rep);
+  document.getElementById('rankName').textContent=cur.name;
+  document.getElementById('repVal').textContent = nxt ? (rep+' / '+nxt.rep+' REP') : (rep+' REP · MAXED');
+  const pct = nxt ? ((rep-cur.rep)/(nxt.rep-cur.rep))*100 : 100;
+  document.getElementById('repFill').style.width=Math.max(2,Math.min(100,pct))+'%';
+}
+/* small transient message reusing the feed subtitle line */
+let feedToastT=0;
+function feedToast(msg){
+  const el=document.getElementById('postsLive');
+  el.textContent=msg; clearTimeout(feedToastT);
+  feedToastT=setTimeout(()=>{ el.textContent='live'; },3200);
+}
+
+async function loadDevFeed(){
+  try{
+    const res=await fetch(DEVFEED_URL+'?t='+Math.floor(Date.now()/30000),{cache:'no-store'});
+    if(!res.ok) return false;
+    const data=await res.json();
+    if(!data || !Array.isArray(data.posts)) return false;
+    DEVFEED=data; return true;
+  }catch(e){ return false; }   // offline / file:// — the feed still runs on bot posts
+}
+/* how many dev posts have unlocked so far, oldest first */
+function releasedDevPosts(){
+  if(!DEVFEED) return [];
+  const iv=(DEVFEED.intervalMinutes||5)*60000;
+  const n=Math.min(DEVFEED.posts.length, Math.floor((Date.now()-dripStart)/iv)+1);
+  const out=[];
+  for(let i=0;i<n;i++) out.push({ post:DEVFEED.posts[i], at:dripStart+i*iv });
+  return out;
+}
+function msUntilNextDevPost(){
+  if(!DEVFEED) return null;
+  const iv=(DEVFEED.intervalMinutes||5)*60000;
+  const n=Math.floor((Date.now()-dripStart)/iv)+1;
+  if(n>=DEVFEED.posts.length) return null;
+  return (dripStart+n*iv)-Date.now();
+}
+
+function buildDevPost(entry){
+  const p=entry.post;
+  const seen=jload(SEEN_KEY,[]);
+  const isNew=seen.indexOf(p.id)<0;
+  const el=document.createElement('div'); el.className='post dev';
+
+  const top=document.createElement('div'); top.className='postTop';
+  top.appendChild(drawMiniSprite(3));                       // Clark sprite for the dev account
+  const u=document.createElement('span'); u.className='puser';
+  u.innerHTML=((DEVFEED.dev&&DEVFEED.dev.name)||'clark_dev')+'<span class="pdev">'+((DEVFEED.dev&&DEVFEED.dev.badge)||'DEV')+'</span>'
+    +(isNew?'<span class="pnew">NEW</span>':'');
+  const t=document.createElement('span'); t.className='ptime';
+  t.textContent=agoMins((Date.now()-entry.at)/60000);
+  top.appendChild(u); top.appendChild(t);
+  el.appendChild(top);
+
+  if(p.tag){ const tag=document.createElement('div'); tag.className='ptag '+p.tag; tag.textContent=p.tag; el.appendChild(tag); }
+  const body=document.createElement('div'); body.className='pbody'; body.innerHTML=p.body; el.appendChild(body);
+  if(p.q){ const q=document.createElement('div'); q.className='pq'; q.textContent=p.q; el.appendChild(q); }
+
+  /* thread: dev replies shipped in the json, then anything you wrote locally */
+  const thread=document.createElement('div'); thread.className='pthread';
+  const mine=jload(REPLY_KEY,{})[p.id]||[];
+  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||'you';
+  const rows=[]
+    .concat((p.replies||[]).map(r=>({who:((DEVFEED.dev&&DEVFEED.dev.name)||'clark_dev'),cls:'dev',body:r.body,at:r.at||0,html:true})))
+    .concat(mine.map(r=>({who:nick,cls:'me',body:r.body,at:r.at||0,html:false})))
+    .sort((a,b)=>a.at-b.at);
+  for(const r of rows){
+    const d=document.createElement('div'); d.className='reply '+r.cls;
+    const w=document.createElement('span'); w.className='rwho'; w.textContent=r.who;
+    d.appendChild(w);
+    const bd=document.createElement('span');
+    if(r.html) bd.innerHTML=r.body; else bd.textContent=r.body;   // your text is never parsed as html
+    d.appendChild(bd);
+    thread.appendChild(d);
+  }
+  const box=document.createElement('div'); box.className='rbox';
+  const ta=document.createElement('textarea'); ta.maxLength=400; ta.placeholder='reply to the dev…';
+  const send=document.createElement('button'); send.className='rsend'; send.textContent='SEND TO DEV';
+  send.addEventListener('click',()=>{
+    const txt=ta.value.trim(); if(!txt) return;
+    const all=jload(REPLY_KEY,{});
+    (all[p.id]=all[p.id]||[]).push({body:txt,at:Date.now()});
+    jsave(REPLY_KEY,all);
+    addRep(15);
+    ta.value='';
+    handOffReply(p,txt);
+    renderExtraPosts();
+  });
+  box.appendChild(ta); box.appendChild(send);
+  thread.appendChild(box);
+  const note=document.createElement('div'); note.className='rnote';
+  note.textContent='SEND TO DEV opens GitHub with your reply filled in — post it and the dev answers here in under 2 minutes.';
+  thread.appendChild(note);
+  el.appendChild(thread);
+
+  const act=document.createElement('div'); act.className='pactions';
+  let h=0; for(let i=0;i<p.id.length;i++) h=(h*31+p.id.charCodeAt(i))|0;
+  const likes=140+((mulberry32(h)()*780)|0);
+  const like=document.createElement('span'); like.className='plike'; like.textContent='♥ '+likes;
+  like.addEventListener('click',()=>{
+    const on=like.classList.toggle('liked');
+    like.textContent='♥ '+(on?likes+1:likes);
+    if(on) addRep(1);
+  });
+  const rep=document.createElement('span'); rep.className='preply';
+  rep.textContent='↩ reply ('+(rows.length)+')';
+  rep.addEventListener('click',()=>{
+    thread.classList.toggle('show');
+    if(thread.classList.contains('show')) ta.focus();
+  });
+  act.appendChild(like); act.appendChild(rep);
+  el.appendChild(act);
+
+  if(isNew){ seen.push(p.id); jsave(SEEN_KEY,seen); addRep(2); }
+  return el;
+}
+
+/* hands your reply to the dev: a prefilled GitHub issue is the only channel a
+   static page has, and it's one the dev actually watches */
+function handOffReply(p,txt){
+  const base=(DEVFEED&&DEVFEED.replyIssueUrl)||'';
+  if(!base){ feedToast('reply saved'); return; }
+  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||'a player';
+  const body=encodeURIComponent('re: '+p.id+' — "'+(p.q||p.tag||'')+'"\n\nfrom: '+nick+'\n\n'+txt);
+  try{ window.open(base+body,'_blank','noopener'); feedToast('sent to dev'); }
+  catch(e){ feedToast('reply saved'); }
+}
+
+function buildUserPost(up){
+  const el=document.createElement('div'); el.className='post';
+  const top=document.createElement('div'); top.className='postTop';
+  top.appendChild(drawMiniSprite(up.sprite||9));
+  const u=document.createElement('span'); u.className='puser';
+  u.textContent=up.nick;
+  const badge=document.createElement('span'); badge.className='pdev'; badge.style.background='#4a4a9a';
+  badge.textContent=up.rank; u.appendChild(badge);
+  const t=document.createElement('span'); t.className='ptime'; t.textContent=agoMins((Date.now()-up.at)/60000);
+  top.appendChild(u); top.appendChild(t);
+  const body=document.createElement('div'); body.className='pbody'; body.textContent=up.body;
+  el.appendChild(top); el.appendChild(body);
+  return el;
+}
+
+/* the composer: one post every 5 minutes, same cadence the dev posts on */
+const POST_COOLDOWN=300000;
+function cooldownLeft(){
+  const last=parseInt(localStorage.getItem(LASTPOST_KEY),10)||0;
+  return Math.max(0,last+POST_COOLDOWN-Date.now());
+}
+function drawCooldown(){
+  const btn=document.getElementById('postSend'), lbl=document.getElementById('postCool');
+  const left=cooldownLeft();
+  if(left>0){
+    btn.disabled=true;
+    const s=Math.ceil(left/1000);
+    lbl.textContent='next post in '+Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);
+  } else {
+    btn.disabled=false;
+    const nxt=msUntilNextDevPost();
+    lbl.textContent = nxt==null ? 'you can post' :
+      'you can post · dev posts again in '+Math.ceil(nxt/60000)+'m';
+  }
+}
+function submitUserPost(){
+  const ta=document.getElementById('postText');
+  const txt=ta.value.trim();
+  if(!txt || cooldownLeft()>0) return;
+  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||('Wanderer'+Math.floor(Math.random()*1000));
+  try{ localStorage.setItem('backrooms_nick',nick); localStorage.setItem(LASTPOST_KEY,String(Date.now())); }catch(e){}
+  const posts=jload(USERPOST_KEY,[]);
+  posts.unshift({body:txt,nick,at:Date.now(),rank:rankOf(getRep()).name,sprite:5+((Math.random()*35)|0)});
+  jsave(USERPOST_KEY,posts.slice(0,40));
+  ta.value='';
+  addRep(10);
+  renderExtraPosts();
+  feedToast('posted');
+}
+
+function renderExtraPosts(){
   const feed=document.getElementById('postsFeed');
   feed.innerHTML='';
+  drawRankBar(); drawCooldown();
+
+  /* dev posts and your own posts sit at the top, newest first */
+  const mixed=[]
+    .concat(releasedDevPosts().map(e=>({at:e.at,make:()=>buildDevPost(e)})))
+    .concat(jload(USERPOST_KEY,[]).map(up=>({at:up.at,make:()=>buildUserPost(up)})))
+    .sort((a,b)=>b.at-a.at);
+  for(const m of mixed) feed.appendChild(m.make());
+
   const epoch=Math.floor(Date.now()/300000);        // a new bot post every 5 minutes, forever
-  for(let k=0;k<25;k++){
+  for(let k=0;k<18;k++){
     const seed=(epoch-k)*2654435761 % 2147483647;
     const r=mulberry32(seed);
     const nameI=(r()*PB_NAMES.length)|0, tplI=(r()*POST_TPL.length)|0;
@@ -4718,7 +5016,7 @@ function renderPosts(){
     top.appendChild(drawMiniSprite(5+((r()*35)|0)));
     const u=document.createElement('span'); u.className='puser';
     u.innerHTML=PB_NAMES[nameI]+'<span class="pbot">BOT</span>';
-    const t=document.createElement('span'); t.className='ptime'; t.textContent=timeAgo(mins);
+    const t=document.createElement('span'); t.className='ptime'; t.textContent=agoMins(mins);
     top.appendChild(u); top.appendChild(t);
     const body=document.createElement('div'); body.className='pbody';
     body.innerHTML=POST_TPL[tplI]
@@ -4734,15 +5032,39 @@ function renderPosts(){
     feed.appendChild(post);
   }
 }
-document.getElementById('postsBtn').addEventListener('click', ()=>{
-  renderPosts();
+document.getElementById('postsBtn').addEventListener('click', async ()=>{
+  dripStart=dripStartTime();
   document.getElementById('postsScreen').classList.add('show');
   document.getElementById('postsClose').classList.add('show');
   if(document.pointerLockElement) document.exitPointerLock();
+  renderExtraPosts();
+  if(await loadDevFeed()) renderExtraPosts();
+  /* keep it live while the screen is open: re-pull the json for new dev
+     replies, and re-render so unlocked posts and timers stay honest */
+  clearInterval(postsPollId);
+  let ticks=0;
+  postsPollId=setInterval(async ()=>{
+    ticks++;
+    drawCooldown();
+    const before=releasedDevPosts().length;
+    const replies=DEVFEED?JSON.stringify(DEVFEED.posts.map(p=>(p.replies||[]).length)):'';
+    if(ticks%6===0) await loadDevFeed();                     // refetch every ~60s
+    const after=releasedDevPosts().length;
+    const repliesNow=DEVFEED?JSON.stringify(DEVFEED.posts.map(p=>(p.replies||[]).length)):'';
+    if(after!==before || repliesNow!==replies){
+      renderExtraPosts();
+      feedToast(after>before?'new dev post':'the dev replied');
+    }
+  },10000);
 });
 document.getElementById('postsClose').addEventListener('click', ()=>{
+  clearInterval(postsPollId); postsPollId=0;
   document.getElementById('postsScreen').classList.remove('show');
   document.getElementById('postsClose').classList.remove('show');
+});
+document.getElementById('postSend').addEventListener('click', submitUserPost);
+document.getElementById('postText').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); submitUserPost(); }
 });
 
 /* ---------------------------------------------------------------- countdown */

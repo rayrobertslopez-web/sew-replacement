@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "intervalMinutes": 5,
+  "dev": { "name": "clark_dev", "badge": "DEV" },
+  "replyIssueUrl": "https://github.com/rayrobertslopez-web/sew-replacement/issues/new?title=%5BDEVFEED%5D%20reply&body=",
+  "posts": [
+    {
+      "id": "d001",
+      "tag": "PINNED",
+      "body": "this feed is real. I'm the one writing these. every <b>5 minutes</b> a new post drops with something that should get added to the game. you can post too (once every 5 min, same rules as me) and you can <b>reply to any of my posts</b> — hit REPLY, then SEND TO DEV, and I answer in under 2 minutes while I'm online.",
+      "q": "first question: what's the ONE thing this game is missing right now?",
+      "replies": []
+    },
+    {
+      "id": "d002",
+      "tag": "IDEA",
+      "body": "<b>almond water should do something.</b> right now it's set dressing. make it stamina: drinking gives you ~12 seconds of real sprint, and bottles get rarer the deeper you go. Level 0 is littered with them. Level 4 has maybe two on the whole road. suddenly running is a resource you spend, not a button you hold.",
+      "q": "should sprint have a stamina bar, or should it just be bottle-by-bottle?",
+      "replies": []
+    },
+    {
+      "id": "d003",
+      "tag": "IDEA",
+      "body": "<b>the Entity should hunt sound, not sight.</b> sprinting is loud. the flashlight clicking on is loud. walking into a wall is loud. crouch-walking is silent but slow. that one change turns every hallway into a decision instead of a corridor. you'd hear yourself getting caught.",
+      "q": "would you want a visible noise meter, or should you have to feel it out?",
+      "replies": []
+    },
+    {
+      "id": "d004",
+      "tag": "LEAK",
+      "body": "<b>flashlight batteries.</b> the light shouldn't be infinite. give it ~4 minutes, batteries scattered in rooms, and here's the hook — when the light starts dying and flickering, the <b>Smiler</b> gets braver. low battery isn't just inconvenient, it's bait. players would start rationing darkness on purpose.",
+      "q": "too stressful, or exactly the right amount of stressful?",
+      "replies": []
+    },
+    {
+      "id": "d005",
+      "tag": "IDEA",
+      "body": "<b>noclip should be a real mechanic.</b> certain wall seams are soft — press into one for 3 seconds and you fall through into <b>Level 2</b>. no menu, no button, just a wall that gives. players would spend hours pushing into corners looking for the soft ones. that's the whole backrooms feeling in one mechanic.",
+      "q": "should soft walls look different, or be completely invisible until you push?",
+      "replies": []
+    },
+    {
+      "id": "d006",
+      "tag": "IDEA",
+      "body": "<b>the Minis need to actually do something.</b> the collection screen says \"Minis give the player an ability to survive\" and then they don't. let you equip <b>one</b> before a run: Clark = extra water slot. Crawler = quiet footsteps. Smiler = you see in the dark but the Entity sees you too. Entity = you move faster but noise doubled. one slot only, so it's a real choice.",
+      "q": "one Mini slot or two? two feels generous, one feels tense.",
+      "replies": []
+    },
+    {
+      "id": "d007",
+      "tag": "IDEA",
+      "body": "<b>a map that draws itself.</b> pick up a clipboard, and from then on the level auto-maps behind you — but badly. corridors drift. rooms overlap. sometimes it draws a hallway that isn't there. a map you can't fully trust is scarier than no map at all, and it fixes the real problem, which is that people get lost in a boring way instead of a scary way.",
+      "q": "should the map lie to you, or just be incomplete?",
+      "replies": []
+    },
+    {
+      "id": "d008",
+      "tag": "IDEA",
+      "body": "<b>Level 3 — The Electrical Station.</b> hot, wet, dark. pipe mazes and standing water. you have to find and turn <b>three valves</b> to open the exit, and the water level rises the whole time. the Crawler is fast in water. it's a timed level in a game that otherwise has no timer, which makes it feel completely different from 0, 1, 2 and 4.",
+      "q": "three valves or five? and should the water actually drown you?",
+      "replies": []
+    },
+    {
+      "id": "d009",
+      "tag": "IDEA",
+      "body": "<b>a camera.</b> polaroid in your inventory. photograph an entity and it fills in a bestiary page — first photo of each creature <b>unlocks that Mini</b>. now collecting all 40 isn't a grind, it's 40 little dares. and you have to get close enough for the shot. the flash gives you away.",
+      "q": "should the flash aggro whatever you photographed? I say yes.",
+      "replies": []
+    },
+    {
+      "id": "d010",
+      "tag": "IDEA",
+      "body": "<b>daily seed.</b> every player gets the exact same maze layout for 24 hours, one attempt, and a leaderboard for deepest level reached. same maze for everyone means people can actually talk about it — \"did you find the room behind the vending machines today\" — instead of everyone having a private unshareable run.",
+      "q": "one attempt a day, or unlimited attempts with only your best counting?",
+      "replies": []
+    },
+    {
+      "id": "d011",
+      "tag": "IDEA",
+      "body": "<b>the radio.</b> a pocket radio that plays static, and the static gets louder and dirtier the closer an entity is. no UI, no health bar, no red flash — just sound telling you the truth. you'd learn to stop walking and listen. it also means you can be wrong, because it doesn't tell you which direction.",
+      "q": "should it point a direction, or stay cruel and directionless?",
+      "replies": []
+    },
+    {
+      "id": "d012",
+      "tag": "IDEA",
+      "body": "<b>wall writing.</b> let a player scrawl one short message on a wall, and other players see it in that same spot in their run. \"don't go left.\" \"it followed me from the lobby.\" \"i was here 4 days ago.\" you get one scrawl per run so people don't spam it. the level becomes haunted by other people instead of just monsters.",
+      "q": "one message per run sound right? and should you be able to erase someone else's?",
+      "replies": []
+    },
+    {
+      "id": "d013",
+      "tag": "IDEA",
+      "body": "<b>footprints in the dust.</b> you leave tracks. so when you walk into a room and see prints already there, you either looped back to where you started, or something walked through five minutes ago. this is the cheapest possible fix for \"am I going in circles\" and it doubles as a horror device for free.",
+      "q": "should the Entity leave tracks too, or only you?",
+      "replies": []
+    },
+    {
+      "id": "d014",
+      "tag": "LEAK",
+      "body": "<b>the countdown isn't decorative.</b> when it hits zero, the <b>Stomper roams Level 0</b> for one real hour. not scripted, not a cutscene — it just walks the lobby and you either go in during that window for better loot or you don't go in at all. a weekly hour where the safest level becomes the worst one.",
+      "q": "would you actually go in during the Stomper hour? be honest.",
+      "replies": []
+    },
+    {
+      "id": "d015",
+      "tag": "IDEA",
+      "body": "<b>Mini fusion.</b> duplicates are dead weight right now. let two duplicates of the same tier fuse into one roll at the tier above. COMMON + COMMON = one UNCOMMON. it gives every junk pull a floor value and it means MYTHIC is reachable by grinding, not just by luck.",
+      "q": "should fusion be guaranteed, or a percentage that can fail?",
+      "replies": []
+    },
+    {
+      "id": "d016",
+      "tag": "IDEA",
+      "body": "<b>a sanity meter you can't see.</b> too long alone, too long in the dark, and the level starts lying — exit doors that vanish when you reach them, a hallway that's the same hallway four times, footsteps that are yours on a delay. no bar, no number. the only cure is finding a lit room and standing in it.",
+      "q": "no meter at all, or a subtle one like the screen edges going soft?",
+      "replies": []
+    },
+    {
+      "id": "d017",
+      "tag": "IDEA",
+      "body": "<b>tapes.</b> there are already recordings in this game's files. scatter them as cassettes — find one, it plays over your run while you keep walking, and it's someone who was here before you, mid-sentence, not explaining anything. lore that doesn't stop the game to deliver itself is the only lore worth having.",
+      "q": "should tapes keep playing if an entity is near, or cut out to protect you?",
+      "replies": []
+    },
+    {
+      "id": "d018",
+      "tag": "IDEA",
+      "body": "<b>the Endless Road needs a number.</b> Level 4 is infinite, so give it distance markers and track your record. mile 1, mile 2, mile 7 — and put something at every fifth marker. a chair. a door frame with no wall. a vending machine that works. an infinite level with no measurement is just a long hallway; with a counter it's a dare.",
+      "q": "what should be sitting at mile 5? I want your answer for this one.",
+      "replies": []
+    },
+    {
+      "id": "d019",
+      "tag": "IDEA",
+      "body": "<b>lost &amp; found.</b> one room, always the same room, where you can leave one item behind for a stranger and take one item someone else left. asynchronous, no chat, no names. you'd remember the person who left you a full flashlight battery on a bad run for a long time.",
+      "q": "should you see WHO left it, or does anonymous hit harder?",
+      "replies": []
+    },
+    {
+      "id": "d020",
+      "tag": "IDEA",
+      "body": "<b>doors that only exist when you're not looking.</b> Smiler mechanic. a door appears in your peripheral vision; look straight at it and it's wall again. to go through, you have to walk at it while looking sideways. it's uncomfortable to do on purpose and that's the entire point.",
+      "q": "cool or too gimmicky? tell me straight, I can take it.",
+      "replies": []
+    },
+    {
+      "id": "d021",
+      "tag": "IDEA",
+      "body": "<b>Entity variants.</b> right now it hunts, full stop. split it: <b>patrollers</b> walk a fixed loop and are avoidable if you learn the route, <b>hunters</b> track you and never stop, <b>sleepers</b> stand still in a room until you make noise. same model, three behaviours, and suddenly every encounter is a puzzle instead of a chase.",
+      "q": "which of the three would you be most scared of?",
+      "replies": []
+    },
+    {
+      "id": "d022",
+      "tag": "IDEA",
+      "body": "<b>inventory limit: 4 slots.</b> water, battery, tape, camera, clipboard, valve wrench — you can't take it all. dropping the camera to carry one more battery should be a decision you regret later. games get tense when the backpack is small.",
+      "q": "4 slots, or 6? 6 is friendlier, 4 is meaner.",
+      "replies": []
+    },
+    {
+      "id": "d023",
+      "tag": "IDEA",
+      "body": "<b>trade codes.</b> Minis trade without a server: your game turns a Mini into a short code string, you send it to a friend however you want, they paste it in and it's theirs — and it leaves your collection. no accounts, no backend, works on a static page. the whole trading economy runs on people texting each other codes.",
+      "q": "should a traded Mini be marked as traded forever, like a scar?",
+      "replies": []
+    },
+    {
+      "id": "d024",
+      "tag": "IDEA",
+      "body": "<b>achievements should pay out.</b> right now they toast and vanish. make each one a flashlight skin, a starting item, or a Mini roll. FIRST DEATH gives you a cracked lens that flickers. STOMPED gives you a heavy torch that's brighter but slower to raise. the reward for surviving badly should be a souvenir.",
+      "q": "what should TO BE CONTINUED unlock? it's the best achievement name here.",
+      "replies": []
+    }
+  ]
+}
