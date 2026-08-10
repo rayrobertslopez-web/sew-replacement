@@ -262,11 +262,46 @@ const OFFICE_POS = [0, 1.6, 3.1], OFFICE_LOOK = [0, 1.5, -4];
    positions, so they line up with the map from any screen shape (the old CSS
    overlay panels sat at fixed screen percentages and drifted off the doorways). */
 const DOOR_H = 2.5;
+function canvasTexture(w, h, draw){
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  draw(c.getContext('2d'), w, h);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace;
+  return t;
+}
+/* riveted steel door with hazard stripes, modeled on the reference photo */
+const doorTex = canvasTexture(256, 512, (g,w,h)=>{
+  const grad=g.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'#1a1a1f'); grad.addColorStop(.5,'#121216'); grad.addColorStop(1,'#0d0d10');
+  g.fillStyle=grad; g.fillRect(0,0,w,h);
+  g.strokeStyle='#2c2c33'; g.lineWidth=10; g.strokeRect(5,5,w-10,h-10);
+  g.strokeStyle='#000'; g.lineWidth=2; g.strokeRect(12,12,w-24,h-24);
+  /* hazard band near the top */
+  g.save(); g.beginPath(); g.rect(14,42,w-28,52); g.clip();
+  g.fillStyle='#0e0e0e'; g.fillRect(14,42,w-28,52);
+  g.fillStyle='#c79a2a';
+  for(let x=-60;x<w+60;x+=44){ g.beginPath();
+    g.moveTo(x,94); g.lineTo(x+22,42); g.lineTo(x+44,42); g.lineTo(x+22,94); g.closePath(); g.fill(); }
+  g.restore();
+  /* rivets down both edges */
+  g.fillStyle='#3a3a44';
+  for(let y=36;y<h-20;y+=46){
+    for(const x of [26, w-26]){
+      g.beginPath(); g.arc(x,y,5,0,7); g.fill();
+      g.fillStyle='#55555f'; g.beginPath(); g.arc(x-1.5,y-1.5,2,0,7); g.fill();
+      g.fillStyle='#3a3a44';
+    }
+  }
+  /* faint scratches */
+  g.strokeStyle='rgba(160,160,170,.08)'; g.lineWidth=1.5;
+  for(let i=0;i<14;i++){ g.beginPath();
+    const x1=Math.random()*w, y1=110+Math.random()*(h-140);
+    g.moveTo(x1,y1); g.lineTo(x1+(Math.random()-0.5)*90, y1+(Math.random()-0.5)*40); g.stroke(); }
+});
 function makeDoor(x, z, rotY){
   const geo = new THREE.BoxGeometry(1.8, DOOR_H, 0.14);
   geo.translate(0, -DOOR_H/2, 0);            // origin at top edge: scaleY grows downward
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    color:0x23232b, roughness:0.6, metalness:0.35 }));
+    map:doorTex, roughness:0.55, metalness:0.3 }));
   mesh.position.set(x, DOOR_H+0.02, z);
   mesh.rotation.y = rotY;
   mesh.scale.y = 0.001; mesh.visible = false;
@@ -286,6 +321,72 @@ HALL_LIGHTS.R.position.set( 2.2, 2.0, 0.2); scene.add(HALL_LIGHTS.R);
 /* where a character stands when at a hallway mouth — pulled toward the office
    doorway so the door light actually reveals them */
 const HALL_STAND = { westhall:[-2.5, 0, -0.1], easthall:[2.5, 0, -0.1] };
+
+/* office wall poster — tap the bear's nose for a classic surprise */
+const NOSE_UV = { u:0.5, v:0.512, r:0.11 };
+const posterTex = canvasTexture(256, 340, (g,w,h)=>{
+  g.fillStyle='#caa96a'; g.fillRect(0,0,w,h);
+  g.strokeStyle='#4a3a22'; g.lineWidth=14; g.strokeRect(7,7,w-14,h-14);
+  g.strokeStyle='rgba(74,58,34,.25)'; g.lineWidth=1;
+  for(let i=0;i<9;i++){ g.beginPath(); g.moveTo(20,40+i*32); g.lineTo(w-20,44+i*32); g.stroke(); }
+  /* ears */
+  g.fillStyle='#7a4a20';
+  g.beginPath(); g.arc(78,92,24,0,7); g.fill();
+  g.beginPath(); g.arc(178,92,24,0,7); g.fill();
+  g.fillStyle='#5d3717';
+  g.beginPath(); g.arc(78,92,13,0,7); g.fill();
+  g.beginPath(); g.arc(178,92,13,0,7); g.fill();
+  /* head */
+  g.fillStyle='#7a4a20'; g.beginPath(); g.arc(128,150,62,0,7); g.fill();
+  /* top hat */
+  g.fillStyle='#0c0c0c';
+  g.fillRect(88,28,80,44); g.fillRect(70,64,116,14);
+  /* muzzle */
+  g.fillStyle='#c9995a'; g.beginPath(); g.ellipse(128,178,40,30,0,0,7); g.fill();
+  /* eyes */
+  g.fillStyle='#e8e0cc';
+  g.beginPath(); g.arc(103,138,10,0,7); g.fill();
+  g.beginPath(); g.arc(153,138,10,0,7); g.fill();
+  g.fillStyle='#141414';
+  g.beginPath(); g.arc(103,139,4.5,0,7); g.fill();
+  g.beginPath(); g.arc(153,139,4.5,0,7); g.fill();
+  /* brows */
+  g.strokeStyle='#3f2510'; g.lineWidth=5;
+  g.beginPath(); g.arc(103,127,13,1.15*Math.PI,1.85*Math.PI); g.stroke();
+  g.beginPath(); g.arc(153,127,13,1.15*Math.PI,1.85*Math.PI); g.stroke();
+  /* the nose */
+  g.fillStyle='#191512'; g.beginPath(); g.ellipse(128,166,13,9,0,0,7); g.fill();
+  g.fillStyle='#403830'; g.beginPath(); g.ellipse(124,163,3.5,2.5,0,0,7); g.fill();
+  /* smile */
+  g.strokeStyle='#3f2510'; g.lineWidth=4;
+  g.beginPath(); g.arc(128,183,18,0.15*Math.PI,0.85*Math.PI); g.stroke();
+  /* bow tie */
+  g.fillStyle='#0c0c0c';
+  g.beginPath(); g.moveTo(128,224); g.lineTo(100,212); g.lineTo(100,238); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(128,224); g.lineTo(156,212); g.lineTo(156,238); g.closePath(); g.fill();
+  g.beginPath(); g.arc(128,224,6,0,7); g.fill();
+  /* caption */
+  g.fillStyle='#4a3a22'; g.font='900 26px "Courier New",monospace'; g.textAlign='center';
+  g.fillText('CELEBRATE!', 128, 306);
+});
+const poster = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.55, 0.75),
+  new THREE.MeshStandardMaterial({ map:posterTex, roughness:0.9 })
+);
+poster.position.set(1.12, 1.95, 1.3);
+poster.rotation.y = -0.55;
+scene.add(poster);
+const boopSfx = new Audio('./boop.mp3'); boopSfx.preload='auto';
+const _ray = new THREE.Raycaster(), _ptr = new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown', (e)=>{
+  if(monitorOpen || scareActive) return;
+  _ptr.x=(e.clientX/innerWidth)*2-1; _ptr.y=-(e.clientY/innerHeight)*2+1;
+  _ray.setFromCamera(_ptr, camera);
+  const hit=_ray.intersectObject(poster,false)[0];
+  if(hit && hit.uv && Math.hypot(hit.uv.x-NOSE_UV.u, hit.uv.y-NOSE_UV.v) < NOSE_UV.r){
+    boopSfx.currentTime=0; boopSfx.play().catch(()=>{});
+  }
+});
 const GRAPH = {
   stage:['dining'], dining:['stage','cove','arcade'],
   cove:['dining','westhall'], arcade:['dining','easthall'],
