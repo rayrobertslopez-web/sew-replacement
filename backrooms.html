@@ -334,6 +334,59 @@
     padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
     color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
   #postsClose.show{ display:block; }
+  /* ---- Music ---- */
+  #musicBtn{ position:fixed; left:0; bottom:calc(env(safe-area-inset-bottom) + 18px); z-index:31;
+    padding:12px 16px 12px 12px; border:2px solid #fff; border-left:none; border-radius:0 12px 12px 0;
+    background:rgba(70,70,70,.92); color:#fff; cursor:pointer;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
+  #musicBtn:active{ background:rgba(100,100,100,.95); }
+  #musicScreen{ position:fixed; inset:0; z-index:60; display:none; overflow-y:auto;
+    background:#14120a; color:#f0e6c8; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    padding:20px 4vw calc(env(safe-area-inset-bottom) + 120px); }
+  #musicScreen.show{ display:block; }
+  #musicHead{ font-family:'Segoe Print','Comic Sans MS',cursive; font-size:clamp(30px,7vw,44px);
+    font-weight:900; transform:rotate(-1.5deg); margin:4px 0 2px; color:var(--amber); }
+  #musicSub{ color:#9a916a; font-size:13px; margin-bottom:16px; }
+  .musicRow{ display:flex; gap:8px; max-width:640px; margin-bottom:10px; flex-wrap:wrap; }
+  #musicQ{ flex:1 1 180px; min-width:0; background:#241f0d; color:#f0e6c8; border:1px solid rgba(200,180,90,.4);
+    border-radius:9px; padding:10px 12px; font:inherit; font-size:14px; }
+  #musicGo,#musicFileBtn{ background:rgba(201,178,74,.16); color:#f0e6a8; border:1px solid rgba(200,180,90,.45);
+    border-radius:9px; padding:10px 16px; font:inherit; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  #musicGo:active,#musicFileBtn:active{ background:rgba(201,178,74,.34); }
+  #musicFiles{ display:none; }
+  #musicNote{ color:#8d855f; font-size:12px; max-width:640px; margin:2px 0 14px; line-height:1.5; }
+  #musicVolRow{ display:flex; align-items:center; gap:12px; max-width:640px; margin-bottom:18px;
+    font-size:11px; letter-spacing:1.5px; color:#9a916a; }
+  #musicVol{ flex:1; accent-color:var(--yellow); cursor:pointer; }
+  #musicList{ max-width:640px; }
+  .mtrack{ display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:10px;
+    border:1px solid rgba(200,180,90,.16); margin-bottom:7px; cursor:pointer; background:#1c1809; }
+  .mtrack:active{ background:#2a2410; }
+  .mtrack.playing{ border-color:rgba(200,180,90,.75); background:#2e2711; }
+  .mtrack img,.mtrack .mart{ width:42px; height:42px; border-radius:6px; flex:0 0 auto;
+    background:#312a12; object-fit:cover; display:flex; align-items:center; justify-content:center;
+    color:#8d855f; font-size:17px; }
+  .mtrack .mmeta{ min-width:0; flex:1; }
+  .mtrack .mt{ font-size:13.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mtrack .ma{ font-size:11.5px; color:#9a916a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mtrack .mtag{ font-size:9px; font-weight:800; letter-spacing:.6px; color:#8d855f;
+    border:1px solid rgba(200,180,90,.3); border-radius:4px; padding:2px 5px; flex:0 0 auto; }
+  #musicEmpty{ color:#8d855f; font-size:13px; padding:14px 2px; }
+  #musicClose{ position:fixed; top:14px; right:16px; z-index:61; display:none;
+    padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
+    color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
+  #musicClose.show{ display:block; }
+  /* the bar that stays up while you play */
+  #nowPlaying{ position:fixed; z-index:32; left:0; bottom:calc(env(safe-area-inset-bottom) + 62px);
+    display:none; align-items:center; gap:7px; padding:7px 12px 7px 9px;
+    background:rgba(8,7,2,.82); border:1px solid rgba(200,180,90,.32); border-left:none;
+    border-radius:0 11px 11px 0; max-width:min(300px,72vw); }
+  #nowPlaying.show{ display:flex; }
+  #nowPlaying button{ background:none; border:none; color:var(--amber); font-size:15px; line-height:1;
+    cursor:pointer; padding:3px 2px; font-family:inherit; }
+  #nowPlaying button:active{ color:#fff; }
+  #npTitle{ font-size:11.5px; color:#e8dfb8; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; min-width:0; margin-left:3px; }
   /* persistent settings button, always shown top-right regardless of screen/game state */
   #settingsBtn{ position:fixed; z-index:30; top:calc(env(safe-area-inset-top) + 46px); right:calc(env(safe-area-inset-right) + 14px);
     width:34px; height:34px; border-radius:8px; background:rgba(8,7,2,.55); border:1px solid rgba(200,180,90,.28);
@@ -667,6 +720,32 @@
   <div id="postsFeed"></div>
 </div>
 <button id="postsClose">CLOSE ✕</button>
+
+<button id="musicBtn">&#9835; MUSIC</button>
+<div id="musicScreen">
+  <div id="musicHead">MUSIC</div>
+  <div id="musicSub">play anything you want while you wander</div>
+  <div class="musicRow">
+    <input id="musicQ" placeholder="search any artist, song or album…" autocomplete="off">
+    <button id="musicGo">SEARCH</button>
+  </div>
+  <div class="musicRow">
+    <button id="musicFileBtn">&#9834; LOAD YOUR OWN FILES</button>
+  </div>
+  <input type="file" id="musicFiles" accept="audio/*" multiple>
+  <div id="musicNote">Search plays 30-second previews of just about any song ever released. Load your own
+    files for full-length tracks — they stay on your device and never upload anywhere.</div>
+  <div id="musicVolRow"><span>VOLUME</span><input type="range" id="musicVol" min="0" max="100" value="70"><span id="musicVolVal">70%</span></div>
+  <div id="musicList"><div id="musicEmpty">Search for something, or load a few files off your device.</div></div>
+</div>
+<button id="musicClose">CLOSE &#10005;</button>
+<div id="nowPlaying">
+  <button id="npPrev" aria-label="Previous">&#9198;</button>
+  <button id="npPlay" aria-label="Play or pause">&#9654;</button>
+  <button id="npNext" aria-label="Next">&#9197;</button>
+  <span id="npTitle">—</span>
+</div>
+<audio id="musicAudio"></audio>
 
 <button id="settingsBtn" aria-label="Settings">&#9881;</button>
 <div id="settings" class="screen hide">
@@ -2912,7 +2991,12 @@ let isAdmin=(function(){
 })();
 
 function setupDesktop(){
-  addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
+  /* typing in a search or chat field must not drive the player. keyup stays
+     unguarded so a key pressed in the world never sticks down. */
+  addEventListener('keydown',e=>{
+    const t=e.target;
+    if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA' || t.isContentEditable)) return;
+    keys[e.code]=true; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=true; });
   addEventListener('keyup',e=>{ keys[e.code]=false; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=false; });
   renderer.domElement.addEventListener('click',()=>{ if((running||creatorMode||megActive) && !locked) renderer.domElement.requestPointerLock(); });
   document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===renderer.domElement); });
@@ -5284,6 +5368,145 @@ document.getElementById('postsClose').addEventListener('click', ()=>{
 document.getElementById('postSend').addEventListener('click', submitUserPost);
 document.getElementById('postText').addEventListener('keydown', e=>{
   if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); submitUserPost(); }
+});
+
+/* ---------------------------------------------------------------- music
+   Two ways to hear anything you like while you play: search the iTunes
+   catalogue (30-second previews, no account, works straight off a static
+   page) or load audio files from your own device for full-length tracks.
+   Local files stay local — they become object URLs and never leave here. */
+const musicAudio=document.getElementById('musicAudio');
+const MUSIC_VOL_KEY='backrooms_music_vol';
+let mQueue=[], mIndex=-1;
+
+function musicSearch(term){
+  return new Promise((resolve,reject)=>{
+    const cb='brMusicCb_'+Math.floor(Math.random()*1e9);
+    const s=document.createElement('script');
+    let done=false;
+    function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb]=undefined; } s.remove(); }
+    window[cb]=data=>{ done=true; resolve(data); cleanup(); };
+    s.onerror=()=>{ if(!done){ done=true; reject(new Error('no connection')); cleanup(); } };
+    s.src='https://itunes.apple.com/search?media=music&entity=song&limit=25&term='
+      +encodeURIComponent(term)+'&callback='+cb;
+    document.body.appendChild(s);
+    /* Apple rate-limits and answers with an html error page, which parses as
+       nothing and never calls back — so the timeout is the real failure path */
+    setTimeout(()=>{ if(!done){ done=true; reject(new Error('search is busy, try again in a moment')); cleanup(); } },9000);
+  });
+}
+function renderMusicList(){
+  const list=document.getElementById('musicList');
+  list.innerHTML='';
+  if(!mQueue.length){
+    const e=document.createElement('div'); e.id='musicEmpty';
+    e.textContent='Search for something, or load a few files off your device.';
+    list.appendChild(e); return;
+  }
+  mQueue.forEach((t,i)=>{
+    const row=document.createElement('div'); row.className='mtrack'+(i===mIndex?' playing':'');
+    const placeholder=()=>{ const ph=document.createElement('div'); ph.className='mart'; ph.textContent='♪'; return ph; };
+    if(t.art){
+      const im=document.createElement('img'); im.src=t.art; im.alt=''; im.loading='lazy';
+      im.addEventListener('error',()=>im.replaceWith(placeholder()));   // artwork host can be flaky
+      row.appendChild(im);
+    } else row.appendChild(placeholder());
+    const meta=document.createElement('div'); meta.className='mmeta';
+    const tt=document.createElement('div'); tt.className='mt'; tt.textContent=t.title;
+    const ta=document.createElement('div'); ta.className='ma'; ta.textContent=t.artist||'your device';
+    meta.appendChild(tt); meta.appendChild(ta); row.appendChild(meta);
+    const tag=document.createElement('span'); tag.className='mtag';
+    tag.textContent=t.local?'FULL':'30s';
+    row.appendChild(tag);
+    row.addEventListener('click',()=>playTrack(i));
+    list.appendChild(row);
+  });
+}
+function playTrack(i){
+  if(i<0||i>=mQueue.length) return;
+  mIndex=i;
+  const t=mQueue[i];
+  musicAudio.src=t.src;
+  musicAudio.play().catch(()=>{});
+  document.getElementById('npTitle').textContent=t.title+(t.artist?' — '+t.artist:'');
+  document.getElementById('nowPlaying').classList.add('show');
+  renderMusicList();
+}
+function musicNext(){ if(mQueue.length) playTrack((mIndex+1)%mQueue.length); }
+function musicPrev(){ if(mQueue.length) playTrack((mIndex-1+mQueue.length)%mQueue.length); }
+
+musicAudio.addEventListener('ended', musicNext);
+musicAudio.addEventListener('play', ()=>{ document.getElementById('npPlay').innerHTML='&#10074;&#10074;'; });
+musicAudio.addEventListener('pause',()=>{ document.getElementById('npPlay').innerHTML='&#9654;'; });
+musicAudio.addEventListener('error',()=>{ if(mQueue.length>1) musicNext(); });
+document.getElementById('npPlay').addEventListener('click',()=>{
+  if(!mQueue.length) return;
+  if(musicAudio.paused){ if(mIndex<0) playTrack(0); else musicAudio.play().catch(()=>{}); }
+  else musicAudio.pause();
+});
+document.getElementById('npNext').addEventListener('click', musicNext);
+document.getElementById('npPrev').addEventListener('click', musicPrev);
+
+/* music rides its own volume, independent of the game's sound slider */
+(function(){
+  const sl=document.getElementById('musicVol'), val=document.getElementById('musicVolVal');
+  const stored=parseInt(localStorage.getItem(MUSIC_VOL_KEY),10);
+  const v=(stored>=0&&stored<=100)?stored:70;
+  sl.value=v; val.textContent=v+'%'; musicAudio.volume=v/100;
+  sl.addEventListener('input',()=>{
+    musicAudio.volume=sl.value/100; val.textContent=sl.value+'%';
+    try{ localStorage.setItem(MUSIC_VOL_KEY, sl.value); }catch(e){}
+  });
+})();
+
+async function doMusicSearch(){
+  const q=document.getElementById('musicQ').value.trim();
+  if(!q) return;
+  const list=document.getElementById('musicList');
+  list.innerHTML='<div id="musicEmpty">searching…</div>';
+  try{
+    const data=await musicSearch(q);
+    const found=(data.results||[]).filter(r=>r.previewUrl).map(r=>({
+      title:r.trackName||'Unknown', artist:r.artistName||'', art:r.artworkUrl100||'',
+      src:r.previewUrl, local:false
+    }));
+    if(!found.length){ list.innerHTML='<div id="musicEmpty">nothing found for that. try another spelling?</div>'; return; }
+    const locals=mQueue.filter(t=>t.local);           // keep your own files in the queue
+    mQueue=locals.concat(found);
+    mIndex=mQueue.findIndex(t=>t.src===musicAudio.src);
+    renderMusicList();
+  }catch(err){
+    list.innerHTML='';
+    const e=document.createElement('div'); e.id='musicEmpty';
+    e.textContent=(err.message||'search failed')+' — you can still load your own files below.';
+    list.appendChild(e);
+  }
+}
+document.getElementById('musicGo').addEventListener('click', doMusicSearch);
+document.getElementById('musicQ').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); doMusicSearch(); }
+});
+document.getElementById('musicFileBtn').addEventListener('click',()=>document.getElementById('musicFiles').click());
+document.getElementById('musicFiles').addEventListener('change', e=>{
+  const files=[...(e.target.files||[])].filter(f=>/^audio\//.test(f.type)||/\.(mp3|ogg|wav|m4a|flac|aac|opus)$/i.test(f.name));
+  if(!files.length) return;
+  const startAt=mQueue.length;
+  for(const f of files){
+    mQueue.push({ title:f.name.replace(/\.[^.]+$/,''), artist:'', art:'', src:URL.createObjectURL(f), local:true });
+  }
+  renderMusicList();
+  if(mIndex<0) playTrack(startAt);
+  e.target.value='';
+});
+document.getElementById('musicBtn').addEventListener('click',()=>{
+  document.getElementById('musicScreen').classList.add('show');
+  document.getElementById('musicClose').classList.add('show');
+  if(document.pointerLockElement) document.exitPointerLock();
+  renderMusicList();
+});
+document.getElementById('musicClose').addEventListener('click',()=>{
+  document.getElementById('musicScreen').classList.remove('show');
+  document.getElementById('musicClose').classList.remove('show');
 });
 
 /* ---------------------------------------------------------------- countdown */
