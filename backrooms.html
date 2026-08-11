@@ -363,6 +363,18 @@
     font-size:11px; letter-spacing:1.5px; color:#9a916a; }
   #musicVol{ flex:1; accent-color:var(--yellow); cursor:pointer; }
   #musicList{ max-width:640px; }
+  #musicArtists{ max-width:640px; }
+  .msec{ font-size:10px; font-weight:800; letter-spacing:2px; color:#8d855f; margin:4px 0 8px; }
+  .msec .mback{ color:var(--amber); cursor:pointer; letter-spacing:1px; margin-left:8px; }
+  .martist{ display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:10px;
+    border:1px solid rgba(200,180,90,.22); margin-bottom:7px; cursor:pointer; background:#221c0c; }
+  .martist:active{ background:#2f2811; }
+  .martist .mface{ width:42px; height:42px; border-radius:50%; flex:0 0 auto; background:#3a3115;
+    display:flex; align-items:center; justify-content:center; color:var(--amber); font-size:17px; font-weight:800; }
+  .martist .mmeta{ min-width:0; flex:1; }
+  .martist .mt{ font-size:13.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .martist .ma{ font-size:11.5px; color:#9a916a; }
+  .martist .mgo{ color:#8d855f; font-size:15px; flex:0 0 auto; }
   .mtrack{ display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:10px;
     border:1px solid rgba(200,180,90,.16); margin-bottom:7px; cursor:pointer; background:#1c1809; }
   .mtrack:active{ background:#2a2410; }
@@ -728,9 +740,9 @@
 <button id="musicBtn">&#9835; MUSIC</button>
 <div id="musicScreen">
   <div id="musicHead">MUSIC</div>
-  <div id="musicSub">play anything you want while you wander</div>
+  <div id="musicSub">any singer, anything you want, while you wander</div>
   <div class="musicRow">
-    <input id="musicQ" placeholder="search any artist, song or album…" autocomplete="off">
+    <input id="musicQ" placeholder="search any singer or song…" autocomplete="off">
     <button id="musicGo">SEARCH</button>
   </div>
   <div class="musicRow">
@@ -740,7 +752,8 @@
   <div id="musicNote">Search plays 30-second previews of just about any song ever released. Load your own
     files for full-length tracks — they stay on your device and never upload anywhere.</div>
   <div id="musicVolRow"><span>VOLUME</span><input type="range" id="musicVol" min="0" max="100" value="70"><span id="musicVolVal">70%</span></div>
-  <div id="musicList"><div id="musicEmpty">Search for something, or load a few files off your device.</div></div>
+  <div id="musicArtists"></div>
+  <div id="musicList"><div id="musicEmpty">Search for a singer, or load a few files off your device.</div></div>
 </div>
 <button id="musicClose">CLOSE &#10005;</button>
 <div id="nowPlaying">
@@ -5494,8 +5507,9 @@ document.getElementById('postText').addEventListener('keydown', e=>{
 const musicAudio=document.getElementById('musicAudio');
 const MUSIC_VOL_KEY='backrooms_music_vol';
 let mQueue=[], mIndex=-1;
+let mHeading=null;                 // {text, back} — survives re-renders
 
-function musicSearch(term){
+function musicJsonp(path,params){
   return new Promise((resolve,reject)=>{
     const cb='brMusicCb_'+Math.floor(Math.random()*1e9);
     const s=document.createElement('script');
@@ -5503,8 +5517,7 @@ function musicSearch(term){
     function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb]=undefined; } s.remove(); }
     window[cb]=data=>{ done=true; resolve(data); cleanup(); };
     s.onerror=()=>{ if(!done){ done=true; reject(new Error('no connection')); cleanup(); } };
-    s.src='https://itunes.apple.com/search?media=music&entity=song&limit=25&term='
-      +encodeURIComponent(term)+'&callback='+cb;
+    s.src='https://itunes.apple.com/'+path+'?'+params+'&callback='+cb;
     document.body.appendChild(s);
     /* Apple rate-limits and answers with an html error page, which parses as
        nothing and never calls back — so the timeout is the real failure path */
@@ -5514,9 +5527,18 @@ function musicSearch(term){
 function renderMusicList(){
   const list=document.getElementById('musicList');
   list.innerHTML='';
+  if(mHeading){
+    const h=document.createElement('div'); h.className='msec'; h.textContent=mHeading.text;
+    if(mHeading.back){
+      const back=document.createElement('span'); back.className='mback'; back.textContent='‹ back to search';
+      back.addEventListener('click',doMusicSearch);
+      h.appendChild(back);
+    }
+    list.appendChild(h);
+  }
   if(!mQueue.length){
     const e=document.createElement('div'); e.id='musicEmpty';
-    e.textContent='Search for something, or load a few files off your device.';
+    e.textContent='Search for a singer, or load a few files off your device.';
     list.appendChild(e); return;
   }
   mQueue.forEach((t,i)=>{
@@ -5575,28 +5597,93 @@ document.getElementById('npPrev').addEventListener('click', musicPrev);
   });
 })();
 
-async function doMusicSearch(){
-  const q=document.getElementById('musicQ').value.trim();
-  if(!q) return;
+/* tracks from an iTunes payload, playable ones only */
+function tracksFrom(results){
+  return (results||[]).filter(r=>r.previewUrl).map(r=>({
+    title:r.trackName||'Unknown', artist:r.artistName||'', art:r.artworkUrl100||'',
+    src:r.previewUrl, local:false
+  }));
+}
+/* swap in a new set of songs, keeping any files you loaded yourself */
+function setQueue(found){
+  const locals=mQueue.filter(t=>t.local);
+  mQueue=locals.concat(found);
+  mIndex=mQueue.findIndex(t=>t.src===musicAudio.src);
+}
+function renderArtists(artists){
+  const box=document.getElementById('musicArtists');
+  box.innerHTML='';
+  if(!artists || !artists.length) return;
+  const h=document.createElement('div'); h.className='msec'; h.textContent='SINGERS';
+  box.appendChild(h);
+  for(const a of artists){
+    const row=document.createElement('div'); row.className='martist';
+    const face=document.createElement('div'); face.className='mface';
+    face.textContent=(a.artistName||'?').trim().charAt(0).toUpperCase();
+    const meta=document.createElement('div'); meta.className='mmeta';
+    const t=document.createElement('div'); t.className='mt'; t.textContent=a.artistName||'Unknown';
+    const g=document.createElement('div'); g.className='ma';
+    g.textContent=(a.primaryGenreName||'artist')+' · tap for their songs';
+    meta.appendChild(t); meta.appendChild(g);
+    const go=document.createElement('div'); go.className='mgo'; go.textContent='›';
+    row.appendChild(face); row.appendChild(meta); row.appendChild(go);
+    row.addEventListener('click',()=>loadArtistSongs(a.artistId, a.artistName));
+    box.appendChild(row);
+  }
+}
+/* everything by one singer — their own tracks first, then their features */
+async function loadArtistSongs(artistId,name){
   const list=document.getElementById('musicList');
-  list.innerHTML='<div id="musicEmpty">searching…</div>';
+  document.getElementById('musicArtists').innerHTML='';
+  mHeading=null;
+  list.innerHTML='<div id="musicEmpty">loading '+(name||'that singer')+'…</div>';
   try{
-    const data=await musicSearch(q);
-    const found=(data.results||[]).filter(r=>r.previewUrl).map(r=>({
-      title:r.trackName||'Unknown', artist:r.artistName||'', art:r.artworkUrl100||'',
-      src:r.previewUrl, local:false
-    }));
-    if(!found.length){ list.innerHTML='<div id="musicEmpty">nothing found for that. try another spelling?</div>'; return; }
-    const locals=mQueue.filter(t=>t.local);           // keep your own files in the queue
-    mQueue=locals.concat(found);
-    mIndex=mQueue.findIndex(t=>t.src===musicAudio.src);
+    const data=await musicJsonp('lookup','id='+encodeURIComponent(artistId)+'&entity=song&limit=60');
+    const rows=(data.results||[]).filter(r=>r.wrapperType==='track');
+    rows.sort((a,b)=>(a.artistId===artistId?0:1)-(b.artistId===artistId?0:1));
+    const found=tracksFrom(rows);
+    if(!found.length){ list.innerHTML='<div id="musicEmpty">no previewable songs for '+(name||'them')+'.</div>'; return; }
+    setQueue(found);
+    mHeading={ text:'SONGS BY '+(name||'THIS SINGER').toUpperCase(), back:true };
     renderMusicList();
   }catch(err){
     list.innerHTML='';
     const e=document.createElement('div'); e.id='musicEmpty';
-    e.textContent=(err.message||'search failed')+' — you can still load your own files below.';
+    e.textContent=(err.message||'that failed')+' — try again, or load your own files.';
     list.appendChild(e);
   }
+}
+async function doMusicSearch(){
+  const q=document.getElementById('musicQ').value.trim();
+  if(!q) return;
+  const list=document.getElementById('musicList');
+  document.getElementById('musicArtists').innerHTML='';
+  mHeading=null;
+  list.innerHTML='<div id="musicEmpty">searching…</div>';
+  /* singers and songs are asked for together — a hit on either one is a
+     result, so one endpoint failing doesn't blank the whole screen */
+  const [artistRes,songRes]=await Promise.allSettled([
+    musicJsonp('search','media=music&entity=musicArtist&limit=6&term='+encodeURIComponent(q)),
+    musicJsonp('search','media=music&entity=song&limit=25&term='+encodeURIComponent(q))
+  ]);
+  const artists=(artistRes.status==='fulfilled'?(artistRes.value.results||[]):[])
+    .filter(a=>a.artistId && a.artistName);
+  const found=songRes.status==='fulfilled'?tracksFrom(songRes.value.results):[];
+  renderArtists(artists);
+  if(!found.length){
+    list.innerHTML='';
+    const e=document.createElement('div'); e.id='musicEmpty';
+    e.textContent = artists.length
+      ? 'Tap a singer above to hear their songs.'
+      : (songRes.status==='rejected'
+          ? (songRes.reason.message||'search failed')+' — you can still load your own files below.'
+          : 'nothing found for that. try another spelling?');
+    list.appendChild(e);
+    return;
+  }
+  setQueue(found);
+  mHeading={ text:'SONGS' };
+  renderMusicList();
 }
 document.getElementById('musicGo').addEventListener('click', doMusicSearch);
 document.getElementById('musicQ').addEventListener('keydown', e=>{
