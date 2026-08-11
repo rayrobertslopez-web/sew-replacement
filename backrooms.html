@@ -210,7 +210,8 @@
   .minicard{ aspect-ratio:3/4; border:3px solid #fff; border-radius:4px; background:#6b6b6b;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:6px; }
   .minicard canvas{ width:70%; image-rendering:pixelated; }
-  .minicard .mname{ font-size:12px; letter-spacing:.5px; color:#eee; text-align:center; }
+  .minicard .mname{ font-size:12px; letter-spacing:.5px; color:#eee; text-align:center;
+    overflow-wrap:anywhere; line-height:1.2; }
   .minicard .mrar{ font-size:10px; font-weight:700; letter-spacing:.5px; text-align:center; }
   .minicard.eternal{ background:#3a1f1f; }
   .minicard.eternal.owned{ background:#5c3030; }
@@ -4838,8 +4839,8 @@ document.getElementById('botChatInput').addEventListener('keydown', e=>{
 const MINIS_TOTAL = 73;
 /* the twelve ETERNAL rappers occupy their own block of indices, so the
    procedural Minis either side of them keep the names they already had */
-const RAPPERS=['MC Vacancy','Lil Noclip','Yung Fluorescent','Drywall Dee','DJ Hum','Big Carpet',
-  'Exit Sign','Lil Almond','Wallcrawla','Sector Nine','Yung Threshold','Lil Stairwell'];
+const RAPPERS=['Eminem','Kendrick Lamar','Drake','J. Cole','Jay-Z','Nicki Minaj',
+  'Lil Wayne','Snoop Dogg','Ice Cube','2Pac','Notorious B.I.G.','Travis Scott'];
 const RAPPER_FROM=40, RAPPER_TO=RAPPER_FROM+RAPPERS.length-1;   // 40..51
 function isRapper(i){ return i>=RAPPER_FROM && i<=RAPPER_TO; }
 function minisOwned(){
