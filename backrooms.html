@@ -212,6 +212,16 @@
   .minicard canvas{ width:70%; image-rendering:pixelated; }
   .minicard .mname{ font-size:12px; letter-spacing:.5px; color:#eee; text-align:center; }
   .minicard .mrar{ font-size:10px; font-weight:700; letter-spacing:.5px; text-align:center; }
+  .minicard.eternal{ background:#3a1f1f; }
+  .minicard.eternal.owned{ background:#5c3030; }
+  .minicard.eternal .mrar{ text-shadow:0 0 7px rgba(255,45,45,.85); }
+  @media (prefers-reduced-motion: no-preference){
+    .minicard.eternal{ animation:eternalPulse 2.4s ease-in-out infinite; }
+    @keyframes eternalPulse{
+      0%,100%{ box-shadow:0 0 10px rgba(255,45,45,.42); }
+      50%    { box-shadow:0 0 20px rgba(255,45,45,.85); }
+    }
+  }
   .minicard.owned{ background:#4c6b4c; cursor:pointer; }
   .minicard.equipped{ background:#5f7f4c; box-shadow:0 0 0 3px #ffd95e inset !important; }
   .minicard.equipped .mname::before{ content:'EQUIPPED '; color:#ffd95e; font-size:9px; font-weight:700; }
@@ -1306,9 +1316,10 @@ function hasItem(i,j){ if(inSafe(i,j)) return false; return rand(i,j,55) < 0.02;
 function miniAt(i,j){
   if(inSafe(i,j)) return -1;
   if(rand(i,j,77) >= 0.007) return -1;
-  const roll=rand(i,j,78), CH=[0.50,0.30,0.12,0.05,0.02,0.005];
+  const roll=rand(i,j,78), CH=[0.50,0.30,0.12,0.05,0.02,0.005,0.012];
+  const TOT=CH.reduce((a,b)=>a+b,0);          // normalise off the real sum, not a constant
   let acc=0, tier=0;
-  for(let t=0;t<CH.length;t++){ acc+=CH[t]; if(roll*0.995<acc){ tier=t; break; } }
+  for(let t=0;t<CH.length;t++){ acc+=CH[t]; if(roll*TOT<acc){ tier=t; break; } }
   let list=minisOfRarity(tier);
   if(!list.length) list=minisOfRarity(0);
   const idx=list[(rand(i,j,79)*list.length)|0];
@@ -1317,7 +1328,7 @@ function miniAt(i,j){
 let _byRarity=null;
 function minisOfRarity(t){
   if(!_byRarity){
-    _byRarity=[[],[],[],[],[],[]];
+    _byRarity=RARITIES.map(()=>[]);
     for(let i=0;i<MINIS_TOTAL;i++) _byRarity[miniRarity(i)].push(i);
   }
   return _byRarity[t];
@@ -4824,7 +4835,13 @@ document.getElementById('botChatInput').addEventListener('keydown', e=>{
 });
 
 /* ---------------------------------------------------------------- minis collection */
-const MINIS_TOTAL = 40;
+const MINIS_TOTAL = 73;
+/* the twelve ETERNAL rappers occupy their own block of indices, so the
+   procedural Minis either side of them keep the names they already had */
+const RAPPERS=['MC Vacancy','Lil Noclip','Yung Fluorescent','Drywall Dee','DJ Hum','Big Carpet',
+  'Exit Sign','Lil Almond','Wallcrawla','Sector Nine','Yung Threshold','Lil Stairwell'];
+const RAPPER_FROM=40, RAPPER_TO=RAPPER_FROM+RAPPERS.length-1;   // 40..51
+function isRapper(i){ return i>=RAPPER_FROM && i<=RAPPER_TO; }
 function minisOwned(){
   try{ const a=JSON.parse(localStorage.getItem('backrooms_minis')||'[]'); return Array.isArray(a)?a:[]; }
   catch(e){ return []; }
@@ -4848,6 +4865,7 @@ const MINI_SPECIALS = ['Entity','Stomper','Crawler','Clark','Smiler'];
 const MINI_SYL = ['bo','zi','mo','ka','lu','pip','gro','fizz','sna','blo','wug','tek','mim','zor','dib'];
 function miniName(i){
   if(i<MINI_SPECIALS.length) return MINI_SPECIALS[i];
+  if(isRapper(i)) return RAPPERS[i-RAPPER_FROM];
   const r=mulberry32(i*7919+13);
   let n=MINI_SYL[(r()*MINI_SYL.length)|0]+MINI_SYL[(r()*MINI_SYL.length)|0];
   if(r()<0.4) n+=MINI_SYL[(r()*MINI_SYL.length)|0];
@@ -4879,6 +4897,26 @@ function drawMiniSprite(i){
     px(6,8,12,12,'#0d0d0d');
     px(8,12,2,2,'#fff'); px(14,12,2,2,'#fff');
     px(8,16,8,2,'#fff'); px(7,15,2,2,'#fff'); px(15,15,2,2,'#fff');
+  } else if(isRapper(i)){
+    /* ETERNAL rappers: hoodie, cap, shades, gold chain, mic. Seeded so each
+       one keeps its own colours but they all read as the same crew. */
+    const HOOD=['#2e3f6b','#6b2e3f','#2e6b47','#5a2e6b','#6b5a2e','#31313a','#6b3a2e','#2e5f6b'];
+    const SKIN=['#d8a878','#a97a4e','#7a5232','#e8c9a0'];
+    const hood=HOOD[(r()*HOOD.length)|0], skin=SKIN[(r()*SKIN.length)|0];
+    const gold='#e8c840', capCol=(r()<0.5)?hood:'#1b1b22';
+    px(7,20,10,7,hood);                                  // hoodie body
+    px(5,21,2,6,hood); px(17,21,2,6,hood);               // sleeves
+    px(8,27,3,4,'#1b1b22'); px(13,27,3,4,'#1b1b22');     // legs
+    px(8,6,8,9,skin);                                    // head
+    px(7,14,10,7,hood); px(7,14,10,2,'#00000033');       // hood collar
+    px(6,4,12,3,capCol); px(6,3,9,2,capCol);             // cap + brim
+    if(r()<0.5) px(15,3,3,2,capCol);                     // brim flipped back
+    px(8,9,8,2,'#15151a');                               // shades
+    px(9,9,2,1,'#ffffff55'); px(13,9,2,1,'#ffffff55');   // glare
+    px(10,16,4,1,gold); px(9,15,1,1,gold); px(14,15,1,1,gold);   // chain
+    px(11,17,2,2,gold);                                  // pendant
+    if(r()<0.6){ px(17,16,2,2,'#3a3a44'); px(18,17,1,4,'#2a2a34'); }  // mic
+    if(r()<0.35) px(6,10,1,3,gold);                      // earring
   } else {
     const body=PAL[(r()*PAL.length)|0];
     const dark='#00000055';
@@ -4901,14 +4939,20 @@ function drawMiniSprite(i){
 }
 /* rarity tiers — spawn chance is how likely a wild Mini encounter rolls this tier */
 const RARITIES=[
-  {key:'COMMON',    col:'#c4c4c4', chance:'50%'},
-  {key:'UNCOMMON',  col:'#6bc06b', chance:'30%'},
-  {key:'RARE',      col:'#4a8de0', chance:'12%'},
-  {key:'EPIC',      col:'#b06bd9', chance:'5%'},
-  {key:'LEGENDARY', col:'#e0973d', chance:'2%'},
-  {key:'MYTHIC',    col:'#ffd95e', chance:'0.5%'},
+  {key:'COMMON',    col:'#c4c4c4', chance:'50% spawn'},
+  {key:'UNCOMMON',  col:'#6bc06b', chance:'30% spawn'},
+  {key:'RARE',      col:'#4a8de0', chance:'12% spawn'},
+  {key:'EPIC',      col:'#b06bd9', chance:'5% spawn'},
+  {key:'LEGENDARY', col:'#e0973d', chance:'2% spawn'},
+  {key:'MYTHIC',    col:'#ffd95e', chance:'0.5% spawn'},
+  /* twelve cards share this tier, so its chance is quoted per card — at the
+     tier level it would read 1.2% and look commoner than Mythic, when any one
+     rapper is in fact five times rarer than the Entity */
+  {key:'ETERNAL',   col:'#ff2d2d', chance:'0.1% each'},
 ];
+const ETERNAL=RARITIES.length-1;
 function miniRarity(i){
+  if(isRapper(i)) return ETERNAL;
   if(i===0) return 5;            // Entity — Mythic
   if(i===1||i===4) return 4;     // Stomper, Smiler — Legendary
   if(i===2||i===3) return 3;     // Crawler, Clark — Epic
@@ -4927,7 +4971,7 @@ const PERK_KINDS=[
   {k:'THIRST', t:'Thirsty',   d:v=>'almond water restores '+v+'% more'},
   {k:'NIGHT',  t:'Night Eye', d:v=>'the dark costs you '+v+'% less'},
 ];
-const PERK_BY_RARITY=[8,14,20,28,38,55];              // stronger the rarer it is
+const PERK_BY_RARITY=[8,14,20,28,38,55,80];           // stronger the rarer it is
 const MINI_SPECIAL_PERK={0:'SWIFT',1:'STEADY',2:'QUIET',3:'THIRST',4:'NIGHT'};
 function miniPerk(i){
   const tier=miniRarity(i);
@@ -4966,14 +5010,15 @@ function renderMinis(){
   for(let i=0;i<MINIS_TOTAL;i++){
     const R=RARITIES[miniRarity(i)], has=owned.has(i), P=miniPerk(i);
     const d=document.createElement('div');
-    d.className='minicard'+(has?' owned':'')+(i===eq?' equipped':'');
+    const tier=miniRarity(i);
+    d.className='minicard'+(has?' owned':'')+(i===eq?' equipped':'')+(tier===ETERNAL?' eternal':'');
     d.style.borderColor=R.col;
-    if(miniRarity(i)>=4) d.style.boxShadow='0 0 12px '+R.col+'66';
+    if(tier>=4 && tier!==ETERNAL) d.style.boxShadow='0 0 12px '+R.col+'66';   // eternal pulses in css
     d.appendChild(drawMiniSprite(i));
     const n=document.createElement('div'); n.className='mname'; n.textContent=miniName(i);
     d.appendChild(n);
     const rr=document.createElement('div'); rr.className='mrar';
-    rr.style.color=R.col; rr.textContent=R.key+' · '+R.chance+' spawn';
+    rr.style.color=R.col; rr.textContent=R.key+' · '+R.chance;
     d.appendChild(rr);
     const pk=document.createElement('div'); pk.className='mperk';
     pk.textContent=P.kind.t+' · '+P.kind.d(P.value);
@@ -5392,7 +5437,7 @@ function submitUserPost(){
   const nick=(localStorage.getItem('backrooms_nick')||'').trim()||('Wanderer'+Math.floor(Math.random()*1000));
   try{ localStorage.setItem('backrooms_nick',nick); localStorage.setItem(LASTPOST_KEY,String(Date.now())); }catch(e){}
   const posts=jload(USERPOST_KEY,[]);
-  const post={body:txt,nick,at:Date.now(),rank:rankOf(getRep()).name,sprite:5+((Math.random()*35)|0)};
+  const post={body:txt,nick,at:Date.now(),rank:rankOf(getRep()).name,sprite:5+((Math.random()*(MINIS_TOTAL-5))|0)};
   if(isDevUser()) post.dev=true;                                    // sticks even if the flag is cleared later
   if(pendingImg) post.img=pendingImg;
   posts.unshift(post);
@@ -5429,7 +5474,7 @@ function renderExtraPosts(){
     const mins=k===0 ? (Date.now()/60000)%5 : k*5 + ((r()*4)|0);
     const post=document.createElement('div'); post.className='post';
     const top=document.createElement('div'); top.className='postTop';
-    top.appendChild(drawMiniSprite(5+((r()*35)|0)));
+    top.appendChild(drawMiniSprite(5+((r()*(MINIS_TOTAL-5))|0)));
     const u=document.createElement('span'); u.className='puser';
     u.innerHTML=PB_NAMES[nameI]+'<span class="pbot">BOT</span>';
     const t=document.createElement('span'); t.className='ptime'; t.textContent=agoMins(mins);
