@@ -702,7 +702,7 @@
 <div id="vig"></div>
 <div id="dread"></div>
 
-<div id="countdown"><span id="cdLabel">ADMIN ABUSE STARTS IN...</span><span id="cdTime">--:--:--</span></div>
+<div id="countdown"><span id="cdLabel">UPDATE IN...</span><span id="cdTime">--:--:--</span></div>
 
 <button id="minisBtn">MiNiS</button>
 <div id="minisScreen">
@@ -1246,19 +1246,23 @@ const PORTAL_POS = { x: CELL/2 + 3.4, z: CELL/2 + 3.4 };   // inside Level 0's g
 let portalSpawned = false, portalObj = null;
 
 // 3PM event: a one-time cinematic (played once per browser) + the portal it unlocks permanently afterward
-/* 2-hour live event countdown. The deadline is a wall-clock timestamp persisted
-   in localStorage the first time this version loads — closing the tab, killing
-   the browser, or rebooting does NOT stop or reset it; reopening resumes at
-   wherever real time actually is. Once it hits zero it stays passed forever. */
-const EVENT_KEY = 'backrooms_event_deadline_v2';
+/* 45-minute live event countdown. The deadline is a wall-clock timestamp
+   persisted in localStorage the first time this version loads — closing the
+   tab, killing the browser, or rebooting does NOT stop or reset it; reopening
+   resumes at wherever real time actually is. Once it hits zero it stays passed
+   forever. The key is versioned because the stored deadline wins over this
+   code: without bumping it, anyone carrying the old 2-hour timestamp would
+   keep counting down to that instead of the new 45 minutes. */
+const EVENT_LENGTH_MS = 45*60*1000;      // 45 minutes
+const EVENT_KEY = 'backrooms_event_deadline_v3';
 const EVENT_TARGET = (function(){
   try{
     const t = parseInt(localStorage.getItem(EVENT_KEY), 10);
     if(!isNaN(t) && t > 0) return t;
-    const nt = Date.now() + 2*3600*1000;
+    const nt = Date.now() + EVENT_LENGTH_MS;
     localStorage.setItem(EVENT_KEY, String(nt));
     return nt;
-  }catch(e){ return Date.now() + 2*3600*1000; }
+  }catch(e){ return Date.now() + EVENT_LENGTH_MS; }
 })();
 function eventPassed(){ return Date.now() >= EVENT_TARGET; }
 let cineActive = false, cineRunningBefore = false, cineVisibleScreen = null, cineCreatorBefore = false;
