@@ -241,6 +241,12 @@
     background:rgba(70,70,70,.92); color:#fff; cursor:pointer;
     font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
   #postsBtn:active{ background:rgba(100,100,100,.95); }
+  #modsBtn{ position:fixed; right:0; bottom:calc(env(safe-area-inset-bottom) + 68px); z-index:31;
+    padding:12px 12px 12px 16px; border:2px solid #fff; border-right:none; border-radius:12px 0 0 12px;
+    background:rgba(70,70,70,.92); color:#fff; cursor:pointer;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
+  #modsBtn:active{ background:rgba(100,100,100,.95); }
+  body.creating #modsBtn{ display:none; }
   #postsScreen{ position:fixed; inset:0; z-index:60; display:none; overflow-y:auto;
     background:#26262b; color:#e8e8e8; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
     padding:20px 4vw calc(env(safe-area-inset-bottom) + 40px); }
@@ -770,6 +776,7 @@
 </div>
 <button id="minisClose">CLOSE ✕</button>
 
+<button id="modsBtn">MODS</button>
 <button id="postsBtn">EXTRA POSTS</button>
 <div id="postsScreen">
   <div id="postsHead">EXTRA POSTS</div>
@@ -1312,15 +1319,15 @@ const PORTAL_POS = { x: CELL/2 + 3.4, z: CELL/2 + 3.4 };   // inside Level 0's g
 let portalSpawned = false, portalObj = null;
 
 // 3PM event: a one-time cinematic (played once per browser) + the portal it unlocks permanently afterward
-/* 12-minute live event countdown. The deadline is a wall-clock timestamp
+/* 34-minute live event countdown. The deadline is a wall-clock timestamp
    persisted in localStorage the first time this version loads — closing the
    tab, killing the browser, or rebooting does NOT stop or reset it; reopening
    resumes at wherever real time actually is. Once it hits zero it stays passed
    forever. The key is versioned because the stored deadline wins over this
    code: without bumping it, anyone carrying the previous timestamp would
-   keep counting down to that instead of the new 12 minutes. */
-const EVENT_LENGTH_MS = 12*60*1000;      // 12 minutes
-const EVENT_KEY = 'backrooms_event_deadline_v4';
+   keep counting down to that instead of the new 34 minutes. */
+const EVENT_LENGTH_MS = 34*60*1000;      // 34 minutes
+const EVENT_KEY = 'backrooms_event_deadline_v5';
 const EVENT_TARGET = (function(){
   try{
     const t = parseInt(localStorage.getItem(EVENT_KEY), 10);
@@ -2194,6 +2201,7 @@ function exitCreator(){
 /* -------------------------------------------- death cinematic (the catch) */
 let catchObj=null;   // whichever creature (entity or a level-2 chaser) actually caught the player
 function startCatch(obj, foot, byStomper){
+  if(modOn('invincible')) return;          // invincible mod
   if(caught) return;
   caught=true; caughtT=0; catchBlack=false; catchObj=obj||null;
   catchFoot = (foot==null? entityFoot : foot);
@@ -2333,6 +2341,7 @@ function updateEntity(dt){
 
   let hx, hz;
   if(e.state==='chase'){ hx=dx/(dist||1); hz=dz/(dist||1); }
+  if(modOn('afraid')){ hx=-hx; hz=-hz; }   // afraid mod — it runs the other way
   else {
     e.turn-=dt; if(e.turn<=0){ e.dir+=(Math.random()-0.5)*2.2; e.turn=1.2+Math.random()*2.2; }
     hx=Math.cos(e.dir); hz=Math.sin(e.dir);
@@ -2479,7 +2488,8 @@ function updateChasers(dt){
   const speed=2.15+dread*1.3;
   for(const c of chasers){
     const dx=player.x-c.x, dz=player.z-c.z, dist=Math.hypot(dx,dz)||0.001;
-    const hx=dx/dist, hz=dz/dist;
+    const flee=modOn('afraid')?-1:1;         // afraid mod
+    const hx=(dx/dist)*flee, hz=(dz/dist)*flee;
     let nx=c.x+hx*speed*dt, nz=c.z+hz*speed*dt;
     [nx,nz]=collideLevel(nx,nz,0.4);
     c.x=nx; c.z=nz;
@@ -3334,6 +3344,7 @@ function newGame(){
 
   updateChunks(); processQueue(999);   // build initial rings synchronously
   spawnEntity();
+  applyRunMods();
   maybeStartEvilHunt();
   maybeSpawnPortal();
   spawnSurvivor();
@@ -3392,6 +3403,7 @@ function showNextAchievement(){
 }
 
 function die(reason,title){          // non-catch deaths (e.g. sanity) -> straight to Game Over
+  if(modOn('invincible')) { sanity=100; return; }
   if(!running || caught) return;
   deathLevel=level; lastDeathByEntity=false; gameOver();
 }
@@ -4553,6 +4565,8 @@ function update(dt){
   else if(level===2){ updateLightPoolL2(); updateChasers(dt); }
   else { updateLevel3(dt); }
   updatePickups(dt);
+  updatePet(dt); updateStalker(dt);
+  if(modOn('bacteria35') && level!==2 && !huntDropped) updateChasers(dt);
   updateGuide();
 
   // ---- sanity ---- (level 3 is a scripted setpiece — the wall is the only threat there, not sanity)
@@ -5611,6 +5625,73 @@ document.getElementById('postText').addEventListener('keydown', e=>{
   if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); submitUserPost(); }
 });
 
+/* ---------------------------------------------------------------- mods
+   mods.html writes the installed list to localStorage; same origin, so the
+   game just reads it on load. Each one is a real change to how a run plays. */
+const MODS_KEY='backrooms_mods';
+function installedMods(){
+  try{ const a=JSON.parse(localStorage.getItem(MODS_KEY)||'[]'); return Array.isArray(a)?a:[]; }
+  catch(e){ return []; }
+}
+function modOn(id){ return installedMods().indexOf(id)>=0; }
+document.getElementById('modsBtn').addEventListener('click', ()=>{
+  if(document.pointerLockElement) document.exitPointerLock();
+  window.open('mods.html','_blank');          // real click, so this is never blocked
+});
+/* no walls — the wallpaper and panel materials just stop drawing */
+function applyNoWalls(){
+  if(!modOn('nowalls')) return;
+  for(const m of [structMatWall, panelMat]) if(m) m.visible=false;
+}
+/* pets — one of your Minis trails you around */
+let petObj=null;
+function spawnPet(){
+  if(petObj){ scene.remove(petObj); petObj=null; }
+  if(!modOn('pets')) return;
+  const owned=minisOwned();
+  const idx=owned.length?owned[0]:5;
+  petObj=makeMiniPickup(idx);
+  petObj.scale.set(0.5,0.67,1);
+  petObj.position.set(player.x, 0.5, player.z);
+  scene.add(petObj);
+}
+function updatePet(dt){
+  if(!petObj) return;
+  const dx=player.x-petObj.position.x, dz=player.z-petObj.position.z;
+  const d=Math.hypot(dx,dz);
+  if(d>1.4){ const k=Math.min(1, dt*2.6);
+    petObj.position.x+=dx*k; petObj.position.z+=dz*k; }
+  petObj.position.y=floorAt(petObj.position.x,petObj.position.z)+0.5+Math.sin(elapsed*3)*0.06;
+}
+/* stalker — always knows where you are, never closes the gap */
+let stalkerObj=null, stalkerX=0, stalkerZ=0;
+function spawnStalker(){
+  if(stalkerObj){ scene.remove(stalkerObj); stalkerObj=null; }
+  if(!modOn('stalker')) return;
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  stalkerX=player.x-fwdX*14; stalkerZ=player.z-fwdZ*14;
+  loadEntityInstance((root,foot)=>{
+    if(!root || !modOn('stalker')) return;
+    root.position.set(stalkerX, foot, stalkerZ);
+    scene.add(root); stalkerObj=root; stalkerObj.userData.foot=foot;
+  });
+}
+function updateStalker(dt){
+  if(!stalkerObj) return;
+  const dx=player.x-stalkerX, dz=player.z-stalkerZ, d=Math.hypot(dx,dz)||0.001;
+  const want=9;                                   // it holds this distance, forever
+  const step=(d-want)*Math.min(1,dt*0.6);
+  stalkerX+=(dx/d)*step; stalkerZ+=(dz/d)*step;
+  stalkerObj.position.set(stalkerX, floorAt(stalkerX,stalkerZ)+(stalkerObj.userData.foot||0), stalkerZ);
+  stalkerObj.rotation.y=Math.atan2(dx/d, dz/d);
+}
+function applyRunMods(){
+  applyNoWalls();
+  spawnPet();
+  spawnStalker();
+  if(modOn('bacteria35')) spawnHuntPack(35, ()=>modOn('bacteria35'));
+}
+
 /* ---------------------------------------------------------------- evil hunter
    45 seconds long. For the first 23 the red plane is up, RUN twitches and the
    wall count falls 499 -> 0; the count is deliberately tied to the drop, so it
@@ -5659,7 +5740,8 @@ function updateEvilHunt(dt){
 }
 /* same shape as spawnChasers but not pinned to level 2, since the hunt can
    fire in the Lobby or in the creator sandbox */
-function spawnHuntPack(n){
+function spawnHuntPack(n, keepIf){
+  const keep = keepIf || (()=>huntActive);   // the mods call this outside a hunt
   clearChasers();
   const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
   const rgtX=Math.cos(player.yaw), rgtZ=-Math.sin(player.yaw);
@@ -5667,7 +5749,7 @@ function spawnHuntPack(n){
     const back=11+i*3.5, side=(i-(n-1)/2)*3.4;
     const x=player.x-fwdX*back+rgtX*side, z=player.z-fwdZ*back+rgtZ*side;
     loadEntityInstance((root,foot)=>{
-      if(!root || !huntActive) return;        // hunt may have ended while the glb loaded
+      if(!root || !keep()) return;            // may have been called off while the glb loaded
       scene.add(root);
       chasers.push({obj:root, x, z, foot, faceYaw:0});
     });
