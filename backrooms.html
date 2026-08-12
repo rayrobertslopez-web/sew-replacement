@@ -5655,7 +5655,7 @@ function updateEvilHunt(dt){
     spawnHuntPack(5);
   }
   if(huntDropped) updateChasers(dt);          // chasers normally only tick on level 2
-  if(huntT>=HUNT_LEN){ stopEvilHunt(); showHuntTab(); }
+  if(huntT>=HUNT_LEN){ stopEvilHunt(); huntPayoff(); }
 }
 /* same shape as spawnChasers but not pinned to level 2, since the hunt can
    fire in the Lobby or in the creator sandbox */
@@ -5682,14 +5682,27 @@ document.getElementById('crHunt').addEventListener('click', ()=>{
   huntActive ? stopEvilHunt() : startEvilHunt();
 });
 
-/* survived it — a tab slides down, and opening it is just a white page */
+/* survived it — a real browser tab opens on nothing.html.
+   The hunt ends on a timer with no gesture behind it, so the popup blocker
+   will usually refuse; when it does, the in-page tab appears instead and
+   clicking that IS a gesture, so the real tab opens from there. */
+function openNothingTab(){
+  try{
+    const w=window.open('nothing.html','_blank');
+    if(w){ try{ w.blur(); window.focus(); }catch(e){} return true; }   // leave it waiting in the background
+  }catch(e){}
+  return false;
+}
 function showHuntTab(){ document.getElementById('huntTab').classList.add('show'); }
 function hideHuntTab(){ document.getElementById('huntTab').classList.remove('show'); }
+function huntPayoff(){ if(!openNothingTab()) showHuntTab(); }
 document.getElementById('huntTab').addEventListener('click', e=>{
   hideHuntTab();
   if(e.target.classList.contains('x')) return;          // the x just dismisses it
-  document.getElementById('nothing').classList.add('show');
   if(document.pointerLockElement) document.exitPointerLock();
+  if(!openNothingTab()){                                // still refused — show it inline rather than nothing at all
+    document.getElementById('nothing').classList.add('show');
+  }
 });
 document.getElementById('nothing').addEventListener('click', ()=>{
   document.getElementById('nothing').classList.remove('show');
