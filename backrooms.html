@@ -5854,11 +5854,35 @@ function updateEvilHunt(dt){
   } else if(!huntDropped){
     huntDropped=true;
     document.getElementById('huntCap').textContent='ITS HERE';
-    spawnHuntPack(5);
+    spawnHunter();
   }
   if(huntDropped) updateChasers(dt);          // chasers normally only tick on level 2
   if(huntT>=HUNT_LEN){ stopEvilHunt(); huntPayoff(); }
 }
+/* the Evil Hunter itself — one billboarded cutout rather than a pack.
+   It goes into `chasers` so updateChasers already walks it and catches you. */
+const HUNTER_IMG='hunter.png', HUNTER_H=3.0, HUNTER_AR=772/690;
+let hunterTex=null;
+function addHunter(tex){
+  const mat=new THREE.SpriteMaterial({map:tex, transparent:true});
+  const s=new THREE.Sprite(mat);
+  s.scale.set(HUNTER_H*HUNTER_AR, HUNTER_H, 1);
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  const x=player.x-fwdX*13, z=player.z-fwdZ*13;
+  s.position.set(x, HUNTER_H/2, z);
+  scene.add(s);
+  chasers.push({obj:s, x, z, foot:HUNTER_H/2, faceYaw:0});
+}
+function spawnHunter(){
+  clearChasers();
+  if(hunterTex){ addHunter(hunterTex); return; }
+  new THREE.TextureLoader().load(HUNTER_IMG, t=>{
+    t.colorSpace=THREE.SRGBColorSpace;
+    hunterTex=t;
+    if(huntActive) addHunter(t);          // may have ended while it loaded
+  }, undefined, ()=>{ if(huntActive) spawnHuntPack(5); });   // image missing -> old behaviour
+}
+
 /* same shape as spawnChasers but not pinned to level 2, since the hunt can
    fire in the Lobby or in the creator sandbox */
 function spawnHuntPack(n, keepIf){
