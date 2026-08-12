@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BACKROOMS+ MODS</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23f5cf12'/></svg>">
+<style>
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; }
+  body{ background:#f5cf12; color:#111; font-family:'Courier New',Courier,monospace;
+        padding:26px 5vw 70px; }
+  /* ---- menu ---- */
+  #menu h1{ font-family:Arial,Helvetica,sans-serif; font-weight:800; letter-spacing:-1px;
+    font-size:clamp(38px,10vw,72px); margin:0; text-align:center; }
+  #menu h2{ font-family:Arial,Helvetica,sans-serif; font-weight:800;
+    font-size:clamp(20px,5vw,34px); margin:0 0 30px; text-align:center; }
+  #grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:26px;
+    max-width:860px; margin:0 auto; }
+  .card{ border:4px solid #111; aspect-ratio:1/.92; display:flex; align-items:center;
+    justify-content:center; padding:14px; text-align:center; cursor:pointer;
+    font-size:clamp(14px,2.6vw,19px); background:transparent; }
+  .card:hover{ background:rgba(0,0,0,.07); }
+  .card.installed::after{ content:' ✓'; }
+  /* ---- insert slot, appears once you've downloaded something ---- */
+  #insert{ display:none; max-width:860px; margin:34px auto 0; border:4px dashed #111;
+    padding:26px 18px; text-align:center; cursor:pointer; }
+  #insert.show{ display:block; }
+  #insert strong{ font-size:clamp(17px,4vw,26px); display:block; }
+  #insert span{ font-size:13px; opacity:.75; display:block; margin-top:8px; }
+  #insert.over{ background:rgba(0,0,0,.12); }
+  #modFile{ display:none; }
+  #installed{ max-width:860px; margin:18px auto 0; font-size:14px; }
+  #installed b{ display:block; margin-bottom:6px; }
+  #installed button{ font:inherit; font-size:12px; background:none; border:2px solid #111;
+    padding:3px 9px; cursor:pointer; margin-left:8px; }
+  /* ---- detail page, the grey one ---- */
+  #detail{ display:none; position:fixed; inset:0; background:#6e6e6e; color:#111;
+    padding:26px 5vw; overflow-y:auto; }
+  #detail.show{ display:block; }
+  #dWrap{ display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; max-width:900px; }
+  #dArt{ width:215px; height:190px; border:3px solid #111; background:#7a7a7a; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; }
+  #dArt canvas{ width:100%; height:100%; image-rendering:pixelated; }
+  #dText{ flex:1 1 240px; min-width:0; }
+  #dTitle{ font-size:clamp(24px,5.4vw,34px); color:#fff; margin:0 0 6px; }
+  #dDesc{ font-size:clamp(13px,3vw,16px); margin:0; }
+  #dDownload{ display:block; margin-top:26px; font:inherit; font-size:clamp(22px,5vw,32px);
+    background:#7a7a7a; color:#111; border:3px solid #111; padding:6px 26px; cursor:pointer; }
+  #dDownload:active{ background:#8a8a8a; }
+  #dBack{ position:fixed; right:16px; top:14px; font:inherit; font-size:15px; background:#7a7a7a;
+    border:3px solid #111; padding:7px 15px; cursor:pointer; }
+  #toast{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
+    background:#111; color:#f5cf12; padding:11px 18px; font-size:14px; opacity:0;
+    transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; }
+  #toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <h1>BACKROOMS+</h1>
+  <h2>MODS</h2>
+  <div id="grid"></div>
+  <div id="insert">
+    <strong>insert mod here</strong>
+    <span>drop the file you downloaded, or tap to pick it</span>
+  </div>
+  <input type="file" id="modFile" accept=".backroomsmod,application/json">
+  <div id="installed"></div>
+</div>
+
+<div id="detail">
+  <button id="dBack">&#8592; back</button>
+  <div id="dWrap">
+    <div id="dArt"></div>
+    <div id="dText">
+      <h1 id="dTitle"></h1>
+      <p id="dDesc"></p>
+    </div>
+  </div>
+  <button id="dDownload">download</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* The mod site and the game are the same origin, so installing here writes to
+   the localStorage the game reads on its next load. */
+const MODS=[
+  {id:'nowalls',    name:'no walls mod',     desc:'this mod makes the walls dissaper'},
+  {id:'stalker',    name:'the stalker mod',  desc:'something follows you the whole run and never gets any closer'},
+  {id:'pets',       name:'pets mod',         desc:'one of your Minis walks around with you'},
+  {id:'invincible', name:'invincible mod',   desc:'nothing can catch you and nothing can kill you'},
+  {id:'bacteria35', name:'35 bacteria mod',  desc:'thirty five of them. all at once. good luck'},
+  {id:'afraid',     name:'afraid mod',       desc:'they are scared of you now. they run away'}
+];
+const INSTALL_KEY='backrooms_mods', DL_KEY='backrooms_mods_downloaded';
+const jload=(k,d)=>{ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } };
+const jsave=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
+
+let toastT=0;
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* each mod gets its own generated box art so the detail page differs per mod */
+function modArt(id){
+  const c=document.createElement('canvas'); c.width=64; c.height=56;
+  const g=c.getContext('2d');
+  g.fillStyle='#7a7a7a'; g.fillRect(0,0,64,56);
+  const px=(x,y,w,h,col)=>{ g.fillStyle=col; g.fillRect(x,y,w,h); };
+  if(id==='nowalls'){
+    px(6,34,52,4,'#4a4a4a');
+    for(let i=0;i<4;i++){ g.globalAlpha=0.7-i*0.17; px(8+i*14,18,10,16,'#c9b24a'); }
+    g.globalAlpha=1;
+  } else if(id==='stalker'){
+    px(10,20,6,22,'#161616'); px(11,15,4,6,'#161616');
+    px(44,12,10,30,'#101010'); px(46,16,2,2,'#fff'); px(50,16,2,2,'#fff');
+  } else if(id==='pets'){
+    px(12,24,12,14,'#6bc06b'); px(14,20,8,6,'#6bc06b');
+    px(15,22,2,2,'#fff'); px(19,22,2,2,'#fff');
+    px(40,18,10,20,'#d8a878'); px(41,38,3,6,'#333'); px(46,38,3,6,'#333');
+  } else if(id==='invincible'){
+    px(24,12,16,20,'#e8c840'); px(20,16,24,4,'#e8c840');
+    px(28,32,8,14,'#e8c840');
+  } else if(id==='bacteria35'){
+    for(let i=0;i<12;i++){ const x=4+(i%6)*10, y=14+((i/6)|0)*18;
+      px(x,y,6,12,'#161616'); px(x+1,y+2,1,1,'#fff'); px(x+4,y+2,1,1,'#fff'); }
+  } else {
+    px(28,14,10,16,'#161616'); px(30,18,2,2,'#fff'); px(34,18,2,2,'#fff');
+    px(14,36,8,3,'#111'); px(42,36,8,3,'#111');
+    px(10,34,4,7,'#111'); px(50,34,4,7,'#111');
+  }
+  return c;
+}
+
+function renderMenu(){
+  const grid=document.getElementById('grid'); grid.innerHTML='';
+  const on=jload(INSTALL_KEY,[]);
+  for(const m of MODS){
+    const d=document.createElement('div');
+    d.className='card'+(on.indexOf(m.id)>=0?' installed':'');
+    d.textContent=m.name;
+    d.addEventListener('click',()=>openDetail(m));
+    grid.appendChild(d);
+  }
+  /* the slot only turns up once you've actually downloaded something */
+  document.getElementById('insert').classList.toggle('show', jload(DL_KEY,[]).length>0);
+  const box=document.getElementById('installed');
+  box.innerHTML='';
+  if(on.length){
+    const b=document.createElement('b'); b.textContent='installed:'; box.appendChild(b);
+    for(const id of on){
+      const m=MODS.find(x=>x.id===id)||{name:id};
+      const row=document.createElement('div');
+      row.textContent='✓ '+m.name;
+      const rm=document.createElement('button'); rm.textContent='remove';
+      rm.addEventListener('click',()=>{
+        jsave(INSTALL_KEY, jload(INSTALL_KEY,[]).filter(x=>x!==id));
+        renderMenu(); toast('removed — reload the game');
+      });
+      row.appendChild(rm); box.appendChild(row);
+    }
+    const note=document.createElement('div');
+    note.style.cssText='margin-top:10px;opacity:.75';
+    note.textContent='reload the game for changes to take effect';
+    box.appendChild(note);
+  }
+}
+
+let current=null;
+function openDetail(m){
+  current=m;
+  document.getElementById('dTitle').textContent=m.name;
+  document.getElementById('dDesc').textContent=m.desc;
+  const art=document.getElementById('dArt'); art.innerHTML=''; art.appendChild(modArt(m.id));
+  document.getElementById('detail').classList.add('show');
+}
+document.getElementById('dBack').addEventListener('click',()=>{
+  document.getElementById('detail').classList.remove('show');
+  renderMenu();
+});
+document.getElementById('dDownload').addEventListener('click',()=>{
+  if(!current) return;
+  const file={ backroomsmod:1, id:current.id, name:current.name, desc:current.desc };
+  const blob=new Blob([JSON.stringify(file,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=current.id+'.backroomsmod';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  const dl=jload(DL_KEY,[]); if(dl.indexOf(current.id)<0){ dl.push(current.id); jsave(DL_KEY,dl); }
+  toast('downloaded ' + current.id + '.backroomsmod — go back and insert it');
+});
+
+/* ---- installing ---- */
+function installFromText(txt,fname){
+  let data=null;
+  try{ data=JSON.parse(txt); }catch(e){ toast("that file isn't a mod"); return; }
+  if(!data || !data.backroomsmod || !data.id){ toast("that file isn't a mod"); return; }
+  if(!MODS.some(m=>m.id===data.id)){ toast('unknown mod: '+data.id); return; }
+  const on=jload(INSTALL_KEY,[]);
+  if(on.indexOf(data.id)>=0){ toast(data.name+' is already installed'); return; }
+  on.push(data.id); jsave(INSTALL_KEY,on);
+  renderMenu();
+  toast(data.name+' installed — reload the game');
+}
+function readFile(f){
+  if(!f) return;
+  const fr=new FileReader();
+  fr.onload=()=>installFromText(String(fr.result), f.name);
+  fr.onerror=()=>toast('could not read that file');
+  fr.readAsText(f);
+}
+const slot=document.getElementById('insert'), picker=document.getElementById('modFile');
+slot.addEventListener('click',()=>picker.click());
+picker.addEventListener('change',e=>{ readFile(e.target.files&&e.target.files[0]); e.target.value=''; });
+['dragenter','dragover'].forEach(ev=>slot.addEventListener(ev,e=>{ e.preventDefault(); slot.classList.add('over'); }));
+['dragleave','drop'].forEach(ev=>slot.addEventListener(ev,e=>{ e.preventDefault(); slot.classList.remove('over'); }));
+slot.addEventListener('drop',e=>{ readFile(e.dataTransfer.files&&e.dataTransfer.files[0]); });
+
+renderMenu();
+</script>
+</body>
+</html>
