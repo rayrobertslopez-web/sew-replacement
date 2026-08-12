@@ -379,6 +379,22 @@
     75%  { transform:translate(-1px,2px) skewX(.6deg); }
     100% { transform:translate(3px,0) skewX(-.8deg); }
   }
+  /* the tab that shows up once the hunt lets go of you */
+  #huntTab{ position:fixed; z-index:71; left:50%; top:0; transform:translate(-50%,-110%);
+    display:flex; align-items:center; gap:9px; padding:9px 16px 9px 12px;
+    background:#f2f2f2; color:#1a1a1a; border:1px solid #c9c9c9; border-top:none;
+    border-radius:0 0 11px 11px; cursor:pointer; pointer-events:auto;
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif; font-size:13px; font-weight:600;
+    box-shadow:0 6px 20px rgba(0,0,0,.45); transition:transform .5s ease; max-width:86vw; }
+  #huntTab.show{ transform:translate(-50%,0); }
+  #huntTab .fav{ width:13px; height:13px; border-radius:3px; background:#1a1a1a; flex:0 0 auto; }
+  #huntTab .x{ color:#8a8a8a; font-weight:700; margin-left:4px; }
+  /* and the page behind it */
+  #nothing{ position:fixed; inset:0; z-index:72; display:none; background:#fff; cursor:pointer;
+    align-items:center; justify-content:center; padding:8vw; }
+  #nothing.show{ display:flex; }
+  #nothingText{ color:#000; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-size:clamp(19px,4.6vw,34px); text-align:center; }
   /* ---- Music ---- */
   #musicBtn{ position:fixed; left:0; bottom:calc(env(safe-area-inset-bottom) + 18px); z-index:31;
     padding:12px 16px 12px 12px; border:2px solid #fff; border-left:none; border-radius:0 12px 12px 0;
@@ -778,6 +794,8 @@
 </div>
 <button id="postsClose">CLOSE ✕</button>
 
+<div id="huntTab"><span class="fav"></span><span>there's something for you</span><span class="x">&#10005;</span></div>
+<div id="nothing"><div id="nothingText">there's nothing to be afraid of</div></div>
 <div id="hunt"><div id="huntRed">
   <div id="huntRun">RUN</div>
   <div id="huntCap">Its <span id="huntNum">499</span> walls away from you. . .</div>
@@ -5605,6 +5623,7 @@ const huntAudio=document.getElementById('huntAudio');
 function startEvilHunt(){
   if(huntActive) return;
   huntActive=true; huntT=0; huntDropped=false;
+  hideHuntTab(); document.getElementById('nothing').classList.remove('show');
   document.getElementById('hunt').classList.add('show');
   document.getElementById('huntNum').textContent='499';
   document.getElementById('huntCap').innerHTML='Its <span id="huntNum">499</span> walls away from you. . .';
@@ -5636,7 +5655,7 @@ function updateEvilHunt(dt){
     spawnHuntPack(5);
   }
   if(huntDropped) updateChasers(dt);          // chasers normally only tick on level 2
-  if(huntT>=HUNT_LEN) stopEvilHunt();
+  if(huntT>=HUNT_LEN){ stopEvilHunt(); showHuntTab(); }
 }
 /* same shape as spawnChasers but not pinned to level 2, since the hunt can
    fire in the Lobby or in the creator sandbox */
@@ -5661,6 +5680,19 @@ function maybeStartEvilHunt(){
 }
 document.getElementById('crHunt').addEventListener('click', ()=>{
   huntActive ? stopEvilHunt() : startEvilHunt();
+});
+
+/* survived it — a tab slides down, and opening it is just a white page */
+function showHuntTab(){ document.getElementById('huntTab').classList.add('show'); }
+function hideHuntTab(){ document.getElementById('huntTab').classList.remove('show'); }
+document.getElementById('huntTab').addEventListener('click', e=>{
+  hideHuntTab();
+  if(e.target.classList.contains('x')) return;          // the x just dismisses it
+  document.getElementById('nothing').classList.add('show');
+  if(document.pointerLockElement) document.exitPointerLock();
+});
+document.getElementById('nothing').addEventListener('click', ()=>{
+  document.getElementById('nothing').classList.remove('show');
 });
 
 /* ---------------------------------------------------------------- music
