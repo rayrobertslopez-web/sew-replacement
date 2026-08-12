@@ -258,8 +258,13 @@
   }
   @media (prefers-reduced-motion: reduce){ #jumpImg{ animation:none; } }
   /* ---- NO WAY OUT ---- */
+  /* the white is a frame, not a wall — the middle band is punched out with
+     the same clip-path trick the Hunter's red plane uses, so you watch the
+     hallway through it while the text shakes on the white around it */
   #nwo{ position:fixed; inset:0; z-index:67; display:none; background:#fff;
-    pointer-events:none; overflow:hidden; font-family:Georgia,'Times New Roman',serif; }
+    pointer-events:none; overflow:hidden; font-family:Georgia,'Times New Roman',serif;
+    clip-path:polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
+                      6% 24%, 6% 52%, 94% 52%, 94% 24%, 6% 24%); }
   #nwo.show{ display:block; }
   #nwoTop{ position:absolute; left:0; right:0; top:1%; text-align:center; color:#ef4136;
     font-size:clamp(30px,10.5vw,104px); font-weight:700; letter-spacing:1px; white-space:nowrap;
