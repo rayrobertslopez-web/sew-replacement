@@ -385,6 +385,12 @@
     75%  { transform:translate(-1px,2px) skewX(.6deg); }
     100% { transform:translate(3px,0) skewX(-.8deg); }
   }
+  #survived{ position:fixed; z-index:71; inset:0; display:none; align-items:center;
+    justify-content:center; pointer-events:none; }
+  #survived.show{ display:flex; animation:survFade 4s ease forwards; }
+  #survived span{ font-family:Georgia,'Times New Roman',serif; color:#fff;
+    font-size:clamp(38px,11vw,86px); letter-spacing:3px; text-shadow:0 0 26px rgba(0,0,0,.85); }
+  @keyframes survFade{ 0%{opacity:0} 12%{opacity:1} 75%{opacity:1} 100%{opacity:0} }
   /* the tab that shows up once the hunt lets go of you */
   #huntTab{ position:fixed; z-index:71; left:50%; top:0; transform:translate(-50%,-110%);
     display:flex; align-items:center; gap:9px; padding:9px 16px 9px 12px;
@@ -801,6 +807,7 @@
 </div>
 <button id="postsClose">CLOSE ✕</button>
 
+<div id="survived"><span>you survived</span></div>
 <div id="huntTab"><span class="fav"></span><span>there's something for you</span><span class="x">&#10005;</span></div>
 <div id="nothing"><div id="nothingText">there's nothing to be afraid of</div></div>
 <div id="hunt"><div id="huntRed">
@@ -3378,6 +3385,7 @@ const ACHIEVEMENTS = {
   endlessroad:  { icon:'&#128308;', title:'TO BE CONTINUED', sub:'you found the hole and jumped. the road is still out there.' },
   firstmini:    { icon:'&#11088;', title:'GOTCHA', sub:'you caught your first Mini. equip it from the MiNiS screen.' },
   allminis:     { icon:'&#127942;', title:'THE FULL SET', sub:'all 40 Minis caught. nothing left out there but the hallways.' },
+  survivedhunt: { icon:'&#128373;', title:"THERE'S NOTHING TO BE AFRAID OF. . .", sub:'you outlasted the Evil Hunter. all 45 seconds of it.' },
   adminchosen:  { icon:'&#128081;', title:"THE ADMIN'S CHOSEN ONE", sub:'you got noticed. that rarely ends well.' },
 };
 let achQueue=[], achShowing=false;
@@ -5777,7 +5785,14 @@ function openNothingTab(){
 }
 function showHuntTab(){ document.getElementById('huntTab').classList.add('show'); }
 function hideHuntTab(){ document.getElementById('huntTab').classList.remove('show'); }
-function huntPayoff(){ if(!openNothingTab()) showHuntTab(); }
+function huntPayoff(){
+  const el=document.getElementById('survived');
+  el.classList.remove('show'); void el.offsetWidth;   // restart the fade if it just ran
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 4200);
+  unlockAchievement('survivedhunt');
+  if(!openNothingTab()) showHuntTab();
+}
 document.getElementById('huntTab').addEventListener('click', e=>{
   hideHuntTab();
   if(e.target.classList.contains('x')) return;          // the x just dismisses it
