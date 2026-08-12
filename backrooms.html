@@ -401,6 +401,15 @@
     75%  { transform:translate(-1px,2px) skewX(.6deg); }
     100% { transform:translate(3px,0) skewX(-.8deg); }
   }
+  #zalgo{ position:fixed; z-index:73; inset:0; display:none; align-items:center;
+    justify-content:center; pointer-events:none; padding:6vw; overflow:hidden; }
+  #zalgo.show{ display:flex; }
+  #zalgoText{ font-family:Georgia,'Times New Roman',serif; color:#fff; text-align:center;
+    font-size:clamp(20px,4.4vw,42px); line-height:2.1; word-break:break-word;
+    text-shadow:0 0 18px #000, 0 0 42px rgba(160,0,0,.9);
+    animation:zalgoIn .18s steps(2,end) 6, zalgoHold 1s .9s forwards; }
+  @keyframes zalgoIn{ 0%{transform:translate(-6px,3px) scale(1.02)} 50%{transform:translate(5px,-4px) scale(.99)} 100%{transform:none} }
+  @keyframes zalgoHold{ to{ transform:none } }
   #survived{ position:fixed; z-index:71; inset:0; display:none; align-items:center;
     justify-content:center; pointer-events:none; }
   #survived.show{ display:flex; animation:survFade 4s ease forwards; }
@@ -824,6 +833,7 @@
 <button id="postsClose">CLOSE ✕</button>
 
 <div id="survived"><span>you survived</span></div>
+<div id="zalgo"><span id="zalgoText">T̵̳͓̣͚̺͔͆̈́̾͊͌̍̊̂̐̈́̓̀̒̍͊́̆̈́ͅH̴̡̢̧͎̖̠̜̖̙̤̜̘̥̖́́̀̋͑̓̈́̿́̀̚͡ͅE̷̡̢̢̙̞̯̥̬̙͕̹͐͌̇̃̌̓̄̔͂̆̚͘͝Ŗ̷̦̩̬̜͙͙̬͈̲̳̹̳̺̳͕͉̮̪̺͕̦̀͗E̸͕̬̠̺̲̻̞̺͔̫̟̅̈́͑́̍͑͒͌͂̌͗̋̃͑̑̕͟S̴̛͕͖̩̮̫͚̘̰͉͍͎̪̫̱̫̭̟̳̈́̆̎̐̏̃̕͝ͅ ̶̢͔͕͓̥̞̯̭̭͉̭̯̘̣̤̻̻͚͉͓̦͕̐̋̈́̓̈́̔͜N̷̢̧͍͍͓͚̼̞̪̦̼̥̩͉̪̪͖̳̓͒̓͂͘͝Õ̷̡͕̠͎̗̣̖͕̏͛̄̇̊̇͗̃̄̒̏̀̓̇͛̚͠ͅT̸̠̙̬̥̳̖̟̻̰͙̰̊̓͒͌̓̋̀̐͛͒̋͌̚̚͜H̵̞̫̟̥̮̮̥͖̜̻̝̤̦͖̮̍̃͑̈́̐̆̍Í̴̢̡̨̥͈̺͎̮̺̱̩̗̜̳̗̹̠̹̩͕͉͒͛͘N̷̯̻̟͚̓̈́̔̏̐G̵̢̡̞̬͙̥̱̖̼̙͍̜̠͍̣̥̻̱͕̓͛̊̃́̓͗̋͊̀̓̚ ̵̛̛͎͎̺͍̞͈͖̩̬̙̓̊́̀̑͑̉̎̚̕͜͜͠T̸̞̐̑̏̀̑͌̉͌̌̓͆͜Ȯ̶̡͙̼̯̞͙͙͚͍̞̣̝͍͔̅̆͆̑̑̀̑̋̕͘͝ͅ ̵̡̢̧͈͍̯̤̻̱̙̰̪̲͚͇͈̩̦̱̂͊̀̍̌̍͌̌̋͒̊̔̀̓̏̀̽̋̍̕ͅB̴̡̢̧̨̛̳͕̻̬̙͍̱̜̤̟̙̖̬͎̞͂̂̓̔̾̇̿̀̍̆͌̄̉̆̅̐͋̀͘̚͜Ë̷͕̱̘̼̠̙͎͓́̋̾͌̂̀̃͒̕͠ ̴̡̢̹̬̦̖̪̼͕̬̱͕͎͓̼̮̜͎͊͒̊͊ͅA̷̛̳͍͈̙̺̗̲̞̺̳̍̾̔́̎̈́̾̒̈́̉͛̽̋͂̂̕̕͜F̶̞͍͓͉̘̤̥̼͉̓̆̄ͅR̴̨̪̝͈̟̀͌̇̃͌́́͋̈̊̓͌̈̍̾̽̊̕̚͜Å̷̢̛̩̬͕͎̮̼̥̦̲̦̲̯̞̩̣̀̒̓͊̓̆̏̔̍̋̒̃̄ͣ̕͠͝I̴͖̰͙̭̅̑̈͆̕͜͜ͅD̷̡͙̱̺͔͈̭̘̈́̋̔̋͒͑̈ͅ ̸͈̦̋̂́̎̐̒̎̈̏̑̐O̸̫̝̞̐̑̈́̇̊̂̀̒̓F̸̨̡̢̠̼̻͓͙̖̺̮̳̥̬͇͉̟̹̣̥͙̅</span></div>
 <div id="huntTab"><span class="fav"></span><span>there's something for you</span><span class="x">&#10005;</span></div>
 <div id="nothing"><div id="nothingText">there's nothing to be afraid of</div></div>
 <div id="hunt"><div id="huntRed">
@@ -5890,6 +5900,7 @@ function stopEvilHunt(){
   huntActive=false; huntDropped=false;
   document.getElementById('hunt').classList.remove('show');
   document.getElementById('huntRed').classList.remove('rage');
+  document.getElementById('zalgo').classList.remove('show');
   try{ screamAudio.pause(); screamAudio.currentTime=0; }catch(e){}
   try{ huntAudio.pause(); huntAudio.currentTime=0; }catch(e){}
   clearChasers();
@@ -5985,6 +5996,17 @@ function huntPayoff(){
   setTimeout(()=>el.classList.remove('show'), 4200);
   unlockAchievement('survivedhunt');
   makeWorldRed();
+  /* the scream again, and the message, a beat after "you survived" lands */
+  setTimeout(()=>{
+    document.getElementById('survived').classList.remove('show');   // hand the screen over
+    const z=document.getElementById('zalgo');
+    z.classList.remove('show'); void z.offsetWidth;   // replay the shudder on a repeat hunt
+    z.classList.add('show');
+    try{ screamAudio.currentTime=0;
+         screamAudio.volume=Math.max(0,Math.min(1,audio.getVolume()));
+         const pr=screamAudio.play(); if(pr&&pr.catch) pr.catch(()=>{}); }catch(e){}
+    setTimeout(()=>z.classList.remove('show'), 7000);
+  }, 1400);
   if(!openNothingTab()) showHuntTab();
 }
 document.getElementById('huntTab').addEventListener('click', e=>{
