@@ -241,6 +241,22 @@
     background:rgba(70,70,70,.92); color:#fff; cursor:pointer;
     font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
   #postsBtn:active{ background:rgba(100,100,100,.95); }
+  /* ---- jumpscares ---- */
+  #jump{ position:fixed; inset:0; z-index:80; display:none; background:#000;
+    align-items:center; justify-content:center; pointer-events:none; overflow:hidden; }
+  #jump.show{ display:flex; }
+  #jumpImg{ max-width:none; height:118%; filter:contrast(1.25) saturate(.8)
+    drop-shadow(0 0 40px rgba(160,0,0,.8)); animation:jumpShake .05s steps(2,end) infinite; }
+  #jump::after{ content:''; position:absolute; inset:0; background:
+    radial-gradient(ellipse at center, rgba(120,0,0,0) 35%, rgba(120,0,0,.75) 100%); }
+  @keyframes jumpShake{
+    0%  { transform:translate(0,0) scale(1.00) rotate(0deg); }
+    25% { transform:translate(-16px,9px) scale(1.05) rotate(-1.6deg); }
+    50% { transform:translate(13px,-12px) scale(1.02) rotate(1.4deg); }
+    75% { transform:translate(-9px,-7px) scale(1.06) rotate(-.8deg); }
+    100%{ transform:translate(14px,8px) scale(1.01) rotate(1.1deg); }
+  }
+  @media (prefers-reduced-motion: reduce){ #jumpImg{ animation:none; } }
   /* ---- LIVES ---- */
   #livesBtn{ position:fixed; right:0; bottom:calc(env(safe-area-inset-bottom) + 118px); z-index:31;
     padding:12px 12px 12px 16px; border:2px solid #fff; border-right:none; border-radius:12px 0 0 12px;
@@ -970,6 +986,7 @@
 <button id="postsClose">CLOSE ✕</button>
 
 <div id="survived"><span>you survived</span></div>
+<div id="jump"><img id="jumpImg" alt=""></div>
 <div id="watcherFx"></div>
 <div id="watcherMsg"><span id="watcherText">İ̸̢̛̫͕̭̲͔͔̘̃͑͂̊̆͊̿̍̈́̽͂̌̌͋̓̂̈́͝ ̶̳̟̖̝̘͆̓́̆̒̓͐̀̀̏̕Ș̴̟͉̝̘͎͓̖͉͓̪͓̖̺̹͛̐̍̂͐̇͋̇̈́̈́͐E̶̯̱̤̱͇̟͔̓̄̎͒͗̄̏̒̍̋̂̽̉̈́̈́͊͘͘͜͝ͅE̵̢̢͙̰̤̭̙̥̩̥̗͕͓̫̤͔͚͕̅͂̔͛̄̒̊̊̓͒͌̿̽͑͋͜ͅ ̴̡̧̛͇̥̘̘̙̥̝̩̖̱̩͚̂̎̏̎̒͐͆͆̒̍̀̅̊̒̊̒̓͘͘͜͝͝Y̴̛̛͍͇͖̭̝͉̘͔̥͇͕̟̰͉͎̺̰̗͇͍̍̓̐̌͗́̾͒̿͒̏̐̚͜͝ͅO̴̢̡̡͚̝͇͍̤̲̥̳͔̯̜̥̗̯̍̔̽́̓̄̄͛́̍̎́͂͆̾̔͝Ǜ̸̢̧̨̨̖̜͍͕͈̬͖̫̬̮̬̟̺̳̏̓̀̕͜͝</span></div>
 <audio id="lullabyAudio" src="lullaby.mp3" preload="auto"></audio>
@@ -2378,6 +2395,7 @@ function exitCreator(){
 let catchObj=null;   // whichever creature (entity or a level-2 chaser) actually caught the player
 function startCatch(obj, foot, byStomper){
   if(modOn('invincible')) return;          // invincible mod
+  jumpscare(watchActive?'watcher' : huntActive?'hunter' : byStomper?'stomper' : 'entity');
   if(caught) return;
   caught=true; caughtT=0; catchBlack=false; catchObj=obj||null;
   catchFoot = (foot==null? entityFoot : foot);
@@ -3524,6 +3542,7 @@ function newGame(){
   spawnOrigin={x:player.x,z:player.z};
   stopWatcher();
   stalkReset();
+  clearJumpscare();
   clearWorldRed();
   refreshPerk();                       // whatever Mini is equipped applies for this run
   sanity=100; stamina=100; waters=0; elapsed=0; maxDist=0; localLight=1;
@@ -3745,7 +3764,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  stopEvilHunt(); stopWatcher(); endMyLive();
+  stopEvilHunt(); stopWatcher(); endMyLive(); clearJumpscare();
   ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
@@ -4703,10 +4722,14 @@ function tick(){
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
   updateEvilHunt(dt); updateWatcher(dt);   // both tick in the lobby and the sandbox
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
-  const chasing = inGame && !caught && !transitioning &&
-                  ((entity && entity.state==='chase') || stomper || (chasers.length>0));
-  if(chasing && !_wasChased) liveEvent('chase');
-  _wasChased=chasing;
+  /* entity-chase.mp3 is the bacteria's sound. The Hunter and the Watcher use
+     their own tracks, so they must not drag this one in — level 2's pack is
+     bacteria too, hence the level check rather than a bare chasers.length. */
+  const bacteriaOnMe = (entity && entity.state==='chase') || (level===2 && chasers.length>0);
+  const chasing = inGame && !caught && !transitioning && (bacteriaOnMe || stomper);
+  const beingHunted = chasing || ((huntActive||watchActive) && chasers.length>0);
+  if(beingHunted && !_wasChased) liveEvent('chase');
+  _wasChased=beingHunted;
   audio.setChase(chasing, dt);
   renderScene(dt);
 }
@@ -5999,6 +6022,47 @@ function applyRunMods(){
   if(modOn('bacteria35')) spawnHuntPack(35, ()=>modOn('bacteria35'));
 }
 
+/* ---------------------------------------------------------------- jumpscares
+   Whatever got you fills the screen, shaking, with the scream over it. The
+   Hunter and the Watcher have real artwork; the bacteria and the Stomper get
+   a face drawn to match how they look in the world. */
+let _jumpT=0, _faceURL={};
+function entityFaceURL(kind){
+  if(_faceURL[kind]) return _faceURL[kind];
+  const c=document.createElement('canvas'); c.width=520; c.height=560;
+  const g=c.getContext('2d');
+  const px=(x,y,w,h,col)=>{ g.fillStyle=col; g.fillRect(x,y,w,h); };
+  g.clearRect(0,0,520,560);
+  if(kind==='stomper'){
+    px(60,120,400,300,'#1c1a20');                       // bulk
+    px(140,40,240,90,'#1c1a20');
+    px(150,190,90,70,'#e04030'); px(280,190,90,70,'#e04030');   // red eyes
+    px(170,215,40,30,'#2a0806'); px(300,215,40,30,'#2a0806');
+    for(let i=0;i<4;i++) px(70+i*110,420,46,140,'#141318');     // stilt legs
+  } else {
+    px(120,40,280,360,'#0e0e0e');                       // tall black head
+    px(160,150,70,60,'#f5f5f5'); px(290,150,70,60,'#f5f5f5');   // white eyes
+    px(180,168,26,26,'#0a0a0a'); px(310,168,26,26,'#0a0a0a');
+    px(190,290,140,26,'#101010');
+    px(150,400,220,160,'#0b0b0b');                      // shoulders
+  }
+  return (_faceURL[kind]=c.toDataURL('image/png'));
+}
+function jumpscare(kind){
+  const el=document.getElementById('jump'), im=document.getElementById('jumpImg');
+  im.src = kind==='hunter' ? HUNTER_IMG
+         : kind==='watcher' ? WATCHER_IMG
+         : entityFaceURL(kind);
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  try{ screamAudio.currentTime=0;
+       screamAudio.volume=Math.max(0,Math.min(1,audio.getVolume()));
+       const pr=screamAudio.play(); if(pr&&pr.catch) pr.catch(()=>{}); }catch(e){}
+  liveEvent('scare');
+  clearTimeout(_jumpT);
+  _jumpT=setTimeout(()=>el.classList.remove('show'), 1500);
+}
+function clearJumpscare(){ clearTimeout(_jumpT); document.getElementById('jump').classList.remove('show'); }
+
 /* ------------------------------------------------------- the Hunter, stalking
    Nothing to do with the 45-second event. This one just lives in your run: it
    picks a spot where it can see you but you nearly can't see it, stands there
@@ -6107,7 +6171,11 @@ function updateStalker3(dt){
             || stalkT>STALK.maxShow                           // it got bored
             || !losClear(player.x,player.z,stalkObj.position.x,stalkObj.position.z);
   if(gone){
-    if(dist<STALK.flee){ stalkSeen++; audio.setGrowl(0.8); }
+    if(dist<STALK.flee){
+      stalkSeen++; audio.setGrowl(0.8);
+      /* one in five, walking up to it is a mistake */
+      if(Math.random()<0.2) jumpscare('hunter');
+    }
     hideStalker();
   }
 }
@@ -6402,6 +6470,7 @@ function liveEvent(kind){
   else if(kind==='death'){ chatBurstML(['NOOO','LMAOOO','bro 💀','i told you to go left','unlucky','L'],4); bump(-4); }
   else if(kind==='chase'){ chatBurstML(['RUN','GO GO GO','BEHIND YOU','oh my god','DONT LOOK BACK'],5); bump(14); }
   else if(kind==='stalker'){ chatBurstML(['WAIT WHAT WAS THAT','did anyone else see that','THERE IT IS','nah im out','clip that'],4); bump(11); }
+  else if(kind==='scare'){ chatBurstML(['WHAT WAS THAT','I JUMPED','BRO','oh my god','NAH','😭😭😭'],5); bump(16); }
   else if(kind==='water'){ chatBurstML(['drink up','good find','ok hes not dying today'],2); }
 }
 function chatBurstML(pool,n){
