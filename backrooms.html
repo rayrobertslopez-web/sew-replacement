@@ -257,6 +257,25 @@
     100%{ transform:translate(14px,8px) scale(1.01) rotate(1.1deg); }
   }
   @media (prefers-reduced-motion: reduce){ #jumpImg{ animation:none; } }
+  /* ---- NO WAY OUT ---- */
+  #nwo{ position:fixed; inset:0; z-index:67; display:none; background:#fff;
+    pointer-events:none; overflow:hidden; font-family:Georgia,'Times New Roman',serif; }
+  #nwo.show{ display:block; }
+  #nwoTop{ position:absolute; left:0; right:0; top:1%; text-align:center; color:#ef4136;
+    font-size:clamp(30px,10.5vw,104px); font-weight:700; letter-spacing:1px; white-space:nowrap;
+    animation:nwoShake .06s steps(2,end) infinite; }
+  #nwoRun{ position:absolute; left:0; right:0; top:56%; text-align:center; color:#ef4136;
+    font-size:clamp(26px,7vw,70px); letter-spacing:3px;
+    animation:nwoShake .09s steps(2,end) infinite; }
+  @keyframes nwoShake{
+    0%  { transform:translate(0,0) skewX(0deg) rotate(0deg); }
+    20% { transform:translate(-13px,6px) skewX(-7deg) rotate(-1.4deg); }
+    40% { transform:translate(11px,-9px) skewX(6deg) rotate(1.6deg); }
+    60% { transform:translate(-8px,-5px) skewX(-4deg) rotate(.9deg); }
+    80% { transform:translate(12px,7px) skewX(5deg) rotate(-1.2deg); }
+    100%{ transform:translate(-6px,3px) skewX(-6deg) rotate(1.3deg); }
+  }
+  @media (prefers-reduced-motion: reduce){ #nwoTop,#nwoRun{ animation:none; } }
   /* ---- CHATS ---- */
   #chatsBtn{ position:fixed; right:0; bottom:calc(env(safe-area-inset-bottom) + 168px); z-index:31;
     padding:12px 12px 12px 16px; border:2px solid #fff; border-right:none; border-radius:12px 0 0 12px;
@@ -1054,6 +1073,8 @@
 <button id="postsClose">CLOSE ✕</button>
 
 <div id="survived"><span>you survived</span></div>
+<div id="nwo"><div id="nwoTop">THERES NO WAY OUT</div><div id="nwoRun">RUN</div></div>
+<audio id="beepAudio" src="beep-loud.mp3" preload="auto" loop></audio>
 <div id="jump"><img id="jumpImg" alt=""></div>
 <div id="watcherFx"></div>
 <div id="watcherMsg"><span id="watcherText">İ̸̢̛̫͕̭̲͔͔̘̃͑͂̊̆͊̿̍̈́̽͂̌̌͋̓̂̈́͝ ̶̳̟̖̝̘͆̓́̆̒̓͐̀̀̏̕Ș̴̟͉̝̘͎͓̖͉͓̪͓̖̺̹͛̐̍̂͐̇͋̇̈́̈́͐E̶̯̱̤̱͇̟͔̓̄̎͒͗̄̏̒̍̋̂̽̉̈́̈́͊͘͘͜͝ͅE̵̢̢͙̰̤̭̙̥̩̥̗͕͓̫̤͔͚͕̅͂̔͛̄̒̊̊̓͒͌̿̽͑͋͜ͅ ̴̡̧̛͇̥̘̘̙̥̝̩̖̱̩͚̂̎̏̎̒͐͆͆̒̍̀̅̊̒̊̒̓͘͘͜͝͝Y̴̛̛͍͇͖̭̝͉̘͔̥͇͕̟̰͉͎̺̰̗͇͍̍̓̐̌͗́̾͒̿͒̏̐̚͜͝ͅO̴̢̡̡͚̝͇͍̤̲̥̳͔̯̜̥̗̯̍̔̽́̓̄̄͛́̍̎́͂͆̾̔͝Ǜ̸̢̧̨̨̖̜͍͕͈̬͖̫̬̮̬̟̺̳̏̓̀̕͜͝</span></div>
@@ -1421,6 +1442,7 @@
       <button class="crBtn on" id="crSelect">🎯 SELECT</button>
       <button class="crBtn danger" id="crHunt">&#128128; EVIL HUNTER</button>
       <button class="crBtn danger" id="crWatcher">&#128064; WATCHER</button>
+      <button class="crBtn danger" id="crNwo">&#128680; NO WAY OUT</button>
     </div>
   </div>
 </div>
@@ -2754,8 +2776,20 @@ function updateChasers(dt){
     const dx=player.x-c.x, dz=player.z-c.z, dist=Math.hypot(dx,dz)||0.001;
     const flee=modOn('afraid')?-1:1;         // afraid mod
     const hx=(dx/dist)*flee, hz=(dz/dist)*flee;
-    let nx=c.x+hx*speed*dt, nz=c.z+hz*speed*dt;
+    const step=speed*dt;
+    let nx=c.x+hx*step, nz=c.z+hz*step;
     [nx,nz]=collideLevel(nx,nz,0.4);
+    /* walking straight at you jams them on a corner and the hunt just stops —
+       if the direct line got them nowhere, slide along the wall instead */
+    if(Math.hypot(nx-c.x,nz-c.z) < step*0.35){
+      const px=-hz, pz=hx;
+      const side=(c.slide|| (c.slide = Math.random()<0.5?1:-1));
+      for(const dir of [side,-side]){
+        let sx=c.x+px*dir*step, sz=c.z+pz*dir*step;
+        [sx,sz]=collideLevel(sx,sz,0.4);
+        if(Math.hypot(sx-c.x,sz-c.z) > step*0.35){ nx=sx; nz=sz; c.slide=dir; break; }
+      }
+    }
     c.x=nx; c.z=nz;
     const targetYaw=Math.atan2(hx,hz);
     let d0=targetYaw-c.faceYaw; while(d0>Math.PI)d0-=2*Math.PI; while(d0<-Math.PI)d0+=2*Math.PI;
@@ -3611,7 +3645,7 @@ function newGame(){
 
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0; player.floorY=0;
   spawnOrigin={x:player.x,z:player.z};
-  stopWatcher();
+  stopWatcher(); stopNwo();
   stalkReset();
   clearJumpscare();
   clearWorldRed();
@@ -3688,7 +3722,7 @@ function die(reason,title){          // non-catch deaths (e.g. sanity) -> straig
 }
 function gameOver(){
   liveEvent('death');
-  stopEvilHunt(); stopWatcher();
+  stopEvilHunt(); stopWatcher(); stopNwo();
   running=false; caught=false;
   audio.setGrowl(0); audio.setChase(false,1); clearStomper();
   document.getElementById('cross').classList.remove('show');
@@ -3837,7 +3871,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  stopEvilHunt(); stopWatcher(); endMyLive(); clearJumpscare();
+  stopEvilHunt(); stopWatcher(); stopNwo(); endMyLive(); clearJumpscare();
   ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
@@ -4795,14 +4829,14 @@ function tick(){
   else if(megActive){ updateMeg(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
-  updateEvilHunt(dt); updateWatcher(dt);   // both tick in the lobby and the sandbox
+  updateEvilHunt(dt); updateWatcher(dt); updateNwo(dt);   // all tick in the lobby and the sandbox
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
   /* entity-chase.mp3 is the bacteria's sound. The Hunter and the Watcher use
      their own tracks, so they must not drag this one in — level 2's pack is
      bacteria too, hence the level check rather than a bare chasers.length. */
   const bacteriaOnMe = (entity && entity.state==='chase') || (level===2 && chasers.length>0);
   const chasing = inGame && !caught && !transitioning && (bacteriaOnMe || stomper);
-  const beingHunted = chasing || ((huntActive||watchActive) && chasers.length>0);
+  const beingHunted = chasing || ((huntActive||watchActive||nwoActive) && chasers.length>0);
   if(beingHunted && !_wasChased) liveEvent('chase');
   _wasChased=beingHunted;
   audio.setChase(chasing, dt);
@@ -6240,7 +6274,7 @@ function stalkerInView(){
   return (dx/d)*fx+(dz/d)*fz > 0.35;
 }
 function updateStalker3(dt){
-  if(level!==0 || !running || huntActive || watchActive){    // the events get the stage to themselves
+  if(level!==0 || !running || huntActive || watchActive || nwoActive){   // events get the stage
     if(stalkObj && stalkState!=='idle') stalkReset();
     return;
   }
@@ -6899,6 +6933,78 @@ document.getElementById('livesBtn').addEventListener('click', openLives);
 document.getElementById('livesClose').addEventListener('click', closeLives);
 document.getElementById('lwBack').addEventListener('click', closeWatch);
 
+/* ------------------------------------------------------------- NO WAY OUT
+   Third encounter. 20% on a run start: the beep loops for the whole 45
+   seconds, the screen goes white with THERES NO WAY OUT / RUN shaking hard,
+   and the thing hunts you the whole time. */
+const NWO_LEN=45, NWO_CHANCE=0.20;
+const NWO_IMG='nowayout.png', NWO_H=3.1;
+let nwoActive=false, nwoT=0, nwoTex=null, nwoAR=1;
+const beepAudio=document.getElementById('beepAudio');
+
+/* the artwork is optional — until the png is dropped in, it uses a drawn
+   silhouette so the encounter is playable rather than invisible */
+function nwoFallbackTex(){
+  const c=document.createElement('canvas'); c.width=256; c.height=320;
+  const g=c.getContext('2d');
+  const px=(x,y,w,h,col)=>{ g.fillStyle=col; g.fillRect(x,y,w,h); };
+  px(104,26,48,66,'#0d0d0d');                       // head
+  px(114,46,12,12,'#fff'); px(132,46,12,12,'#fff'); // eyes
+  px(112,74,34,7,'#1a1a1a');
+  px(96,92,64,120,'#0b0b0b');                       // torso
+  px(64,98,32,14,'#0b0b0b'); px(160,98,32,14,'#0b0b0b');
+  px(50,110,16,86,'#0b0b0b'); px(190,110,16,86,'#0b0b0b');   // long arms
+  px(104,212,20,96,'#090909'); px(132,212,20,96,'#090909');  // long legs
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace;
+  nwoAR=256/320;
+  return t;
+}
+function addNwo(tex){
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true}));
+  sp.scale.set(NWO_H*nwoAR, NWO_H, 1);
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  const x=player.x-fwdX*14, z=player.z-fwdZ*14;
+  sp.position.set(x, NWO_H/2, z);
+  scene.add(sp);
+  chasers.push({obj:sp, x, z, foot:NWO_H/2, faceYaw:0});
+}
+function spawnNwo(){
+  clearChasers();
+  if(nwoTex){ addNwo(nwoTex); return; }
+  new THREE.TextureLoader().load(NWO_IMG, t=>{
+    t.colorSpace=THREE.SRGBColorSpace;
+    const im=t.image; nwoAR=(im&&im.height)?(im.width/im.height):1;
+    nwoTex=t; if(nwoActive) addNwo(t);
+  }, undefined, ()=>{ nwoTex=nwoFallbackTex(); if(nwoActive) addNwo(nwoTex); });
+}
+function startNwo(){
+  if(nwoActive || huntActive || watchActive) return;
+  nwoActive=true; nwoT=0;
+  document.getElementById('nwo').classList.add('show');
+  try{ beepAudio.currentTime=0;
+       beepAudio.volume=Math.max(0,Math.min(1,audio.getVolume()));
+       const pr=beepAudio.play(); if(pr&&pr.catch) pr.catch(()=>{}); }catch(e){}
+  spawnNwo();
+}
+function stopNwo(){
+  if(!nwoActive) return;
+  nwoActive=false;
+  document.getElementById('nwo').classList.remove('show');
+  try{ beepAudio.pause(); beepAudio.currentTime=0; }catch(e){}
+  clearChasers();
+}
+function updateNwo(dt){
+  if(!nwoActive) return;
+  /* the beep is a 1s file on loop, so its clock restarts constantly — this
+     one has to count real time rather than read currentTime like the others */
+  nwoT+=dt;
+  updateChasers(dt);
+  if(nwoT>=NWO_LEN) stopNwo();
+}
+document.getElementById('crNwo').addEventListener('click', ()=>{
+  nwoActive ? stopNwo() : startNwo();
+});
+
 /* ---------------------------------------------------------------- the Watcher
    Its own encounter: the lullaby plays, the screen pulses red once a second,
    I SEE YOU sits over everything, and the thing itself hunts you. Runs for the
@@ -6926,7 +7032,7 @@ function spawnWatcher(){
   });
 }
 function startWatcher(){
-  if(watchActive || huntActive) return;      // never both at once
+  if(watchActive || huntActive || nwoActive) return;   // only ever one encounter at a time
   watchActive=true; watchT=0;
   document.getElementById('watcherFx').classList.add('show');
   document.getElementById('watcherMsg').classList.add('show');
@@ -6994,7 +7100,7 @@ function makeWorldRed(){
 function clearWorldRed(){ if(worldRed){ worldRed=false; applyAtmosphere(level); } }
 
 function startEvilHunt(){
-  if(huntActive) return;
+  if(huntActive || watchActive || nwoActive) return;   // only ever one encounter at a time
   huntActive=true; huntT=0; huntDropped=false;
   hideHuntTab(); document.getElementById('nothing').classList.remove('show');
   document.getElementById('hunt').classList.add('show');
@@ -7080,9 +7186,11 @@ function spawnHuntPack(n, keepIf){
 }
 /* rolled once per run, and only once the countdown has actually run out */
 function maybeStartEvilHunt(){
-  if(huntActive || watchActive) return;
+  if(huntActive || watchActive || nwoActive) return;
   if(eventPassed() && Math.random()<HUNT_CHANCE){ setTimeout(startEvilHunt, 1500); return; }
-  if(Math.random()<WATCH_CHANCE) setTimeout(startWatcher, 2000);   // otherwise the Watcher may take it
+  /* rolled before the Watcher, or its 45% would eat most of this one's 20% */
+  if(Math.random()<NWO_CHANCE){ setTimeout(startNwo, 1800); return; }
+  if(Math.random()<WATCH_CHANCE) setTimeout(startWatcher, 2000);
 }
 document.getElementById('crHunt').addEventListener('click', ()=>{
   huntActive ? stopEvilHunt() : startEvilHunt();
