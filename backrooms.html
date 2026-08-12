@@ -349,6 +349,36 @@
     padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
     color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
   #postsClose.show{ display:block; }
+  /* the fixed side buttons sit over the creator server's control bars and
+     intercept their clicks, so they step aside while the sandbox is open */
+  body.creating #postsBtn, body.creating #minisBtn, body.creating #musicBtn{ display:none; }
+  /* ---- Evil Hunter event ----
+     One red plane with a rectangular hole punched through it by clip-path, so
+     the only thing you can see of the world is that window. RUN and the caption
+     live inside the same element, which is why the hole crops RUN's feet the
+     way the mock does. */
+  #hunt{ position:fixed; inset:0; z-index:70; display:none; pointer-events:none; }
+  #hunt.show{ display:block; }
+  #huntRed{ position:absolute; inset:0; background:#ee3b30;
+    font-family:Georgia,'Times New Roman',serif; color:#111;
+    clip-path:polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
+                      25% 26%, 25% 75%, 77% 75%, 77% 26%, 25% 26%); }
+  #huntRun{ position:absolute; left:0; right:0; top:1%; text-align:center;
+    font-size:clamp(90px,26vw,240px); line-height:.86; letter-spacing:2px; }
+  #huntCap{ position:absolute; left:0; right:0; top:79%; text-align:center;
+    font-size:clamp(17px,4.6vw,34px); }
+  #huntNum{ font-variant-numeric:tabular-nums; }
+  @media (prefers-reduced-motion: no-preference){
+    #huntRun{ animation:huntTwitch .22s steps(2,end) infinite; }
+    #huntCap{ animation:huntTwitch .5s steps(2,end) infinite; }
+  }
+  @keyframes huntTwitch{
+    0%   { transform:translate(0,0) skewX(0deg); }
+    25%  { transform:translate(-3px,1px) skewX(-1.6deg); }
+    50%  { transform:translate(2px,-2px) skewX(1.2deg); }
+    75%  { transform:translate(-1px,2px) skewX(.6deg); }
+    100% { transform:translate(3px,0) skewX(-.8deg); }
+  }
   /* ---- Music ---- */
   #musicBtn{ position:fixed; left:0; bottom:calc(env(safe-area-inset-bottom) + 18px); z-index:31;
     padding:12px 16px 12px 12px; border:2px solid #fff; border-left:none; border-radius:0 12px 12px 0;
@@ -748,6 +778,12 @@
 </div>
 <button id="postsClose">CLOSE ✕</button>
 
+<div id="hunt"><div id="huntRed">
+  <div id="huntRun">RUN</div>
+  <div id="huntCap">Its <span id="huntNum">499</span> walls away from you. . .</div>
+</div></div>
+<audio id="huntAudio" src="evil-hunter.mp3" preload="auto"></audio>
+
 <button id="musicBtn">&#9835; MUSIC</button>
 <div id="musicScreen">
   <div id="musicHead">MUSIC</div>
@@ -1098,6 +1134,7 @@
       <button class="crBtn" data-spawn="plane">SLAB</button>
       <button class="crBtn" data-spawn="entity">HOWLER</button>
       <button class="crBtn on" id="crSelect">🎯 SELECT</button>
+      <button class="crBtn danger" id="crHunt">&#128128; EVIL HUNTER</button>
     </div>
   </div>
 </div>
@@ -2110,7 +2147,7 @@ function enterCreator(){
   player.x=0; player.z=0; player.yaw=0; player.pitch=0; player.bob=0;
   camera.position.set(0, EYE, 0); camera.rotation.set(0,0,0,'YXZ');
 
-  creatorMode=true; running=false; caught=false;
+  creatorMode=true; running=false; caught=false; document.body.classList.add('creating');
   document.getElementById('creatorUI').classList.add('show');
   document.getElementById('gameover').classList.remove('show');
   document.getElementById('cross').classList.toggle('show', !isTouch);
@@ -2121,7 +2158,7 @@ function enterCreator(){
   toast('Creator Server — spawn something, then aim + SELECT to move it.');
 }
 function exitCreator(){
-  creatorMode=false; creatorPlaying=false;
+  creatorMode=false; creatorPlaying=false; document.body.classList.remove('creating');
   document.getElementById('creatorUI').classList.remove('show');
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
@@ -3279,6 +3316,7 @@ function newGame(){
 
   updateChunks(); processQueue(999);   // build initial rings synchronously
   spawnEntity();
+  maybeStartEvilHunt();
   maybeSpawnPortal();
   spawnSurvivor();
   spawnTv();
@@ -3340,6 +3378,7 @@ function die(reason,title){          // non-catch deaths (e.g. sanity) -> straig
   deathLevel=level; lastDeathByEntity=false; gameOver();
 }
 function gameOver(){
+  stopEvilHunt();
   running=false; caught=false;
   audio.setGrowl(0); audio.setChase(false,1); clearStomper();
   document.getElementById('cross').classList.remove('show');
@@ -3487,6 +3526,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
+  stopEvilHunt();
   ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
@@ -4441,9 +4481,10 @@ function tick(){
   else if(megActive){ updateMeg(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
+  updateEvilHunt(dt);        // ticks in the lobby and in the creator sandbox alike
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
   const chasing = inGame && !caught && !transitioning &&
-                  ((entity && entity.state==='chase') || stomper || (level===2 && chasers.length>0));
+                  ((entity && entity.state==='chase') || stomper || (chasers.length>0));
   audio.setChase(chasing, dt);
   renderScene(dt);
 }
@@ -5550,6 +5591,76 @@ document.getElementById('postsClose').addEventListener('click', ()=>{
 document.getElementById('postSend').addEventListener('click', submitUserPost);
 document.getElementById('postText').addEventListener('keydown', e=>{
   if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); submitUserPost(); }
+});
+
+/* ---------------------------------------------------------------- evil hunter
+   45 seconds long. For the first 23 the red plane is up, RUN twitches and the
+   wall count falls 499 -> 0; the count is deliberately tied to the drop, so it
+   reaches zero on the beat. Then five of them spawn and hunt you for the rest
+   of the track while your whole view stays that one window. */
+const HUNT_DROP=23, HUNT_LEN=45, HUNT_CHANCE=0.25;
+let huntActive=false, huntT=0, huntDropped=false;
+const huntAudio=document.getElementById('huntAudio');
+
+function startEvilHunt(){
+  if(huntActive) return;
+  huntActive=true; huntT=0; huntDropped=false;
+  document.getElementById('hunt').classList.add('show');
+  document.getElementById('huntNum').textContent='499';
+  document.getElementById('huntCap').innerHTML='Its <span id="huntNum">499</span> walls away from you. . .';
+  try{
+    huntAudio.currentTime=0;
+    huntAudio.volume=Math.max(0,Math.min(1,audio.getVolume()));
+    const pr=huntAudio.play(); if(pr&&pr.catch) pr.catch(()=>{});
+  }catch(e){}
+}
+function stopEvilHunt(){
+  if(!huntActive) return;
+  huntActive=false; huntDropped=false;
+  document.getElementById('hunt').classList.remove('show');
+  try{ huntAudio.pause(); huntAudio.currentTime=0; }catch(e){}
+  clearChasers();
+}
+function updateEvilHunt(dt){
+  if(!huntActive) return;
+  /* the track is the clock. Accumulating dt drifts behind real time whenever
+     frames run long, and the whole point is that the pack lands on the beat. */
+  const at=huntAudio.currentTime;
+  huntT = (at>0 && !huntAudio.paused) ? at : huntT+dt;
+  if(huntT<HUNT_DROP){
+    const left=Math.max(0, Math.round(499*(1-huntT/HUNT_DROP)));
+    const el=document.getElementById('huntNum'); if(el) el.textContent=left;
+  } else if(!huntDropped){
+    huntDropped=true;
+    document.getElementById('huntCap').textContent='ITS HERE';
+    spawnHuntPack(5);
+  }
+  if(huntDropped) updateChasers(dt);          // chasers normally only tick on level 2
+  if(huntT>=HUNT_LEN) stopEvilHunt();
+}
+/* same shape as spawnChasers but not pinned to level 2, since the hunt can
+   fire in the Lobby or in the creator sandbox */
+function spawnHuntPack(n){
+  clearChasers();
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  const rgtX=Math.cos(player.yaw), rgtZ=-Math.sin(player.yaw);
+  for(let i=0;i<n;i++){
+    const back=11+i*3.5, side=(i-(n-1)/2)*3.4;
+    const x=player.x-fwdX*back+rgtX*side, z=player.z-fwdZ*back+rgtZ*side;
+    loadEntityInstance((root,foot)=>{
+      if(!root || !huntActive) return;        // hunt may have ended while the glb loaded
+      scene.add(root);
+      chasers.push({obj:root, x, z, foot, faceYaw:0});
+    });
+  }
+}
+/* rolled once per run, and only once the countdown has actually run out */
+function maybeStartEvilHunt(){
+  if(!eventPassed() || huntActive) return;
+  if(Math.random()<HUNT_CHANCE) setTimeout(startEvilHunt, 1500);
+}
+document.getElementById('crHunt').addEventListener('click', ()=>{
+  huntActive ? stopEvilHunt() : startEvilHunt();
 });
 
 /* ---------------------------------------------------------------- music
