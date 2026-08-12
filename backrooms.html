@@ -1458,6 +1458,7 @@
       <button class="crBtn danger" id="crHunt">&#128128; EVIL HUNTER</button>
       <button class="crBtn danger" id="crWatcher">&#128064; WATCHER</button>
       <button class="crBtn danger" id="crNwo">&#128680; NO WAY OUT</button>
+      <button class="crBtn danger" id="crInteg">&#129503; INTEGRITY</button>
     </div>
   </div>
 </div>
@@ -2042,6 +2043,10 @@ function floorAt(x,z){
   return l2LastFloorY;
 }
 function collideLevel(x,z,r){
+  /* the creator sandbox is an open baseplate — `level` is still 0 in there, so
+     without this anything that walks (the encounter entities) would bump into
+     the maze walls of a level that isn't being rendered */
+  if(creatorMode) return [Math.max(-CREATOR_BOUND,Math.min(CREATOR_BOUND,x)), Math.max(-CREATOR_BOUND,Math.min(CREATOR_BOUND,z))];
   if(level===0) return collide(x,z,r);
   if(level===3) return [Math.max(-L3_WIDTH/2+r, Math.min(L3_WIDTH/2-r, x)), z];   // just clamp to the road's width
   const m=curRaycastModel(); if(!m) return [x,z];
@@ -2060,6 +2065,7 @@ function collideLevel(x,z,r){
   return [x,z];
 }
 function losClear(x0,z0,x1,z1){
+  if(creatorMode) return true;                 // nothing to hide behind on the baseplate
   if(level===0) return lineClear(x0,z0,x1,z1);
   if(level===3) return true;   // no maze walls to block line of sight on the road
   const m=curRaycastModel(); if(!m) return true;
@@ -2447,7 +2453,7 @@ function enterCreator(){
   for(const key of [...chunks.keys()]) unloadChunk(key);
   buildQueue.length=0; pickups.length=0;
   if(entity){ scene.remove(entity.obj); entity=null; }
-  clearChasers(); clearBots();
+  clearChasers(); clearBots(); integStop();
   document.getElementById('botChat').classList.add('hide');
   if(l1Model && l1Model.parent) scene.remove(l1Model);
   if(l1Exit){ scene.remove(l1Exit); l1Exit=null; }
@@ -2483,6 +2489,7 @@ function enterCreator(){
   toast('Creator Server — spawn something, then aim + SELECT to move it.');
 }
 function exitCreator(){
+  integStop();
   creatorMode=false; creatorPlaying=false; document.body.classList.remove('creating');
   document.getElementById('creatorUI').classList.remove('show');
   document.getElementById('cross').classList.remove('show');
@@ -7016,24 +7023,37 @@ function integStop(){
   for(let i=chasers.length-1;i>=0;i--) if(chasers[i].integ){ scene.remove(chasers[i].obj); chasers.splice(i,1); }
   integNext = performance.now() + rand2(INTEG_GAP)*(1-Math.min(0.45, integHunts*0.09))*1000;   // sooner each time
 }
+/* one visit. Used by the random timer during a run and by the creator server's
+   INTEGRITY button, which force-spawns it whether or not the mod is installed —
+   the sandbox is for trying things out. */
+function integStart(){
+  if(integState==='hunt') return;
+  integState='hunt'; integHunts++;
+  integDur=rand2(INTEG_HUNT);        // rolled once, not re-rolled every frame
+  integEnd=performance.now()+integDur*1000;
+  integSpawn(); audio.setGrowl(0.9); liveEvent('scare');
+}
 function updateIntegrity(dt){
-  if(!integrityOn() || !running || level!==0 || huntActive || watchActive || nwoActive){
+  const canRun = !huntActive && !watchActive && !nwoActive && (creatorMode || (running && level===0));
+  if(!canRun){
     if(integState!=='idle') integStop();
     return;
   }
-  const now=performance.now();
   if(integState==='idle'){
-    if(now>=integNext){
-      integState='hunt'; integHunts++;
-      integDur=rand2(INTEG_HUNT);        // rolled once, not re-rolled every frame
-      integEnd=now+integDur*1000;
-      integSpawn(); audio.setGrowl(0.9); liveEvent('scare');
-    }
+    // it only shows up on its own during a real run with the mod on; in the
+    // sandbox you spawn it yourself
+    if(integrityOn() && !creatorMode && performance.now()>=integNext) integStart();
     return;
   }
   updateChasers(dt);
-  if(now>=integEnd) integStop();
+  if(performance.now()>=integEnd) integStop();
 }
+document.getElementById('crInteg').addEventListener('click', ()=>{
+  if(integState==='hunt'){ integStop(); return; }
+  if(huntActive || watchActive || nwoActive){ toast('Something else is already out here.'); return; }
+  integStart();
+  toast('INTEGRITY is here. It leaves on its own in a bit.');
+});
 
 /* ------------------------------------------------------------- NO WAY OUT
    Third encounter. 20% on a run start: the beep loops for the whole 45
