@@ -947,7 +947,7 @@
   <div class="menuRow">
     <button class="btn2" id="levelsBtn">LEVELS</button>
     <button class="btn2" id="threatBtn">THREAT INDEX</button>
-    <button class="btn2" id="postsBtn">POSTS</button>
+    <button class="btn2" id="menuPostsBtn">POSTS</button>
   </div>
   <div class="menuRow" id="vrRow" style="display:none">
     <button class="btn" id="vrBtn" style="border-color:#7bd3ff;color:#bfeaff">&#129488; ENTER VR</button>
@@ -1508,6 +1508,9 @@ function buildChunk(cx,cz){
       const s=makeMiniPickup(mi);
       s.position.set(i*CELL+CELL/2, 0.55, j*CELL+CELL/2);
       group.add(s); pickups.push({mesh:s, key:'m'+key, kind:'mini', mini:mi});
+      /* a Mini you never picked up still has to free its texture when the
+         chunk unloads, or every one you walk past leaks on the gpu */
+      disposables.push(s.userData.tex, s.userData.mat);
     }
     if(hasExit(i,j)){
       const e=makeExit(); e.position.set(i*CELL+CELL/2, 0, j*CELL+CELL/2);
@@ -4751,7 +4754,7 @@ document.getElementById('levelsBtn').addEventListener('click', openLevels);
 document.getElementById('levelsBack').addEventListener('click', showStart);
 document.getElementById('threatBtn').addEventListener('click', openThreat);
 document.getElementById('threatBack').addEventListener('click', showStart);
-document.getElementById('postsBtn').addEventListener('click', openPosts);
+document.getElementById('menuPostsBtn').addEventListener('click', openPosts);
 document.getElementById('postsBack').addEventListener('click', closePosts);
 document.getElementById('postImgBtn').addEventListener('click', ()=> document.getElementById('postImgInput').click());
 document.getElementById('postImgInput').addEventListener('change', onPostImgChosen);
