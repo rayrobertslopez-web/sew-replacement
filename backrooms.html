@@ -241,6 +241,73 @@
     background:rgba(70,70,70,.92); color:#fff; cursor:pointer;
     font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
   #postsBtn:active{ background:rgba(100,100,100,.95); }
+  /* ---- LIVES ---- */
+  #livesBtn{ position:fixed; right:0; bottom:calc(env(safe-area-inset-bottom) + 118px); z-index:31;
+    padding:12px 12px 12px 16px; border:2px solid #fff; border-right:none; border-radius:12px 0 0 12px;
+    background:rgba(70,70,70,.92); color:#fff; cursor:pointer; display:flex; align-items:center; gap:7px;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
+  #livesBtn:active{ background:rgba(100,100,100,.95); }
+  #livesBtn .dot{ width:9px; height:9px; border-radius:50%; background:#e0342c;
+    animation:liveBlink 1.6s ease-in-out infinite; }
+  @keyframes liveBlink{ 0%,100%{opacity:1} 50%{opacity:.25} }
+  body.creating #livesBtn{ display:none; }
+  #livesScreen{ position:fixed; inset:0; z-index:60; display:none; overflow-y:auto;
+    background:#141418; color:#e9e9ee; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    padding:20px 4vw calc(env(safe-area-inset-bottom) + 40px); }
+  #livesScreen.show{ display:block; }
+  #livesHead{ font-family:'Segoe Print','Comic Sans MS',cursive; font-size:clamp(30px,7vw,44px);
+    font-weight:900; transform:rotate(-1.5deg); margin:4px 0 2px; }
+  #livesSub{ color:#8f8f9c; font-size:13px; margin-bottom:18px; }
+  #livesGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; }
+  .lcard{ background:#1e1e25; border:1px solid #33333e; border-radius:12px; overflow:hidden; cursor:pointer; }
+  .lcard:active{ background:#26262f; }
+  .lthumb{ position:relative; width:100%; aspect-ratio:16/9; background:#000; }
+  .lthumb canvas{ width:100%; height:100%; display:block; }
+  .lbadge{ position:absolute; left:8px; top:8px; background:#e0342c; color:#fff; font-size:9px;
+    font-weight:800; letter-spacing:1px; border-radius:3px; padding:2px 6px; }
+  .lviewers{ position:absolute; right:8px; bottom:8px; background:rgba(0,0,0,.72); color:#fff;
+    font-size:11px; border-radius:3px; padding:2px 6px; }
+  .lmeta{ padding:9px 11px 12px; }
+  .ltitle{ font-size:13.5px; font-weight:700; line-height:1.3; }
+  .lwho{ font-size:12px; color:#8f8f9c; margin-top:3px; }
+  /* watch view */
+  #liveWatch{ position:fixed; inset:0; z-index:62; display:none; background:#101014;
+    color:#e9e9ee; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    overflow-y:auto; padding:14px 4vw calc(env(safe-area-inset-bottom) + 30px); }
+  #liveWatch.show{ display:block; }
+  #lwStage{ position:relative; width:100%; max-width:760px; margin:0 auto; aspect-ratio:16/9;
+    background:#000; border-radius:12px; overflow:hidden; }
+  #lwStage canvas{ width:100%; height:100%; display:block; }
+  #lwAlert{ position:absolute; left:0; right:0; top:14%; text-align:center; opacity:0;
+    font-size:clamp(15px,3.4vw,26px); font-weight:800; color:#ffd95e;
+    text-shadow:0 0 14px rgba(0,0,0,.9); pointer-events:none; }
+  #lwAlert.pop{ animation:lwPop 3s ease forwards; }
+  @keyframes lwPop{ 0%{opacity:0;transform:translateY(14px) scale(.9)} 14%{opacity:1;transform:none}
+    78%{opacity:1} 100%{opacity:0} }
+  #lwHearts{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  #lwHearts span{ position:absolute; bottom:6%; font-size:20px; animation:lwFloat 2.4s ease-out forwards; }
+  @keyframes lwFloat{ to{ transform:translateY(-190px) scale(1.5); opacity:0 } }
+  #lwBar{ max-width:760px; margin:12px auto 0; display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  #lwName{ font-weight:800; font-size:15px; }
+  #lwCount{ color:#8f8f9c; font-size:12.5px; }
+  .lwBtn{ background:#2a2a34; color:#e9e9ee; border:1px solid #3d3d4a; border-radius:9px;
+    padding:9px 14px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  .lwBtn:active{ background:#3a3a46; }
+  .lwBtn.join{ background:#3f7a4a; border-color:#4f9a5c; }
+  .lwBtn.like.on{ background:#7a2a34; border-color:#c04a5a; color:#ffd8dd; }
+  #lwChat{ max-width:760px; margin:14px auto 0; background:#17171d; border:1px solid #2c2c36;
+    border-radius:12px; height:min(38vh,300px); overflow-y:auto; padding:10px 12px; }
+  .lmsg{ font-size:13px; line-height:1.45; margin-bottom:5px; word-wrap:break-word; }
+  .lmsg b{ font-weight:700; }
+  .lmsg.me b{ color:#b0a4ff; }
+  .lmsg.tip{ background:#2a2413; border-left:3px solid #ffd95e; padding:5px 8px; border-radius:0 7px 7px 0; }
+  #lwSay{ max-width:760px; margin:10px auto 0; display:flex; gap:8px; }
+  #lwInput{ flex:1; min-width:0; background:#1e1e25; color:#e9e9ee; border:1px solid #3d3d4a;
+    border-radius:9px; padding:10px 12px; font:inherit; font-size:13.5px; }
+  #livesClose,#lwBack{ position:fixed; top:14px; right:16px; z-index:63; display:none;
+    padding:10px 18px; border:2px solid #fff; border-radius:10px; background:rgba(60,60,60,.9);
+    color:#fff; cursor:pointer; font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:15px; }
+  #livesClose.show,#lwBack.show{ display:block; }
   #modsBtn{ position:fixed; right:0; bottom:calc(env(safe-area-inset-bottom) + 68px); z-index:31;
     padding:12px 12px 12px 16px; border:2px solid #fff; border-right:none; border-radius:12px 0 0 12px;
     background:rgba(70,70,70,.92); color:#fff; cursor:pointer;
@@ -826,6 +893,25 @@
 </div>
 <button id="minisClose">CLOSE ✕</button>
 
+<button id="livesBtn"><span class="dot"></span>LIVES</button>
+<div id="livesScreen">
+  <div id="livesHead">LIVES</div>
+  <div id="livesSub">people playing right now</div>
+  <div id="livesGrid"></div>
+</div>
+<button id="livesClose">CLOSE &#10005;</button>
+<div id="liveWatch">
+  <div id="lwStage"><div id="lwHearts"></div><div id="lwAlert"></div></div>
+  <div id="lwBar">
+    <span id="lwName"></span><span id="lwCount"></span>
+    <button class="lwBtn like" id="lwLike">&#9829; LIKE</button>
+    <button class="lwBtn" id="lwDonate">&#128176; DONATE</button>
+    <button class="lwBtn join" id="lwJoin">JOIN SERVER</button>
+  </div>
+  <div id="lwChat"></div>
+  <div id="lwSay"><input id="lwInput" maxlength="120" placeholder="say something…"><button class="lwBtn" id="lwSend">SEND</button></div>
+</div>
+<button id="lwBack">&#8592; BACK</button>
 <button id="modsBtn">MODS</button>
 <button id="postsBtn">EXTRA POSTS</button>
 <div id="postsScreen">
@@ -5866,6 +5952,226 @@ function applyRunMods(){
   spawnStalker();
   if(modOn('bacteria35')) spawnHuntPack(35, ()=>modOn('bacteria35'));
 }
+
+/* ---------------------------------------------------------------- LIVES
+   Streams of bots playing. Each card paints its own little hallway with the
+   streamer walking through it, and the chat never stops moving. */
+const LIVE_TITLES=[
+  'LEVEL 0 GRIND — 40 minutes no deaths (attempt 6)',
+  'catching every Mini or i dont sleep',
+  'ENTITY HUNTING (it keeps finding me instead)',
+  'endless road world record attempt',
+  'reacting to the new update LIVE',
+  'no walls mod but i regret it',
+  'trying to survive the evil hunter',
+  'almond water speedrun any%',
+  '24 HOUR BACKROOMS STREAM (hour 19)',
+  'chill lobby run, come talk to me',
+  'ETERNAL mini hunt day 3',
+  'i turned off the flashlight. why did i do that'
+];
+const LIVE_CHAT=[
+  'BEHIND YOU','no way','LMAO','bro just walked into it','W stream','first',
+  'turn around!!','how do you have that many minis','the hum is getting louder',
+  'run RUN RUN','my guy is NOT ok','chat is this real','he does not see it',
+  'thats an eternal drop right there','GO LEFT','not the smiler 💀','sheeeesh',
+  'i got jumped by that yesterday','stop looking at the walls','drink the water!!',
+  'W','L take','this level is so creepy','how long you been live',
+  'yooo','clark_dev is watching','7 hours in?? go sleep','the timer is at 0',
+  'im scared and im not even playing','bro said "its fine" 💀','nah thats crazy',
+  'first time here, this is sick','LOOK BEHIND','not again 😭','ez clap',
+  'my whole class watches you','do the no walls mod','pls say hi','HI CHAT'
+];
+const LIVE_EMOTES=['💀','😭','🔥','👀','😳','🫠','🗿','❤️'];
+let LIVES=[], liveCur=null, liveRaf=0, liveChatT=0, liveThumbRaf=0;
+
+function makeLives(){
+  const r=mulberry32(0x11e3d|0);
+  LIVES=[];
+  for(let i=0;i<12;i++){
+    const name=PB_NAMES[(r()*PB_NAMES.length)|0]+((r()<0.4)?('_'+((r()*99)|0)):'');
+    LIVES.push({ id:i, name, title:LIVE_TITLES[i%LIVE_TITLES.length],
+      viewers:40+((r()*9000)|0), sprite:5+((r()*(MINIS_TOTAL-5))|0),
+      hue:r(), likes:(r()*4000)|0, liked:false, tips:0 });
+  }
+}
+/* a hallway with the streamer walking down it, drawn per frame */
+function paintLive(cv, L, t){
+  const g=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const vy=H*0.52;
+  g.fillStyle='#b3a04c'; g.fillRect(0,0,W,H);
+  g.fillStyle='#9c8a3e'; g.fillRect(0,0,W,vy*0.6);
+  g.fillStyle='#6f6229'; g.fillRect(0,vy+H*0.08,W,H);
+  const drift=(t*0.35)%1;
+  g.strokeStyle='rgba(66,56,18,.7)'; g.lineWidth=1.2;
+  for(let i=-5;i<=5;i++){
+    g.beginPath(); g.moveTo(W/2+i*(W/5),0); g.lineTo(W/2,vy); g.lineTo(W/2+i*(W/5),H); g.stroke();
+  }
+  for(let d=0;d<5;d++){
+    const k=((d+drift)/5), y0=vy-(vy)*(1-k), y1=vy+(H-vy)*(1-k);
+    const x0=W/2+(0-W/2)*(1-k), x1=W/2+(W-W/2)*(1-k);
+    g.strokeStyle='rgba(70,60,22,.35)';
+    g.beginPath(); g.moveTo(x0,y0); g.lineTo(x0,y1); g.stroke();
+    g.beginPath(); g.moveTo(x1,y0); g.lineTo(x1,y1); g.stroke();
+  }
+  const lg=g.createRadialGradient(W/2,vy,2,W/2,vy,H*0.7);
+  lg.addColorStop(0,'rgba(255,244,186,.4)'); lg.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=lg; g.fillRect(0,0,W,H);
+  const spr=liveSprite(L.sprite);
+  const bob=Math.abs(Math.sin(t*4))*H*0.02;
+  const sw=W*0.13, sh=sw*(32/24);
+  g.imageSmoothingEnabled=false;
+  g.drawImage(spr, W/2-sw/2+Math.sin(t*1.3)*W*0.03, vy+H*0.10-sh+bob, sw, sh);
+  g.imageSmoothingEnabled=true;
+  g.fillStyle='rgba(0,0,0,.30)'; g.fillRect(0,H*0.88,W,H*0.12);
+}
+const _liveSprites={};
+function liveSprite(i){ return _liveSprites[i] || (_liveSprites[i]=drawMiniSprite(i)); }
+
+function renderLives(){
+  makeLives();
+  const grid=document.getElementById('livesGrid'); grid.innerHTML='';
+  const cvs=[];
+  for(const L of LIVES){
+    const card=document.createElement('div'); card.className='lcard';
+    const th=document.createElement('div'); th.className='lthumb';
+    const cv=document.createElement('canvas'); cv.width=224; cv.height=126;
+    th.appendChild(cv);
+    const bd=document.createElement('span'); bd.className='lbadge'; bd.textContent='LIVE';
+    const vw=document.createElement('span'); vw.className='lviewers';
+    vw.textContent=L.viewers.toLocaleString()+' watching';
+    th.appendChild(bd); th.appendChild(vw);
+    const meta=document.createElement('div'); meta.className='lmeta';
+    const ti=document.createElement('div'); ti.className='ltitle'; ti.textContent=L.title;
+    const wh=document.createElement('div'); wh.className='lwho'; wh.textContent=L.name;
+    meta.appendChild(ti); meta.appendChild(wh);
+    card.appendChild(th); card.appendChild(meta);
+    card.addEventListener('click',()=>openWatch(L));
+    grid.appendChild(card); cvs.push([cv,L]);
+  }
+  cancelAnimationFrame(liveThumbRaf);
+  const loop=()=>{
+    const t=performance.now()/1000;
+    for(const [cv,L] of cvs) paintLive(cv,L,t+L.id);
+    liveThumbRaf=requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+function chatLine(who,text,cls){
+  const box=document.getElementById('lwChat');
+  const d=document.createElement('div'); d.className='lmsg'+(cls?' '+cls:'');
+  const b=document.createElement('b'); b.textContent=who+': ';
+  d.appendChild(b); d.appendChild(document.createTextNode(text));
+  box.appendChild(d);
+  while(box.childElementCount>120) box.removeChild(box.firstChild);
+  box.scrollTop=box.scrollHeight;
+}
+function openWatch(L){
+  liveCur=L;
+  document.getElementById('liveWatch').classList.add('show');
+  document.getElementById('lwBack').classList.add('show');
+  document.getElementById('livesClose').classList.remove('show');
+  document.getElementById('lwName').textContent=L.name;
+  document.getElementById('lwChat').innerHTML='';
+  const like=document.getElementById('lwLike');
+  like.classList.toggle('on', L.liked);
+  updateWatchCount();
+  const stage=document.getElementById('lwStage');
+  let cv=stage.querySelector('canvas');
+  if(!cv){ cv=document.createElement('canvas'); cv.width=760; cv.height=428; stage.prepend(cv); }
+  cancelAnimationFrame(liveRaf);
+  const loop=()=>{ paintLive(cv,L,performance.now()/1000); liveRaf=requestAnimationFrame(loop); };
+  loop();
+  for(let i=0;i<8;i++) botChatLine();
+  clearInterval(liveChatT);
+  liveChatT=setInterval(()=>{ botChatLine(); if(Math.random()<0.5) botChatLine(); }, 900);
+}
+function botChatLine(){
+  const r=Math.random();
+  const who=PB_NAMES[(r*PB_NAMES.length)|0]+((r<0.35)?((Math.random()*99)|0):'');
+  let msg=LIVE_CHAT[(Math.random()*LIVE_CHAT.length)|0];
+  if(Math.random()<0.3) msg+=' '+LIVE_EMOTES[(Math.random()*LIVE_EMOTES.length)|0];
+  chatLine(who,msg);
+}
+function updateWatchCount(){
+  if(!liveCur) return;
+  document.getElementById('lwCount').textContent =
+    liveCur.viewers.toLocaleString()+' watching · '+liveCur.likes.toLocaleString()+' likes';
+}
+function closeWatch(){
+  cancelAnimationFrame(liveRaf); clearInterval(liveChatT); liveCur=null;
+  document.getElementById('liveWatch').classList.remove('show');
+  document.getElementById('lwBack').classList.remove('show');
+  document.getElementById('livesClose').classList.add('show');
+}
+function liveAlert(txt){
+  const el=document.getElementById('lwAlert');
+  el.textContent=txt; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+}
+document.getElementById('lwLike').addEventListener('click', ()=>{
+  if(!liveCur) return;
+  liveCur.liked=!liveCur.liked;
+  liveCur.likes+=liveCur.liked?1:-1;
+  document.getElementById('lwLike').classList.toggle('on', liveCur.liked);
+  updateWatchCount();
+  if(liveCur.liked){
+    const h=document.getElementById('lwHearts');
+    for(let i=0;i<6;i++){
+      const sp=document.createElement('span'); sp.textContent='❤';
+      sp.style.left=(10+Math.random()*80)+'%';
+      sp.style.animationDelay=(Math.random()*0.5).toFixed(2)+'s';
+      h.appendChild(sp); setTimeout(()=>sp.remove(),3000);
+    }
+    addRep(1);
+  }
+});
+document.getElementById('lwDonate').addEventListener('click', ()=>{
+  if(!liveCur) return;
+  const amounts=[1,2,5,10,20,50];
+  const amt=amounts[(Math.random()*amounts.length)|0];
+  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||'you';
+  liveCur.tips+=amt;
+  liveAlert('💰 '+nick+' donated $'+amt+'!');
+  chatLine(nick,'donated $'+amt+' — keep going!','tip');
+  setTimeout(()=>chatLine(liveCur.name,'YO thank you '+nick+'!! 🙏'),900);
+  for(let i=0;i<3;i++) setTimeout(botChatLine, 400+i*300);
+  addRep(5);
+});
+document.getElementById('lwJoin').addEventListener('click', ()=>{
+  if(!liveCur) return;
+  const who=liveCur.name;
+  closeWatch(); closeLives();
+  chatLine(who,'someone joined!');
+  feedToast && feedToast('joining '+who+"'s server…");
+  joinBotServer(who);
+});
+document.getElementById('lwSend').addEventListener('click', sendLiveChat);
+document.getElementById('lwInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); sendLiveChat(); }
+});
+function sendLiveChat(){
+  const inp=document.getElementById('lwInput');
+  const txt=inp.value.trim(); if(!txt || !liveCur) return;
+  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||'you';
+  chatLine(nick,txt,'me'); inp.value=''; addRep(1);
+  if(Math.random()<0.5) setTimeout(()=>chatLine(liveCur.name,'@'+nick+' '+
+    ['yes!!','fr','i KNOW right','ok chat calm down','good call','hahaha'][(Math.random()*6)|0]), 1100);
+}
+function openLives(){
+  if(document.pointerLockElement) document.exitPointerLock();
+  document.getElementById('livesScreen').classList.add('show');
+  document.getElementById('livesClose').classList.add('show');
+  renderLives();
+}
+function closeLives(){
+  cancelAnimationFrame(liveThumbRaf);
+  document.getElementById('livesScreen').classList.remove('show');
+  document.getElementById('livesClose').classList.remove('show');
+}
+document.getElementById('livesBtn').addEventListener('click', openLives);
+document.getElementById('livesClose').addEventListener('click', closeLives);
+document.getElementById('lwBack').addEventListener('click', closeWatch);
 
 /* ---------------------------------------------------------------- the Watcher
    Its own encounter: the lullaby plays, the screen pulses red once a second,
