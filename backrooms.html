@@ -3120,13 +3120,20 @@ function endTvRec(){
 }
 
 const BOT_REPLIES=[
-  "...", "i hear you too.", "don't stop moving.", "the lights are buzzing again.",
-  "i've been here for hours.", "did you find an exit yet?", "shh. it's listening.",
-  "the carpet is always wet here.", "i think something followed you in.", "same yellow, different day.",
-  "keep your sanity up.", "i saw it near the vending machines.", "nod if you can hear the hum too.",
+  "wait fr?", "yeah i noticed that too", "bro same", "no cause same",
+  "how long have you been down here", "i lost my group like an hour ago",
+  "dont go that way i already tried", "theres nothing that way trust me",
+  "im so lost lol", "have you found an exit yet", "i keep going in circles",
+  "my batterys almost dead", "do you hear that or is it just me",
+  "ok that was definitely something", "im not moving until it stops",
+  "you got any water left?", "share the water bro", "im fine im fine im fine",
+  "this is the same hallway i swear", "nah this is different i think",
+  "wait where'd you go", "slow down im behind you", "hold on",
 ];
-const BOT_GREETINGS=["hey.", "oh — hi.", "you're new here.", "finally, someone else."];
-const BOT_WARN=["run.", "get away from there.", "it's close.", "don't look behind you."];
+const BOT_GREETINGS=["yo", "oh thank god someone else", "hey!! youre real right",
+  "hi hi hi", "wait youre new arent you", "sup", "hey how'd you get in here"];
+const BOT_WARN=["RUN", "go go go go", "dont turn around", "get away from there NOW",
+  "its right there", "shut up shut up shut up", "hide", "please move"];
 function pickFrom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function pickBotReply(msg){
   const m=msg.toLowerCase();
@@ -4141,14 +4148,14 @@ function leaveChat(){ disconnectChat(); document.getElementById('chatRoom').clas
      alter publication supabase_realtime add table public.post_replies;
 ------------------------------------------------------------------------- */
 const BOT_POST_CAPTIONS = [
-  "found this room today. water damage everywhere. still no exit.",
+  "found this room today. water everywhere. still no exit lol",
   "does anyone else hear the hum get louder at night or is it just me",
-  "almond water tastes different in this sector. reporting it anyway.",
-  "saw movement near the vending machines. didn't stick around to check.",
-  "3 hours in and the carpet pattern hasn't repeated once. or maybe it has.",
-  "posting this so someone knows I made it this far.",
-  "the lights flickered in a pattern. I think it was trying to say something.",
-  "found a door that wasn't there yesterday.",
+  "the almond water tastes different in this sector. drank it anyway",
+  "saw something move near the vending machines. didnt stick around",
+  "3 hours in and i think ive walked this hallway like 40 times",
+  "posting this so someone knows i made it this far",
+  "the lights flickered in a pattern. tell me im not crazy",
+  "found a door that was not there yesterday. not opening it",
 ];
 const BOT_POST_STATE_KEY='backrooms_botposts_v1';
 function loadBotPostState(){ try{ return JSON.parse(localStorage.getItem(BOT_POST_STATE_KEY)||'{}'); }catch(e){ return {}; } }
@@ -5971,17 +5978,37 @@ const LIVE_TITLES=[
   'i turned off the flashlight. why did i do that'
 ];
 const LIVE_CHAT=[
-  'BEHIND YOU','no way','LMAO','bro just walked into it','W stream','first',
-  'turn around!!','how do you have that many minis','the hum is getting louder',
-  'run RUN RUN','my guy is NOT ok','chat is this real','he does not see it',
-  'thats an eternal drop right there','GO LEFT','not the smiler 💀','sheeeesh',
-  'i got jumped by that yesterday','stop looking at the walls','drink the water!!',
-  'W','L take','this level is so creepy','how long you been live',
-  'yooo','clark_dev is watching','7 hours in?? go sleep','the timer is at 0',
-  'im scared and im not even playing','bro said "its fine" 💀','nah thats crazy',
-  'first time here, this is sick','LOOK BEHIND','not again 😭','ez clap',
-  'my whole class watches you','do the no walls mod','pls say hi','HI CHAT'
+  'BEHIND YOU','BEHIND YOUUU','bro turn around','TURN AROUND','nah he doesnt see it',
+  'chat is this real','wait what was that','did anyone else see that or am i tweaking',
+  'my heart is actually racing rn','i cant watch this','im watching thru my fingers',
+  'W','W stream','L','Lmao','LMAOOO','im dead 💀','bro 💀','not him doing that 💀',
+  'first','first time here this is actually sick','how long u been live?',
+  'how many minis do u have','wait how do u get the eternal ones','is that the new update',
+  'my mom said 5 more mins so this better be good','im supposed to be doing homework',
+  'came from the posts feed','clark_dev is in chat btw','no shot','NO SHOT',
+  'the hum is so loud rn','turn the volume down bro my ears','pls say hi im new',
+  'say my name pls','SAY MY NAME','he never reads chat 😭','he read my message!!',
+  'run RUN RUN RUN','GO LEFT','no right!! RIGHT','left was right there??',
+  'why would u go in there','bro really said "its fine"','confidently wrong',
+  'drink the water!!','U HAVE WATER USE IT','sanitys getting low man','watch ur sanity',
+  'been here since the start','2 hours in and hes still lost','hes so lost lol',
+  'this is my 3rd time watching this','im rewatching the vod after this',
+  'thats a mythic??','the drop rates are so cooked','i grinded 4 hours for one common',
+  'ive never seen that room before','wait rewind','clip it','CLIP IT',
+  'someone clip that','yo the entity mod goes hard','no walls mod is so cursed',
+  'im gonna go play rn','joined ur server','can i join?','whats the server code',
+  'ok goodnight everyone','why is chat like this','chat calm down','CHAT',
+  'hi from school','hi from the bathroom 🚽','my teacher is right behind me',
+  'bro im watching in class','same','SAME','fr','fr fr','nah fr tho',
+  'this stream is carrying my night','ur so good at this','how are u this calm',
+  'i wouldve closed the game','i literally closed the game last time',
+  'the walls are moving??','nah im done','done deal','bro nooo','NOOOO','oh my god',
+  'that jumpscare got me','i jumped so hard','my dog looked at me weird',
+  'skill issue','thats a skill issue tbh','nah thats not fair','the game is cheating',
+  'hes cooked','cooked','so cooked','hes actually cooked 😭','peak content',
+  'goated','goated stream','ok this is peak','pin this','mods???','where the mods at'
 ];
+
 const LIVE_EMOTES=['💀','😭','🔥','👀','😳','🫠','🗿','❤️'];
 let LIVES=[], liveCur=null, liveRaf=0, liveChatT=0, liveThumbRaf=0;
 
@@ -6058,6 +6085,14 @@ function renderLives(){
   loop();
 }
 
+/* bots say your name out loud, so "you" as a fallback reads badly — give
+   anyone unnamed a real handle the first time they speak, like the composer does */
+function liveNick(){
+  let n=(localStorage.getItem('backrooms_nick')||'').trim();
+  if(!n){ n='Wanderer'+Math.floor(Math.random()*1000);
+          try{ localStorage.setItem('backrooms_nick',n); }catch(e){} }
+  return n;
+}
 function chatLine(who,text,cls){
   const box=document.getElementById('lwChat');
   const d=document.createElement('div'); d.className='lmsg'+(cls?' '+cls:'');
@@ -6087,12 +6122,32 @@ function openWatch(L){
   clearInterval(liveChatT);
   liveChatT=setInterval(()=>{ botChatLine(); if(Math.random()<0.5) botChatLine(); }, 900);
 }
+/* real chat isn't evenly spaced strangers being polite — it repeats itself,
+   it types badly, and every so often the whole room says the same thing */
+let lastChatMsg='';
+function chatName(){
+  const n=PB_NAMES[(Math.random()*PB_NAMES.length)|0];
+  return Math.random()<0.4 ? n+((Math.random()*999)|0) : n;
+}
+function rough(msg){
+  if(Math.random()<0.16) msg=msg.toUpperCase();
+  if(Math.random()<0.12) msg=msg.replace(/\byou\b/g,'u').replace(/\byour\b/g,'ur');
+  if(Math.random()<0.10) msg=msg.replace(/[.,!?]+$/,'');
+  /* stretch the last letter only — slicing a code unit off an emoji splits
+     the surrogate pair and prints mojibake */
+  if(Math.random()<0.08 && /[a-z]$/i.test(msg)) msg+=msg.slice(-1).repeat(1+((Math.random()*3)|0));
+  if(Math.random()<0.26) msg+=' '+LIVE_EMOTES[(Math.random()*LIVE_EMOTES.length)|0];
+  return msg;
+}
 function botChatLine(){
-  const r=Math.random();
-  const who=PB_NAMES[(r*PB_NAMES.length)|0]+((r<0.35)?((Math.random()*99)|0):'');
-  let msg=LIVE_CHAT[(Math.random()*LIVE_CHAT.length)|0];
-  if(Math.random()<0.3) msg+=' '+LIVE_EMOTES[(Math.random()*LIVE_EMOTES.length)|0];
-  chatLine(who,msg);
+  let msg;
+  if(lastChatMsg && Math.random()<0.14) msg=lastChatMsg;      // someone copies the room
+  else { msg=LIVE_CHAT[(Math.random()*LIVE_CHAT.length)|0]; lastChatMsg=msg; }
+  chatLine(chatName(), rough(msg));
+}
+/* something happened on screen and chat goes off all at once */
+function chatBurst(msg,n){
+  for(let i=0;i<n;i++) setTimeout(()=>chatLine(chatName(), rough(msg)), i*(90+Math.random()*160));
 }
 function updateWatchCount(){
   if(!liveCur) return;
@@ -6130,19 +6185,21 @@ document.getElementById('lwDonate').addEventListener('click', ()=>{
   if(!liveCur) return;
   const amounts=[1,2,5,10,20,50];
   const amt=amounts[(Math.random()*amounts.length)|0];
-  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||'you';
+  const nick=liveNick();
   liveCur.tips+=amt;
   liveAlert('💰 '+nick+' donated $'+amt+'!');
   chatLine(nick,'donated $'+amt+' — keep going!','tip');
-  setTimeout(()=>chatLine(liveCur.name,'YO thank you '+nick+'!! 🙏'),900);
-  for(let i=0;i<3;i++) setTimeout(botChatLine, 400+i*300);
+  setTimeout(()=>chatLine(liveCur.name,
+    ['YOOO thank you so much '+nick+' 🙏','wait '+nick+' thats so nice thank you',
+     'no way. '+nick+' youre a legend',''+nick+' i owe you my life fr'][(Math.random()*4)|0]),900);
+  chatBurst(['thanks '+nick,'W '+nick,nick+' carrying','big dono'][(Math.random()*4)|0], 3+((Math.random()*3)|0));
   addRep(5);
 });
 document.getElementById('lwJoin').addEventListener('click', ()=>{
   if(!liveCur) return;
   const who=liveCur.name;
   closeWatch(); closeLives();
-  chatLine(who,'someone joined!');
+  chatBurst('someone joined', 2);
   feedToast && feedToast('joining '+who+"'s server…");
   joinBotServer(who);
 });
@@ -6153,10 +6210,12 @@ document.getElementById('lwInput').addEventListener('keydown', e=>{
 function sendLiveChat(){
   const inp=document.getElementById('lwInput');
   const txt=inp.value.trim(); if(!txt || !liveCur) return;
-  const nick=(localStorage.getItem('backrooms_nick')||'').trim()||'you';
+  const nick=liveNick();
   chatLine(nick,txt,'me'); inp.value=''; addRep(1);
-  if(Math.random()<0.5) setTimeout(()=>chatLine(liveCur.name,'@'+nick+' '+
-    ['yes!!','fr','i KNOW right','ok chat calm down','good call','hahaha'][(Math.random()*6)|0]), 1100);
+  if(Math.random()<0.55) setTimeout(()=>chatLine(liveCur.name,'@'+nick+' '+
+    ['yeahhh exactly','fr tho','okay okay i hear you','nah you right','HAHAHA',
+     'wait say that again i was reading chat','im TRYING','bro dont scare me',
+     'thank you for being here fr','ok ill try it, chat hold on'][(Math.random()*10)|0]), 1100+Math.random()*900);
 }
 function openLives(){
   if(document.pointerLockElement) document.exitPointerLock();
