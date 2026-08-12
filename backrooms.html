@@ -257,6 +257,16 @@
     100%{ transform:translate(14px,8px) scale(1.01) rotate(1.1deg); }
   }
   @media (prefers-reduced-motion: reduce){ #jumpImg{ animation:none; } }
+  /* ---- integrity mod: it takes the menus ---- */
+  body.integrity .screen{ background:#0a0000 !important; }
+  body.integrity .screen::before{ content:''; position:absolute; inset:0; z-index:-1;
+    background:url('integrity-menu.png') center/cover no-repeat; opacity:.92; }
+  body.integrity .screen h1, body.integrity .screen .sub{
+    color:#ff1a1a !important; text-shadow:0 0 18px #000, 0 0 44px rgba(255,0,0,.8) !important; }
+  body.integrity .btn, body.integrity .btn2{
+    background:rgba(20,0,0,.72) !important; border-color:#ff2a2a !important; color:#ff5a5a !important; }
+  body.integrity #countdown{ border-color:rgba(255,40,40,.5); }
+  body.integrity #cdTime{ color:#ff3a3a; }
   /* ---- NO WAY OUT ---- */
   /* the white is a frame, not a wall — the middle band is punched out with
      the same clip-path trick the Hunter's red plane uses, so you watch the
@@ -3591,6 +3601,7 @@ function initGraphics(){
   floorMat=new THREE.MeshLambertMaterial({map:carpetTex});
   ceilMat=new THREE.MeshLambertMaterial({map:ceilTex, side:THREE.FrontSide});
   panelMat=new THREE.MeshBasicMaterial({color:0xfff3cf, fog:true});
+  applyIntegrityWorld();          // materials only exist from here on
 
   initArrows();
 
@@ -3661,7 +3672,7 @@ function newGame(){
 
   updateChunks(); processQueue(999);   // build initial rings synchronously
   spawnEntity();
-  applyRunMods();
+  applyRunMods(); applyIntegrityWorld();
   maybeStartEvilHunt();
   maybeSpawnPortal();
   spawnSurvivor();
@@ -3759,6 +3770,7 @@ function toast(msg){
 }
 function applyAtmosphere(lv){
   if(worldRed){ makeWorldRed(); return; }   // the hunt's red overrides per-level colour
+  if(integrityOn()){ applyIntegrityWorld(); return; }
   if(lv===0){
     scene.background.setHex(0x151203); scene.fog.color.setHex(0x151203); scene.fog.near=FOG_NEAR; fogFarBase=FOG_FAR;
     ambient.color.setHex(0x37331a); ambient.intensity=0.62;
@@ -6937,6 +6949,28 @@ function closeLives(){
 document.getElementById('livesBtn').addEventListener('click', openLives);
 document.getElementById('livesClose').addEventListener('click', closeLives);
 document.getElementById('lwBack').addEventListener('click', closeWatch);
+
+/* -------------------------------------------------------------- integrity
+   The one mod that changes the game rather than adding to it: it takes the
+   menus, and it takes the world. Applied on load and re-applied whenever the
+   atmosphere is set, since that's what would otherwise paint over it. */
+function integrityOn(){ return modOn('integrity'); }
+function applyIntegrityWorld(){
+  if(!integrityOn()) return;
+  try{
+    scene.background.setHex(0x2a0000);
+    scene.fog.color.setHex(0x2a0000);
+    scene.fog.near=2; fogFarBase=26;                  // thick red air
+    ambient.color.setHex(0xff2a2a); ambient.intensity=0.75;
+    hemi.color.setHex(0xff3a3a); hemi.groundColor.setHex(0x220000); hemi.intensity=0.7;
+    /* tint the surfaces themselves, so it isn't just red light on yellow walls */
+    if(structMatWall) structMatWall.color.setHex(0xff1414);
+    if(floorMat)      floorMat.color.setHex(0xcc0f0f);
+    if(ceilMat)       ceilMat.color.setHex(0xff2020);
+    if(panelMat)      panelMat.color.setHex(0xff4444);
+  }catch(e){}
+}
+if(integrityOn()) document.body.classList.add('integrity');
 
 /* ------------------------------------------------------------- NO WAY OUT
    Third encounter. 20% on a run start: the beep loops for the whole 45

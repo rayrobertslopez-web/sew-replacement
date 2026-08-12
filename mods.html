@@ -93,7 +93,9 @@ const MODS=[
   {id:'pets',       name:'pets mod',         desc:'one of your Minis walks around with you'},
   {id:'invincible', name:'invincible mod',   desc:'nothing can catch you and nothing can kill you'},
   {id:'bacteria35', name:'35 bacteria mod',  desc:'thirty five of them. all at once. good luck'},
-  {id:'afraid',     name:'afraid mod',       desc:'they are scared of you now. they run away'}
+  {id:'afraid',     name:'afraid mod',       desc:'they are scared of you now. they run away'},
+  {id:'integrity',  name:'integrity',        desc:'it gets into the menu and it gets into the walls. everything goes red',
+   art:'integrity.png'}
 ];
 const INSTALL_KEY='backrooms_mods', DL_KEY='backrooms_mods_downloaded';
 const jload=(k,d)=>{ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } };
@@ -173,7 +175,11 @@ function openDetail(m){
   current=m;
   document.getElementById('dTitle').textContent=m.name;
   document.getElementById('dDesc').textContent=m.desc;
-  const art=document.getElementById('dArt'); art.innerHTML=''; art.appendChild(modArt(m.id));
+  const art=document.getElementById('dArt'); art.innerHTML='';
+  if(m.art){ const im=new Image(); im.src=m.art; im.alt='';
+             im.style.cssText='max-width:100%;max-height:100%;object-fit:contain';
+             art.appendChild(im); }
+  else art.appendChild(modArt(m.id));
   document.getElementById('detail').classList.add('show');
 }
 document.getElementById('dBack').addEventListener('click',()=>{
