@@ -5220,6 +5220,59 @@ function makePostPhoto(seed){
   g.fillStyle=vg; g.fillRect(0,0,W,H);
   return c;
 }
+/* ---- the feed reacts when an update actually lands ----
+   Keyed off the countdown's own deadline, so the chatter is stamped from the
+   moment the update dropped and drifts down the feed like real posts. */
+const UPDATE_CHATTER=[
+  'UPDATE IS LIVE. drop everything',
+  'ok the new update is actually insane, i wasnt ready',
+  'who else got jumped the second they loaded in after the update',
+  'patch notes? no? we just find out ourselves? ok',
+  'the update broke me. in a good way. mostly',
+  'been playing since the update dropped and i have not blinked',
+  'whatever <b>clark_dev</b> shipped this time needs to be studied',
+  'update just landed and my whole run got ruined immediately. 10/10',
+  'i said i was gonna go to sleep and then the update happened',
+  'new update is out and nobody warned us about the sound',
+  'first thing i did after the update was get caught. worth it',
+  'the update changed something in the hallways and im not ok',
+  'downloaded the update, immediately regretted it, still playing',
+  'this update goes crazy actually'
+];
+function updateChatterPosts(){
+  if(!eventPassed()) return [];        // nothing has dropped yet
+  const out=[];
+  for(let k=0;k<UPDATE_CHATTER.length;k++){
+    const at=EVENT_TARGET + k*137000;  // spaced out over the couple of hours after it lands
+    if(at>Date.now()) break;
+    const r=mulberry32((EVENT_TARGET+k*7919)|0);
+    out.push({ at, tpl:UPDATE_CHATTER[k],
+      name:PB_NAMES[(r()*PB_NAMES.length)|0],
+      sprite:5+((r()*(MINIS_TOTAL-5))|0),
+      likes:(r()*900)|0, reps:(r()*70)|0 });
+  }
+  return out;
+}
+function buildChatterPost(c){
+  const post=document.createElement('div'); post.className='post';
+  const top=document.createElement('div'); top.className='postTop';
+  top.appendChild(drawMiniSprite(c.sprite));
+  const u=document.createElement('span'); u.className='puser';
+  u.innerHTML=c.name+'<span class="pbot">BOT</span>';
+  const t=document.createElement('span'); t.className='ptime';
+  t.textContent=agoMins((Date.now()-c.at)/60000);
+  top.appendChild(u); top.appendChild(t);
+  const body=document.createElement('div'); body.className='pbody'; body.innerHTML=c.tpl;
+  const tag=document.createElement('div'); tag.className='ptag LEAK'; tag.textContent='UPDATE';
+  const act=document.createElement('div'); act.className='pactions';
+  const like=document.createElement('span'); like.className='plike'; like.textContent='♥ '+c.likes;
+  like.addEventListener('click',()=>{ const on=like.classList.toggle('liked');
+    like.textContent='♥ '+(on?c.likes+1:c.likes); if(on) addRep(1); });
+  const rep=document.createElement('span'); rep.textContent='↩ '+c.reps;
+  act.appendChild(like); act.appendChild(rep);
+  post.appendChild(top); post.appendChild(tag); post.appendChild(body); post.appendChild(act);
+  return post;
+}
 const PHOTO_CAPS=['no filter','sorry for potato quality','zoom in on the left','this is unedited I swear',
   'took this 20 seconds before it saw me','screenshot from the files','my hands were shaking'];
 
@@ -5412,6 +5465,55 @@ function verifiedTick(){
    than cached, since the admin flag can be unlocked mid-session. */
 function isDevUser(){ return isDev || isAdmin; }
 
+/* ---- clark_dev answers your posts ----
+   Written the first time a post is old enough, then kept on the post itself so
+   it doesn't rewrite itself on every render. */
+const DEV_REPLY_DELAY=45000;
+const DEV_REPLIES=[
+  "seen it. on the list.",
+  "this one's actually good. might build it this week.",
+  "we tried that once. it broke the elevator. trying again.",
+  "you're the third person to ask for this today. fine. FINE.",
+  "the answer is yes but not the way you think.",
+  "adding it. if it breaks the Lobby that's on you.",
+  "I've been arguing about exactly this for two days.",
+  "no. ok maybe. let me sleep on it.",
+  "already half built. don't tell anyone.",
+  "good call — that's going in the next update.",
+  "careful what you ask for.",
+  "noted. the Entity disagrees but noted."
+];
+/* pull a word worth quoting back so the reply reads like it was read */
+function pickKeyword(txt){
+  const stop=new Set(['the','and','you','your','that','this','with','have','from','they','them',
+    'should','would','could','make','made','game','when','what','just','like','some','more','than',
+    'because','there','their','about','into','only','also','very','really','maybe','been','will']);
+  const words=(txt||'').toLowerCase().match(/[a-z]{4,}/g)||[];
+  const good=words.filter(w=>!stop.has(w));
+  return good.length ? good[good.length-1] : null;
+}
+function devReplyFor(up){
+  const seed=(up.at|0) ^ (up.body||'').length*2654435761;
+  const r=mulberry32(seed|0);
+  let line=DEV_REPLIES[(r()*DEV_REPLIES.length)|0];
+  const kw=pickKeyword(up.body);
+  if(kw && r()<0.55) line = '"'+kw+'" — '+line;
+  return line;
+}
+/* fills in any replies that have come due; returns true if anything changed */
+function growDevReplies(){
+  const posts=jload(USERPOST_KEY,[]);
+  let changed=false;
+  for(const up of posts){
+    if(!up.devReply && Date.now()-up.at>=DEV_REPLY_DELAY){
+      up.devReply={ body:devReplyFor(up), at:up.at+DEV_REPLY_DELAY };
+      changed=true;
+    }
+  }
+  if(changed) saveUserPosts(posts);
+  return changed;
+}
+
 function buildUserPost(up){
   const el=document.createElement('div'); el.className='post';
   const top=document.createElement('div'); top.className='postTop';
@@ -5436,6 +5538,14 @@ function buildUserPost(up){
   const body=document.createElement('div'); body.className='pbody'; body.textContent=up.body;
   el.appendChild(top); el.appendChild(body);
   if(up.img){ const im=document.createElement('img'); im.className='pphoto'; im.src=up.img; im.alt=''; el.appendChild(im); }
+  if(up.devReply){
+    const th=document.createElement('div'); th.className='pthread show';
+    const d=document.createElement('div'); d.className='reply dev';
+    const w=document.createElement('span'); w.className='rwho';
+    w.textContent=((DEVFEED&&DEVFEED.dev&&DEVFEED.dev.name)||'clark_dev')+' · DEV';
+    const bd=document.createElement('span'); bd.textContent=up.devReply.body;
+    d.appendChild(w); d.appendChild(bd); th.appendChild(d); el.appendChild(th);
+  }
   return el;
 }
 
@@ -5542,9 +5652,11 @@ function renderExtraPosts(){
   drawRankBar(); drawCooldown();
 
   /* dev posts and your own posts sit at the top, newest first */
+  growDevReplies();
   const mixed=[]
     .concat(releasedDevPosts().map(e=>({at:e.at,make:()=>buildDevPost(e)})))
     .concat(jload(USERPOST_KEY,[]).map(up=>({at:up.at,make:()=>buildUserPost(up)})))
+    .concat(updateChatterPosts().map(c=>({at:c.at,make:()=>buildChatterPost(c)})))
     .sort((a,b)=>b.at-a.at);
   for(const m of mixed) feed.appendChild(m.make());
 
@@ -5601,6 +5713,7 @@ document.getElementById('postsBtn').addEventListener('click', async ()=>{
   postsPollId=setInterval(async ()=>{
     ticks++;
     drawCooldown();
+    if(growDevReplies()){ renderExtraPosts(); feedToast('clark_dev replied'); }
     const before=releasedDevPosts().length;
     const replies=DEVFEED?JSON.stringify(DEVFEED.posts.map(p=>(p.replies||[]).length)):'';
     if(ticks%6===0) await loadDevFeed();                     // refetch every ~60s
