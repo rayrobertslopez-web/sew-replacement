@@ -2502,7 +2502,8 @@ function exitCreator(){
 let catchObj=null;   // whichever creature (entity or a level-2 chaser) actually caught the player
 function startCatch(obj, foot, byStomper){
   if(modOn('invincible')) return;          // invincible mod
-  jumpscare(watchActive?'watcher' : huntActive?'hunter' : byStomper?'stomper' : 'entity');
+  const byInteg=chasers.some(c=>c.integ && c.obj===obj);
+  jumpscare(byInteg?'integrity' : watchActive?'watcher' : huntActive?'hunter' : byStomper?'stomper' : 'entity');
   if(caught) return;
   caught=true; caughtT=0; catchBlack=false; catchObj=obj||null;
   catchFoot = (foot==null? entityFoot : foot);
@@ -3662,6 +3663,7 @@ function newGame(){
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0; player.floorY=0;
   spawnOrigin={x:player.x,z:player.z};
   stopWatcher(); stopNwo();
+  integReset();
   stalkReset();
   clearJumpscare();
   clearWorldRed();
@@ -3888,7 +3890,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  stopEvilHunt(); stopWatcher(); stopNwo(); endMyLive(); clearJumpscare();
+  stopEvilHunt(); stopWatcher(); stopNwo(); integStop(); endMyLive(); clearJumpscare();
   ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
@@ -4846,7 +4848,7 @@ function tick(){
   else if(megActive){ updateMeg(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
-  updateEvilHunt(dt); updateWatcher(dt); updateNwo(dt);   // all tick in the lobby and the sandbox
+  updateEvilHunt(dt); updateWatcher(dt); updateNwo(dt); updateIntegrity(dt);
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
   /* entity-chase.mp3 is the bacteria's sound. The Hunter and the Watcher use
      their own tracks, so they must not drag this one in — level 2's pack is
@@ -6206,6 +6208,7 @@ function jumpscare(kind){
   const el=document.getElementById('jump'), im=document.getElementById('jumpImg');
   im.src = kind==='hunter' ? HUNTER_IMG
          : kind==='watcher' ? WATCHER_IMG
+         : kind==='integrity' ? INTEG_IMG
          : entityFaceURL(kind);
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   try{ screamAudio.currentTime=0;
@@ -6971,6 +6974,66 @@ function applyIntegrityWorld(){
   }catch(e){}
 }
 if(integrityOn()) document.body.classList.add('integrity');
+
+/* ---- and the thing itself comes for you, on its own schedule ----
+   Not an event you can see coming: it just arrives every so often, hunts for
+   a while, and leaves. Only with the mod installed, and never on top of one
+   of the three scripted encounters. */
+const INTEG_IMG='integrity.png';
+const INTEG_GAP=[40,95];        // seconds between visits, tightening as the run goes on
+const INTEG_HUNT=[14,26];       // how long it stays
+let integTex=null, integAR=368/1168, integState='idle', integNext=0, integEnd=0, integHunts=0, integDur=18;
+
+/* both the gap and the hunt window run on wall-clock deadlines rather than
+   accumulated dt — dt is capped per frame, so on a slow machine an 18-second
+   visit quietly becomes a 25-second one and never seems to end */
+function integReset(){
+  integState='idle'; integHunts=0;
+  integNext = performance.now() + (integrityOn() ? rand2([25,50]) : 1e9)*1000;
+}
+function integSpawn(){
+  const put=(tex)=>{
+    if(integState!=='hunt') return;
+    const H=3.4;
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true}));
+    sp.scale.set(H*integAR, H, 1);
+    const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+    const x=player.x-fwdX*16, z=player.z-fwdZ*16;
+    sp.position.set(x, H/2, z);
+    scene.add(sp);
+    chasers.push({obj:sp, x, z, foot:H/2, faceYaw:0, integ:true});
+  };
+  if(integTex){ put(integTex); return; }
+  new THREE.TextureLoader().load(INTEG_IMG, t=>{
+    t.colorSpace=THREE.SRGBColorSpace;
+    const im=t.image; if(im&&im.height) integAR=im.width/im.height;
+    integTex=t; put(t);
+  });
+}
+function integStop(){
+  if(integState==='idle') return;
+  integState='idle';
+  for(let i=chasers.length-1;i>=0;i--) if(chasers[i].integ){ scene.remove(chasers[i].obj); chasers.splice(i,1); }
+  integNext = performance.now() + rand2(INTEG_GAP)*(1-Math.min(0.45, integHunts*0.09))*1000;   // sooner each time
+}
+function updateIntegrity(dt){
+  if(!integrityOn() || !running || level!==0 || huntActive || watchActive || nwoActive){
+    if(integState!=='idle') integStop();
+    return;
+  }
+  const now=performance.now();
+  if(integState==='idle'){
+    if(now>=integNext){
+      integState='hunt'; integHunts++;
+      integDur=rand2(INTEG_HUNT);        // rolled once, not re-rolled every frame
+      integEnd=now+integDur*1000;
+      integSpawn(); audio.setGrowl(0.9); liveEvent('scare');
+    }
+    return;
+  }
+  updateChasers(dt);
+  if(now>=integEnd) integStop();
+}
 
 /* ------------------------------------------------------------- NO WAY OUT
    Third encounter. 20% on a run start: the beep loops for the whole 45
