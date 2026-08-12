@@ -270,6 +270,35 @@
   .lmeta{ padding:9px 11px 12px; }
   .ltitle{ font-size:13.5px; font-weight:700; line-height:1.3; }
   .lwho{ font-size:12px; color:#8f8f9c; margin-top:3px; }
+  #goLive{ display:block; width:100%; max-width:340px; margin:0 auto 20px; background:#c0203a;
+    color:#fff; border:none; border-radius:11px; padding:14px 18px; font:inherit;
+    font-size:15px; font-weight:800; letter-spacing:1px; cursor:pointer; }
+  #goLive:active{ background:#d82a46; }
+  #goLive.on{ background:#3a3a46; }
+  /* your own stream, while you play */
+  #myLive{ position:fixed; z-index:29; display:none; left:calc(env(safe-area-inset-left) + 10px);
+    top:calc(env(safe-area-inset-top) + 96px); width:min(268px,44vw); pointer-events:none; }
+  #myLive.show{ display:block; }
+  #mlTop{ display:flex; align-items:center; gap:7px; background:rgba(8,7,2,.72);
+    border:1px solid rgba(255,255,255,.16); border-radius:9px; padding:6px 10px;
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif; font-size:12px; color:#fff; }
+  #mlTop .dot{ width:8px; height:8px; border-radius:50%; background:#e0342c;
+    animation:liveBlink 1.6s ease-in-out infinite; }
+  #mlLog{ margin-top:6px; max-height:34vh; overflow:hidden; display:flex;
+    flex-direction:column; justify-content:flex-end; }
+  .mlMsg{ font-family:-apple-system,'Segoe UI',Roboto,sans-serif; font-size:12px;
+    line-height:1.4; color:#f0f0f4; text-shadow:0 1px 3px #000; margin-top:3px;
+    animation:mlIn .25s ease; }
+  .mlMsg b{ color:#9fd8ff; }
+  .mlMsg.tip{ color:#ffd95e; font-weight:700; }
+  .mlMsg.sub{ color:#8fe0a0; font-weight:700; }
+  @keyframes mlIn{ from{opacity:0; transform:translateX(-8px)} to{opacity:1} }
+  /* clears MUSIC (bottom+18) and the now-playing bar (bottom+62) on this edge */
+  #mlEnd{ position:fixed; z-index:33; display:none; left:calc(env(safe-area-inset-left) + 10px);
+    bottom:calc(env(safe-area-inset-bottom) + 112px); background:rgba(140,20,30,.9);
+    color:#fff; border:2px solid #fff; border-radius:11px; padding:9px 14px;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:12px; cursor:pointer; }
+  #mlEnd.show{ display:block; }
   /* watch view */
   #liveWatch{ position:fixed; inset:0; z-index:62; display:none; background:#101014;
     color:#e9e9ee; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
@@ -897,9 +926,12 @@
 <div id="livesScreen">
   <div id="livesHead">LIVES</div>
   <div id="livesSub">people playing right now</div>
+  <button id="goLive">&#128308; GO LIVE</button>
   <div id="livesGrid"></div>
 </div>
 <button id="livesClose">CLOSE &#10005;</button>
+<div id="myLive"><div id="mlTop"><span class="dot"></span><span id="mlCount">0 watching</span></div><div id="mlLog"></div></div>
+<button id="mlEnd">&#9632; END STREAM</button>
 <div id="liveWatch">
   <div id="lwStage"><div id="lwHearts"></div><div id="lwAlert"></div></div>
   <div id="lwBar">
@@ -3563,6 +3595,7 @@ function die(reason,title){          // non-catch deaths (e.g. sanity) -> straig
   deathLevel=level; lastDeathByEntity=false; gameOver();
 }
 function gameOver(){
+  liveEvent('death');
   stopEvilHunt(); stopWatcher();
   running=false; caught=false;
   audio.setGrowl(0); audio.setChase(false,1); clearStomper();
@@ -3712,7 +3745,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  stopEvilHunt(); stopWatcher();
+  stopEvilHunt(); stopWatcher(); endMyLive();
   ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
@@ -4656,6 +4689,7 @@ function renderScene(dt){
   }
 }
 
+let _wasChased=false;
 function tick(){
   const dt=Math.min(0.05, clock.getDelta());
   xrOn = renderer.xr.isPresenting;
@@ -4671,6 +4705,8 @@ function tick(){
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
   const chasing = inGame && !caught && !transitioning &&
                   ((entity && entity.state==='chase') || stomper || (chasers.length>0));
+  if(chasing && !_wasChased) liveEvent('chase');
+  _wasChased=chasing;
   audio.setChase(chasing, dt);
   renderScene(dt);
 }
@@ -4777,6 +4813,7 @@ function updatePickups(dt){
         waters++; sanity=Math.min(100, sanity+gain); collected.add(p.key);
         p.mesh.parent && p.mesh.parent.remove(p.mesh);
         pickups.splice(i,1); audio.pickup(); toast("🧃 Almond Water — +"+gain+" sanity");
+        liveEvent('water');
       }
     } else if(p.kind==='mini'){
       p.mesh.position.y=0.55+Math.sin(elapsed*2.2+p.mesh.position.x)*0.07;
@@ -5087,6 +5124,7 @@ function catchMini(i){
   try{ localStorage.setItem('backrooms_minis', JSON.stringify(owned)); }catch(e){}
   const R=RARITIES[miniRarity(i)], P=miniPerk(i);
   toast('★ Caught '+miniName(i)+' — '+R.key+' · '+P.kind.t);
+  liveEvent('mini');
   unlockAchievement('firstmini');
   if(owned.length>=MINIS_TOTAL) unlockAchievement('allminis');
   if(equippedMini()==null) equipMini(i);            // your first one goes straight on
@@ -6022,6 +6060,7 @@ function showStalker(){
   stalkObj.material.opacity=0;
   if(!stalkObj.parent) scene.add(stalkObj);
   stalkState='peek'; stalkT=0; stalkAway=0;
+  liveEvent('stalker');
   return true;
 }
 function hideStalker(){ stalkState='fade'; stalkT=0; }
@@ -6330,6 +6369,87 @@ function sendLiveChat(){
      'wait say that again i was reading chat','im TRYING','bro dont scare me',
      'thank you for being here fr','ok ill try it, chat hold on'][(Math.random()*10)|0]), 1100+Math.random()*900);
 }
+/* ---- your own stream ----
+   Going live puts a viewer count and a chat column on screen while you play,
+   and the room reacts to what actually happens in the run rather than just
+   ticking over on a timer. */
+let myLive=false, mlViewers=0, mlTimer=0, mlGrowth=0, mlPeak=0;
+const ML_ARRIVE=['just got here','whats up','hi!!','oh youre live?','notif gang',
+  'came from the feed','first!','hello???','yooo you went live'];
+const ML_IDLE=['this level is so creepy','how long you been playing','W stream',
+  'ur so calm right now','i could never','chat is quiet today','say hi to chat',
+  'what mini are you using','do the no walls mod','how many minis u got',
+  'im doing homework and watching','my brother plays this too','turn around sometimes',
+  'you missed water back there','LOOK LEFT','nah go right','trust me go right'];
+function mlLine(txt,cls,who){
+  if(!myLive) return;
+  const log=document.getElementById('mlLog');
+  const d=document.createElement('div'); d.className='mlMsg'+(cls?' '+cls:'');
+  if(who){ const b=document.createElement('b'); b.textContent=who+': '; d.appendChild(b); }
+  d.appendChild(document.createTextNode(txt));
+  log.appendChild(d);
+  while(log.childElementCount>9) log.removeChild(log.firstChild);
+}
+function mlChat(){ mlLine(rough(ML_IDLE[(Math.random()*ML_IDLE.length)|0]), '', chatName()); }
+function mlCount(){
+  document.getElementById('mlCount').textContent=mlViewers.toLocaleString()+' watching';
+}
+/* the run talks to the stream */
+function liveEvent(kind){
+  if(!myLive) return;
+  const bump=(n)=>{ mlViewers=Math.max(0,mlViewers+n); mlPeak=Math.max(mlPeak,mlViewers); mlCount(); };
+  if(kind==='mini'){ chatBurstML(['LETS GOOO','no way you got that','W','THE DROP','congrats!!'],3); bump(9); }
+  else if(kind==='death'){ chatBurstML(['NOOO','LMAOOO','bro 💀','i told you to go left','unlucky','L'],4); bump(-4); }
+  else if(kind==='chase'){ chatBurstML(['RUN','GO GO GO','BEHIND YOU','oh my god','DONT LOOK BACK'],5); bump(14); }
+  else if(kind==='stalker'){ chatBurstML(['WAIT WHAT WAS THAT','did anyone else see that','THERE IT IS','nah im out','clip that'],4); bump(11); }
+  else if(kind==='water'){ chatBurstML(['drink up','good find','ok hes not dying today'],2); }
+}
+function chatBurstML(pool,n){
+  for(let i=0;i<n;i++) setTimeout(()=>mlLine(rough(pool[(Math.random()*pool.length)|0]),'',chatName()), i*(140+Math.random()*220));
+}
+function startMyLive(){
+  if(myLive) return;
+  myLive=true; mlViewers=1; mlPeak=1; mlGrowth=0;
+  document.getElementById('myLive').classList.add('show');
+  document.getElementById('mlEnd').classList.add('show');
+  document.getElementById('mlLog').innerHTML='';
+  document.getElementById('goLive').textContent='■ END STREAM';
+  document.getElementById('goLive').classList.add('on');
+  mlCount();
+  mlLine('you are live','sub');
+  clearInterval(mlTimer);
+  mlTimer=setInterval(()=>{
+    if(!myLive) return;
+    mlGrowth++;
+    /* it fills up fast at first, then settles, and wobbles like a real count */
+    const target=Math.min(4200, 12+mlGrowth*mlGrowth*0.6);
+    mlViewers=Math.max(1, Math.round(mlViewers+(target-mlViewers)*0.25+(Math.random()*7-3)));
+    mlPeak=Math.max(mlPeak,mlViewers); mlCount();
+    if(Math.random()<0.75) mlChat();
+    if(Math.random()<0.30) mlLine(rough(ML_ARRIVE[(Math.random()*ML_ARRIVE.length)|0]),'',chatName());
+    if(Math.random()<0.10){
+      const who=chatName(), amt=[1,2,5,10,20][(Math.random()*5)|0];
+      mlLine(who+' donated $'+amt+'!','tip'); addRep(2);
+    }
+    if(Math.random()<0.08) mlLine(chatName()+' subscribed!','sub');
+  },2200);
+}
+function endMyLive(){
+  if(!myLive) return;
+  myLive=false; clearInterval(mlTimer);
+  document.getElementById('myLive').classList.remove('show');
+  document.getElementById('mlEnd').classList.remove('show');
+  document.getElementById('goLive').textContent='🔴 GO LIVE';
+  document.getElementById('goLive').classList.remove('on');
+  toast('stream ended · peak '+mlPeak.toLocaleString()+' watching');
+  addRep(10);
+}
+document.getElementById('goLive').addEventListener('click', ()=>{
+  if(myLive){ endMyLive(); return; }
+  startMyLive(); closeLives();
+});
+document.getElementById('mlEnd').addEventListener('click', endMyLive);
+
 function openLives(){
   if(document.pointerLockElement) document.exitPointerLock();
   document.getElementById('livesScreen').classList.add('show');
