@@ -401,6 +401,25 @@
     75%  { transform:translate(-1px,2px) skewX(.6deg); }
     100% { transform:translate(3px,0) skewX(-.8deg); }
   }
+  /* the Watcher: a red pulse once a second and a message that will not leave */
+  #watcherFx{ position:fixed; inset:0; z-index:68; display:none; pointer-events:none;
+    background:#c00; mix-blend-mode:multiply; }
+  #watcherFx.show{ display:block; animation:watchPulse 1s ease-in-out infinite; }
+  @keyframes watchPulse{ 0%,100%{opacity:0} 12%{opacity:.62} 40%{opacity:.10} }
+  #watcherMsg{ position:fixed; inset:0; z-index:69; display:none; align-items:center;
+    justify-content:center; pointer-events:none; padding:6vw; overflow:hidden; }
+  #watcherMsg.show{ display:flex; }
+  #watcherText{ font-family:Georgia,'Times New Roman',serif; color:#fff; text-align:center;
+    font-size:clamp(30px,8vw,74px); line-height:2.2; word-break:break-word;
+    text-shadow:0 0 16px #000, 0 0 46px rgba(190,0,0,.95);
+    animation:watchShake .13s steps(2,end) infinite; }
+  @keyframes watchShake{
+    0%{transform:translate(0,0)} 50%{transform:translate(-4px,3px) skewX(-2deg)}
+    100%{transform:translate(4px,-3px) skewX(2deg)} }
+  @media (prefers-reduced-motion: reduce){
+    #watcherFx.show{ animation:none; opacity:.34; }
+    #watcherText{ animation:none; }
+  }
   #zalgo{ position:fixed; z-index:73; inset:0; display:none; align-items:center;
     justify-content:center; pointer-events:none; padding:6vw; overflow:hidden; }
   #zalgo.show{ display:flex; }
@@ -833,6 +852,9 @@
 <button id="postsClose">CLOSE ✕</button>
 
 <div id="survived"><span>you survived</span></div>
+<div id="watcherFx"></div>
+<div id="watcherMsg"><span id="watcherText">İ̸̢̛̫͕̭̲͔͔̘̃͑͂̊̆͊̿̍̈́̽͂̌̌͋̓̂̈́͝ ̶̳̟̖̝̘͆̓́̆̒̓͐̀̀̏̕Ș̴̟͉̝̘͎͓̖͉͓̪͓̖̺̹͛̐̍̂͐̇͋̇̈́̈́͐E̶̯̱̤̱͇̟͔̓̄̎͒͗̄̏̒̍̋̂̽̉̈́̈́͊͘͘͜͝ͅE̵̢̢͙̰̤̭̙̥̩̥̗͕͓̫̤͔͚͕̅͂̔͛̄̒̊̊̓͒͌̿̽͑͋͜ͅ ̴̡̧̛͇̥̘̘̙̥̝̩̖̱̩͚̂̎̏̎̒͐͆͆̒̍̀̅̊̒̊̒̓͘͘͜͝͝Y̴̛̛͍͇͖̭̝͉̘͔̥͇͕̟̰͉͎̺̰̗͇͍̍̓̐̌͗́̾͒̿͒̏̐̚͜͝ͅO̴̢̡̡͚̝͇͍̤̲̥̳͔̯̜̥̗̯̍̔̽́̓̄̄͛́̍̎́͂͆̾̔͝Ǜ̸̢̧̨̨̖̜͍͕͈̬͖̫̬̮̬̟̺̳̏̓̀̕͜͝</span></div>
+<audio id="lullabyAudio" src="lullaby.mp3" preload="auto"></audio>
 <div id="zalgo"><span id="zalgoText">T̵̳͓̣͚̺͔͆̈́̾͊͌̍̊̂̐̈́̓̀̒̍͊́̆̈́ͅH̴̡̢̧͎̖̠̜̖̙̤̜̘̥̖́́̀̋͑̓̈́̿́̀̚͡ͅE̷̡̢̢̙̞̯̥̬̙͕̹͐͌̇̃̌̓̄̔͂̆̚͘͝Ŗ̷̦̩̬̜͙͙̬͈̲̳̹̳̺̳͕͉̮̪̺͕̦̀͗E̸͕̬̠̺̲̻̞̺͔̫̟̅̈́͑́̍͑͒͌͂̌͗̋̃͑̑̕͟S̴̛͕͖̩̮̫͚̘̰͉͍͎̪̫̱̫̭̟̳̈́̆̎̐̏̃̕͝ͅ ̶̢͔͕͓̥̞̯̭̭͉̭̯̘̣̤̻̻͚͉͓̦͕̐̋̈́̓̈́̔͜N̷̢̧͍͍͓͚̼̞̪̦̼̥̩͉̪̪͖̳̓͒̓͂͘͝Õ̷̡͕̠͎̗̣̖͕̏͛̄̇̊̇͗̃̄̒̏̀̓̇͛̚͠ͅT̸̠̙̬̥̳̖̟̻̰͙̰̊̓͒͌̓̋̀̐͛͒̋͌̚̚͜H̵̞̫̟̥̮̮̥͖̜̻̝̤̦͖̮̍̃͑̈́̐̆̍Í̴̢̡̨̥͈̺͎̮̺̱̩̗̜̳̗̹̠̹̩͕͉͒͛͘N̷̯̻̟͚̓̈́̔̏̐G̵̢̡̞̬͙̥̱̖̼̙͍̜̠͍̣̥̻̱͕̓͛̊̃́̓͗̋͊̀̓̚ ̵̛̛͎͎̺͍̞͈͖̩̬̙̓̊́̀̑͑̉̎̚̕͜͜͠T̸̞̐̑̏̀̑͌̉͌̌̓͆͜Ȯ̶̡͙̼̯̞͙͙͚͍̞̣̝͍͔̅̆͆̑̑̀̑̋̕͘͝ͅ ̵̡̢̧͈͍̯̤̻̱̙̰̪̲͚͇͈̩̦̱̂͊̀̍̌̍͌̌̋͒̊̔̀̓̏̀̽̋̍̕ͅB̴̡̢̧̨̛̳͕̻̬̙͍̱̜̤̟̙̖̬͎̞͂̂̓̔̾̇̿̀̍̆͌̄̉̆̅̐͋̀͘̚͜Ë̷͕̱̘̼̠̙͎͓́̋̾͌̂̀̃͒̕͠ ̴̡̢̹̬̦̖̪̼͕̬̱͕͎͓̼̮̜͎͊͒̊͊ͅA̷̛̳͍͈̙̺̗̲̞̺̳̍̾̔́̎̈́̾̒̈́̉͛̽̋͂̂̕̕͜F̶̞͍͓͉̘̤̥̼͉̓̆̄ͅR̴̨̪̝͈̟̀͌̇̃͌́́͋̈̊̓͌̈̍̾̽̊̕̚͜Å̷̢̛̩̬͕͎̮̼̥̦̲̦̲̯̞̩̣̀̒̓͊̓̆̏̔̍̋̒̃̄ͣ̕͠͝I̴͖̰͙̭̅̑̈͆̕͜͜ͅD̷̡͙̱̺͔͈̭̘̈́̋̔̋͒͑̈ͅ ̸͈̦̋̂́̎̐̒̎̈̏̑̐O̸̫̝̞̐̑̈́̇̊̂̀̒̓F̸̨̡̢̠̼̻͓͙̖̺̮̳̥̬͇͉̟̹̣̥͙̅</span></div>
 <div id="huntTab"><span class="fav"></span><span>there's something for you</span><span class="x">&#10005;</span></div>
 <div id="nothing"><div id="nothingText">there's nothing to be afraid of</div></div>
@@ -1195,6 +1217,7 @@
       <button class="crBtn" data-spawn="entity">HOWLER</button>
       <button class="crBtn on" id="crSelect">🎯 SELECT</button>
       <button class="crBtn danger" id="crHunt">&#128128; EVIL HUNTER</button>
+      <button class="crBtn danger" id="crWatcher">&#128064; WATCHER</button>
     </div>
   </div>
 </div>
@@ -3374,6 +3397,7 @@ function newGame(){
 
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0; player.floorY=0;
   spawnOrigin={x:player.x,z:player.z};
+  stopWatcher();
   clearWorldRed();
   refreshPerk();                       // whatever Mini is equipped applies for this run
   sanity=100; stamina=100; waters=0; elapsed=0; maxDist=0; localLight=1;
@@ -3445,7 +3469,7 @@ function die(reason,title){          // non-catch deaths (e.g. sanity) -> straig
   deathLevel=level; lastDeathByEntity=false; gameOver();
 }
 function gameOver(){
-  stopEvilHunt();
+  stopEvilHunt(); stopWatcher();
   running=false; caught=false;
   audio.setGrowl(0); audio.setChase(false,1); clearStomper();
   document.getElementById('cross').classList.remove('show');
@@ -3594,7 +3618,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  stopEvilHunt();
+  stopEvilHunt(); stopWatcher();
   ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
@@ -4549,7 +4573,7 @@ function tick(){
   else if(megActive){ updateMeg(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
-  updateEvilHunt(dt);        // ticks in the lobby and in the creator sandbox alike
+  updateEvilHunt(dt); updateWatcher(dt);   // both tick in the lobby and the sandbox
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
   const chasing = inGame && !caught && !transitioning &&
                   ((entity && entity.state==='chase') || stomper || (chasers.length>0));
@@ -5843,6 +5867,61 @@ function applyRunMods(){
   if(modOn('bacteria35')) spawnHuntPack(35, ()=>modOn('bacteria35'));
 }
 
+/* ---------------------------------------------------------------- the Watcher
+   Its own encounter: the lullaby plays, the screen pulses red once a second,
+   I SEE YOU sits over everything, and the thing itself hunts you. Runs for the
+   length of the track and is driven by that track's clock, same as the hunt. */
+const WATCH_LEN=45, WATCH_CHANCE=0.45;
+const WATCHER_IMG='watcher.png', WATCHER_H=3.2, WATCHER_AR=756/755;
+let watchActive=false, watchT=0, watcherTex=null;
+const lullabyAudio=document.getElementById('lullabyAudio');
+
+function addWatcher(tex){
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true}));
+  s.scale.set(WATCHER_H*WATCHER_AR, WATCHER_H, 1);
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  const x=player.x-fwdX*15, z=player.z-fwdZ*15;
+  s.position.set(x, WATCHER_H/2, z);
+  scene.add(s);
+  chasers.push({obj:s, x, z, foot:WATCHER_H/2, faceYaw:0});
+}
+function spawnWatcher(){
+  clearChasers();
+  if(watcherTex){ addWatcher(watcherTex); return; }
+  new THREE.TextureLoader().load(WATCHER_IMG, t=>{
+    t.colorSpace=THREE.SRGBColorSpace; watcherTex=t;
+    if(watchActive) addWatcher(t);
+  });
+}
+function startWatcher(){
+  if(watchActive || huntActive) return;      // never both at once
+  watchActive=true; watchT=0;
+  document.getElementById('watcherFx').classList.add('show');
+  document.getElementById('watcherMsg').classList.add('show');
+  try{ lullabyAudio.currentTime=0;
+       lullabyAudio.volume=Math.max(0,Math.min(1,audio.getVolume()));
+       const pr=lullabyAudio.play(); if(pr&&pr.catch) pr.catch(()=>{}); }catch(e){}
+  spawnWatcher();
+}
+function stopWatcher(){
+  if(!watchActive) return;
+  watchActive=false;
+  document.getElementById('watcherFx').classList.remove('show');
+  document.getElementById('watcherMsg').classList.remove('show');
+  try{ lullabyAudio.pause(); lullabyAudio.currentTime=0; }catch(e){}
+  clearChasers();
+}
+function updateWatcher(dt){
+  if(!watchActive) return;
+  const at=lullabyAudio.currentTime;
+  watchT = (at>0 && !lullabyAudio.paused) ? at : watchT+dt;
+  updateChasers(dt);
+  if(watchT>=WATCH_LEN) stopWatcher();
+}
+document.getElementById('crWatcher').addEventListener('click', ()=>{
+  watchActive ? stopWatcher() : startWatcher();
+});
+
 /* ---------------------------------------------------------------- evil hunter
    45 seconds long. For the first 23 the red plane is up, RUN twitches and the
    wall count falls 499 -> 0; the count is deliberately tied to the drop, so it
@@ -5969,8 +6048,9 @@ function spawnHuntPack(n, keepIf){
 }
 /* rolled once per run, and only once the countdown has actually run out */
 function maybeStartEvilHunt(){
-  if(!eventPassed() || huntActive) return;
-  if(Math.random()<HUNT_CHANCE) setTimeout(startEvilHunt, 1500);
+  if(huntActive || watchActive) return;
+  if(eventPassed() && Math.random()<HUNT_CHANCE){ setTimeout(startEvilHunt, 1500); return; }
+  if(Math.random()<WATCH_CHANCE) setTimeout(startWatcher, 2000);   // otherwise the Watcher may take it
 }
 document.getElementById('crHunt').addEventListener('click', ()=>{
   huntActive ? stopEvilHunt() : startEvilHunt();
