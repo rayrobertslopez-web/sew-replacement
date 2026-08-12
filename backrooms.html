@@ -378,6 +378,22 @@
     #huntRun{ animation:huntTwitch .22s steps(2,end) infinite; }
     #huntCap{ animation:huntTwitch .5s steps(2,end) infinite; }
   }
+  /* once it arrives: everything shakes harder and COME HERE floods the red */
+  #huntCome{ position:absolute; inset:0; display:none; }
+  #huntRed.rage #huntCome{ display:block; }
+  #huntCome span{ position:absolute; font-family:Georgia,'Times New Roman',serif; color:#111;
+    font-size:clamp(15px,3.4vw,30px); letter-spacing:1px; white-space:nowrap;
+    animation:huntRage .07s steps(2,end) infinite; }
+  #huntRed.rage #huntRun{ animation:huntRage .06s steps(2,end) infinite; }
+  #huntRed.rage #huntCap{ animation:huntRage .09s steps(2,end) infinite; }
+  @keyframes huntRage{
+    0%   { transform:translate(0,0) skewX(0deg) rotate(0deg); }
+    20%  { transform:translate(-9px,4px) skewX(-6deg) rotate(-1.2deg); }
+    40%  { transform:translate(7px,-6px) skewX(5deg) rotate(1.4deg); }
+    60%  { transform:translate(-6px,-3px) skewX(-3deg) rotate(.8deg); }
+    80%  { transform:translate(8px,5px) skewX(4deg) rotate(-1deg); }
+    100% { transform:translate(-4px,2px) skewX(-5deg) rotate(1.1deg); }
+  }
   @keyframes huntTwitch{
     0%   { transform:translate(0,0) skewX(0deg); }
     25%  { transform:translate(-3px,1px) skewX(-1.6deg); }
@@ -811,10 +827,12 @@
 <div id="huntTab"><span class="fav"></span><span>there's something for you</span><span class="x">&#10005;</span></div>
 <div id="nothing"><div id="nothingText">there's nothing to be afraid of</div></div>
 <div id="hunt"><div id="huntRed">
+  <div id="huntCome"></div>
   <div id="huntRun">RUN</div>
   <div id="huntCap">Its <span id="huntNum">499</span> walls away from you. . .</div>
 </div></div>
 <audio id="huntAudio" src="evil-hunter.mp3" preload="auto"></audio>
+<audio id="screamAudio" src="stalker-scream.mp3" preload="auto"></audio>
 
 <button id="musicBtn">&#9835; MUSIC</button>
 <div id="musicScreen">
@@ -3346,6 +3364,7 @@ function newGame(){
 
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0; player.floorY=0;
   spawnOrigin={x:player.x,z:player.z};
+  clearWorldRed();
   refreshPerk();                       // whatever Mini is equipped applies for this run
   sanity=100; stamina=100; waters=0; elapsed=0; maxDist=0; localLight=1;
 
@@ -3447,6 +3466,7 @@ function toast(msg){
   clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),1900);
 }
 function applyAtmosphere(lv){
+  if(worldRed){ makeWorldRed(); return; }   // the hunt's red overrides per-level colour
   if(lv===0){
     scene.background.setHex(0x151203); scene.fog.color.setHex(0x151203); scene.fog.near=FOG_NEAR; fogFarBase=FOG_FAR;
     ambient.color.setHex(0x37331a); ambient.intensity=0.62;
@@ -5821,6 +5841,36 @@ function applyRunMods(){
 const HUNT_DROP=23, HUNT_LEN=45, HUNT_CHANCE=0.25;
 let huntActive=false, huntT=0, huntDropped=false;
 const huntAudio=document.getElementById('huntAudio');
+const screamAudio=document.getElementById('screamAudio');
+
+/* COME HERE, scattered over the red and shaking. Laid out once and kept, but
+   deliberately avoiding the middle band so the window stays readable. */
+function buildComeHere(){
+  const box=document.getElementById('huntCome');
+  if(box.childElementCount) return;
+  const r=mulberry32(0x5eed1);
+  for(let i=0;i<26;i++){
+    const sp=document.createElement('span');
+    sp.textContent='COME HERE';
+    const top=r()*100;
+    sp.style.top=top.toFixed(1)+'%';
+    sp.style.left=(r()*88).toFixed(1)+'%';
+    sp.style.transform='rotate('+((r()*40-20)|0)+'deg)';
+    sp.style.animationDelay=(r()*0.4).toFixed(2)+'s';
+    box.appendChild(sp);
+  }
+}
+/* the world itself goes red once the track lets go */
+let worldRed=false;
+function makeWorldRed(){
+  worldRed=true;
+  try{
+    scene.background.setHex(0x3d0606); scene.fog.color.setHex(0x3d0606);
+    ambient.color.setHex(0x8c1414); ambient.intensity=0.9;
+    hemi.color.setHex(0xb01d1d); hemi.groundColor.setHex(0x2a0404); hemi.intensity=0.8;
+  }catch(e){}
+}
+function clearWorldRed(){ if(worldRed){ worldRed=false; applyAtmosphere(level); } }
 
 function startEvilHunt(){
   if(huntActive) return;
@@ -5839,6 +5889,8 @@ function stopEvilHunt(){
   if(!huntActive) return;
   huntActive=false; huntDropped=false;
   document.getElementById('hunt').classList.remove('show');
+  document.getElementById('huntRed').classList.remove('rage');
+  try{ screamAudio.pause(); screamAudio.currentTime=0; }catch(e){}
   try{ huntAudio.pause(); huntAudio.currentTime=0; }catch(e){}
   clearChasers();
 }
@@ -5854,6 +5906,10 @@ function updateEvilHunt(dt){
   } else if(!huntDropped){
     huntDropped=true;
     document.getElementById('huntCap').textContent='ITS HERE';
+    buildComeHere();
+    document.getElementById('huntRed').classList.add('rage');
+    try{ screamAudio.currentTime=0; screamAudio.volume=Math.max(0,Math.min(1,audio.getVolume()));
+         const pr=screamAudio.play(); if(pr&&pr.catch) pr.catch(()=>{}); }catch(e){}
     spawnHunter();
   }
   if(huntDropped) updateChasers(dt);          // chasers normally only tick on level 2
@@ -5928,6 +5984,7 @@ function huntPayoff(){
   el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 4200);
   unlockAchievement('survivedhunt');
+  makeWorldRed();
   if(!openNothingTab()) showHuntTab();
 }
 document.getElementById('huntTab').addEventListener('click', e=>{
