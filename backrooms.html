@@ -3491,6 +3491,7 @@ function newGame(){
   player.x=CELL/2; player.z=CELL/2; player.yaw=0; player.pitch=0; player.bob=0; player.stepPhase=0; player.dist=0; player.floorY=0;
   spawnOrigin={x:player.x,z:player.z};
   stopWatcher();
+  stalkReset();
   clearWorldRed();
   refreshPerk();                       // whatever Mini is equipped applies for this run
   sanity=100; stamina=100; waters=0; elapsed=0; maxDist=0; localLight=1;
@@ -4720,7 +4721,7 @@ function update(dt){
   else if(level===2){ updateLightPoolL2(); updateChasers(dt); }
   else { updateLevel3(dt); }
   updatePickups(dt);
-  updatePet(dt); updateStalker(dt);
+  updatePet(dt); updateStalker(dt); updateStalker3(dt);
   if(modOn('bacteria35') && level!==2 && !huntDropped) updateChasers(dt);
   updateGuide();
 
@@ -5958,6 +5959,118 @@ function applyRunMods(){
   spawnPet();
   spawnStalker();
   if(modOn('bacteria35')) spawnHuntPack(35, ()=>modOn('bacteria35'));
+}
+
+/* ------------------------------------------------------- the Hunter, stalking
+   Nothing to do with the 45-second event. This one just lives in your run: it
+   picks a spot where it can see you but you nearly can't see it, stands there
+   watching, and is gone the moment you commit to walking at it. It never
+   catches you — the whole point is that it refuses to resolve. */
+const STALK = {
+  firstDelay:[25,55],     // before it shows up at all
+  gap:[22,48],            // between sightings, shortens as the run goes on
+  range:[9,17],           // how far off it stands
+  flee:6.5,               // walk inside this and it leaves
+  lookAway:0.9,           // seconds out of view before it slips off
+  maxShow:11              // it never lingers longer than this
+};
+let stalkObj=null, stalkState='idle', stalkT=0, stalkNext=0, stalkAway=0, stalkSeen=0;
+
+function rand2(a){ return a[0]+Math.random()*(a[1]-a[0]); }
+function stalkReset(){
+  if(stalkObj){ scene.remove(stalkObj); stalkObj=null; }
+  stalkState='idle'; stalkT=0; stalkAway=0; stalkSeen=0;
+  stalkNext=rand2(STALK.firstDelay);
+}
+/* somewhere it can watch you from, ideally half-hidden by a corner */
+function findPeekSpot(){
+  const fwd=player.yaw;
+  for(let tries=0; tries<26; tries++){
+    const wide = tries>16;                       // give up on the corner, take any view
+    /* both cones stay inside the view test below — a spot behind you counts as
+       "looked away" the instant it appears, so it would vanish unseen */
+    const ang = fwd + (Math.random()*2-1)*(wide?1.0:0.8);
+    const d = rand2(STALK.range);
+    const x = player.x - Math.sin(ang)*d, z = player.z - Math.cos(ang)*d;
+    const [cx,cz]=collideLevel(x,z,0.35);
+    if(Math.hypot(cx-x,cz-z)>0.05) continue;     // that spot is inside a wall
+    if(!losClear(player.x,player.z,x,z)) continue;
+    if(!wide){
+      // a real peek: visible here, blocked a step to the side, so it reads as
+      // leaning out from behind something rather than standing in the open
+      const px=-Math.cos(ang), pz=Math.sin(ang);
+      const blocked = !losClear(player.x,player.z, x+px*1.3, z+pz*1.3)
+                   || !losClear(player.x,player.z, x-px*1.3, z-pz*1.3);
+      if(!blocked) continue;
+    }
+    return {x,z};
+  }
+  return null;
+}
+function showStalker(){
+  if(!hunterTex){
+    new THREE.TextureLoader().load(HUNTER_IMG, t=>{ t.colorSpace=THREE.SRGBColorSpace; hunterTex=t; });
+    return false;                                 // try again next tick
+  }
+  const spot=findPeekSpot(); if(!spot) return false;
+  if(!stalkObj){
+    const mat=new THREE.SpriteMaterial({map:hunterTex, transparent:true, opacity:0, depthTest:true});
+    stalkObj=new THREE.Sprite(mat);
+    stalkObj.scale.set(HUNTER_H*HUNTER_AR, HUNTER_H, 1);
+  }
+  stalkObj.position.set(spot.x, floorAt(spot.x,spot.z)+HUNTER_H/2, spot.z);
+  stalkObj.material.opacity=0;
+  if(!stalkObj.parent) scene.add(stalkObj);
+  stalkState='peek'; stalkT=0; stalkAway=0;
+  return true;
+}
+function hideStalker(){ stalkState='fade'; stalkT=0; }
+/* is it currently in front of you? */
+function stalkerInView(){
+  if(!stalkObj) return false;
+  const dx=stalkObj.position.x-player.x, dz=stalkObj.position.z-player.z;
+  const d=Math.hypot(dx,dz)||0.001;
+  const fx=-Math.sin(player.yaw), fz=-Math.cos(player.yaw);
+  return (dx/d)*fx+(dz/d)*fz > 0.35;
+}
+function updateStalker3(dt){
+  if(level!==0 || !running || huntActive || watchActive){    // the events get the stage to themselves
+    if(stalkObj && stalkState!=='idle') stalkReset();
+    return;
+  }
+  stalkT+=dt;
+  if(stalkState==='idle'){
+    stalkNext-=dt;
+    if(stalkNext<=0){
+      if(!showStalker()) stalkNext=2;                        // no good angle yet, try again shortly
+    }
+    return;
+  }
+  if(stalkState==='fade'){
+    stalkObj.material.opacity=Math.max(0, stalkObj.material.opacity-dt*3.2);
+    if(stalkObj.material.opacity<=0){
+      scene.remove(stalkObj); stalkObj.parent=null;
+      stalkState='idle';
+      const g=rand2(STALK.gap), boldness=Math.min(0.55, stalkSeen*0.08);
+      stalkNext=g*(1-boldness);                              // it comes back sooner each time
+    }
+    return;
+  }
+  // peeking
+  stalkObj.material.opacity=Math.min(1, stalkObj.material.opacity+dt*1.6);
+  const dx=player.x-stalkObj.position.x, dz=player.z-stalkObj.position.z;
+  const dist=Math.hypot(dx,dz);
+  stalkObj.position.y=floorAt(stalkObj.position.x,stalkObj.position.z)+HUNTER_H/2
+                      + Math.sin(elapsed*1.7)*0.03;          // barely breathing
+  if(stalkerInView()) stalkAway=0; else stalkAway+=dt;
+  const gone = dist<STALK.flee                                // you walked at it
+            || stalkAway>STALK.lookAway                       // you looked away
+            || stalkT>STALK.maxShow                           // it got bored
+            || !losClear(player.x,player.z,stalkObj.position.x,stalkObj.position.z);
+  if(gone){
+    if(dist<STALK.flee){ stalkSeen++; audio.setGrowl(0.8); }
+    hideStalker();
+  }
 }
 
 /* ---------------------------------------------------------------- LIVES
