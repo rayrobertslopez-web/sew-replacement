@@ -1015,6 +1015,7 @@
     box-shadow:0 10px 30px rgba(47,185,155,.35); }
   #mintPlay:active{ transform:translateY(2px); }
   #mintGrid{ margin-top:14px; width:min(420px,86vw); display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  #mintEnt{ grid-column:1 / -1; }   /* the odd one out sits across the bottom */
   .mintCard{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; cursor:pointer;
     padding:13px 14px; border-radius:16px; text-align:left;
     border:1px solid rgba(95,227,192,.26); background:rgba(95,227,192,.07); color:#dffaf1; }
@@ -1059,8 +1060,9 @@
     #mintEdition{ margin-top:6px; }
     #mintVer{ margin-top:4px; }
     #mintPlay{ margin-top:11px; padding:10px 0; font-size:15px; }
-    /* the four cards go one-across so the whole menu still fits above the fold */
-    #mintGrid{ margin-top:8px; width:min(680px,94vw); grid-template-columns:repeat(4,1fr); gap:8px; }
+    /* the cards go one-across so the whole menu still fits above the fold */
+    #mintGrid{ margin-top:8px; width:min(820px,96vw); grid-template-columns:repeat(5,1fr); gap:8px; }
+    #mintEnt{ grid-column:auto; }
     .mintCard{ padding:8px 10px; }
     #mintBack{ margin-top:10px; }
     .screen{ justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 14px); padding-bottom:14px; }
@@ -1380,6 +1382,7 @@
   <div class="menuRow">
     <button class="btn2" id="levelsBtn">LEVELS</button>
     <button class="btn2" id="threatBtn">THREAT INDEX</button>
+    <button class="btn2" id="entitiesBtn">ENTITIES</button>
     <button class="btn2" id="menuPostsBtn">POSTS</button>
   </div>
   <div class="menuRow" id="vrRow" style="display:none">
@@ -1421,6 +1424,7 @@
       <button class="mintCard" id="mintLevels"><span class="mi">&#9636;</span><b>LEVELS</b><i>replay a floor</i></button>
       <button class="mintCard" id="mintNew"><span class="mi">&#10022;</span><b>WHAT'S NEW</b><i>in this edition</i></button>
       <button class="mintCard" id="mintSet"><span class="mi">&#9881;</span><b>SETTINGS</b><i>sound &amp; look</i></button>
+      <button class="mintCard" id="mintEnt"><span class="mi">&#9673;</span><b>ENTITIES</b><i>everything in here with you</i></button>
     </div>
     <button id="mintBack">&#8592; BACK TO CLASSIC</button>
   </div>
@@ -6281,6 +6285,13 @@ document.getElementById('modsBtn').addEventListener('click', ()=>{
   if(document.pointerLockElement) document.exitPointerLock();
   window.open('mods.html','_blank');          // real click, so this is never blocked
 });
+/* the entity list — its own page, same as the mods site */
+function openEntities(){
+  if(document.pointerLockElement) document.exitPointerLock();
+  window.open('entities.html','_blank');
+}
+document.getElementById('entitiesBtn').addEventListener('click', openEntities);
+document.getElementById('mintEnt').addEventListener('click', openEntities);
 /* no walls — the wallpaper and panel materials just stop drawing */
 function applyNoWalls(){
   if(!modOn('nowalls')) return;
