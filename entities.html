@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BACKROOMS+ ENTITIES</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23141207'/><circle cx='5.5' cy='7' r='1.6' fill='%23f0e6a8'/><circle cx='10.5' cy='7' r='1.6' fill='%23f0e6a8'/></svg>">
+<style>
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; }
+  body{ background:#0d0b03; color:#e6dcae; padding:30px 5vw 80px;
+        font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+        background-image:radial-gradient(ellipse at 50% -10%, rgba(201,178,74,.16), transparent 60%); }
+  header{ text-align:center; max-width:960px; margin:0 auto 26px; }
+  h1{ margin:0; font-size:clamp(32px,9vw,68px); font-weight:900; letter-spacing:3px; line-height:.98;
+      color:#e9d873; text-shadow:0 0 30px rgba(201,178,74,.45), 0 3px 0 #4a3f14; }
+  .sub{ margin-top:10px; font-size:12px; letter-spacing:5px; text-transform:uppercase; color:#a99f76; }
+  .count{ margin-top:14px; font-size:13px; color:#8e855f; }
+  /* filter chips */
+  #filters{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:20px auto 0; max-width:960px; }
+  .chip{ font:inherit; font-size:11.5px; font-weight:800; letter-spacing:1.5px; cursor:pointer;
+    padding:7px 14px; border-radius:999px; border:1px solid #6b6337; background:rgba(201,178,74,.06); color:#cabf86; }
+  .chip.on{ background:rgba(201,178,74,.26); border-color:#b7a03f; color:#f5ecb8; }
+  /* the roster */
+  #list{ max-width:960px; margin:26px auto 0; display:flex; flex-direction:column; gap:16px; }
+  .ent{ display:flex; gap:18px; align-items:flex-start; padding:16px;
+    border:1px solid rgba(201,178,74,.28); border-radius:16px; background:rgba(24,20,6,.75); }
+  .ent.hide{ display:none; }
+  .art{ flex:0 0 auto; width:112px; height:150px; border:1px solid rgba(201,178,74,.22); border-radius:10px;
+    background:#000 radial-gradient(ellipse at 50% 40%, #241f0c, #000 70%);
+    display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .art img, .art canvas{ max-width:100%; max-height:100%; display:block; object-fit:contain; }
+  .body{ flex:1 1 260px; min-width:0; }
+  .name{ margin:0; font-size:clamp(17px,4.2vw,24px); font-weight:900; letter-spacing:1.5px; color:#f2e79f; }
+  .where{ margin-top:3px; font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:#8e855f; }
+  .desc{ margin:11px 0 0; font-size:14px; line-height:1.65; color:#cbc39a; }
+  .desc b{ color:#e9d873; }
+  .tags{ margin-top:12px; display:flex; flex-wrap:wrap; gap:6px; }
+  .tag{ font-size:10.5px; font-weight:800; letter-spacing:1px; padding:4px 9px; border-radius:999px;
+    border:1px solid rgba(201,178,74,.3); color:#b3a978; }
+  .tag.kill{ border-color:rgba(224,90,74,.55); color:#e88a7c; }
+  .tag.safe{ border-color:rgba(120,200,140,.45); color:#8fd6a2; }
+  .tag.mod{ border-color:rgba(150,140,240,.5); color:#b6aef5; }
+  /* threat badge */
+  .cls{ float:right; margin-left:12px; width:52px; height:58px; }
+  #back{ position:fixed; left:14px; top:14px; z-index:5; font:inherit; font-size:12px; font-weight:800;
+    letter-spacing:1.5px; padding:9px 16px; border-radius:11px; cursor:pointer;
+    border:1px solid #6b6337; background:rgba(10,8,2,.9); color:#cabf86; text-decoration:none; }
+  #back:active{ background:rgba(201,178,74,.2); }
+  footer{ max-width:960px; margin:30px auto 0; text-align:center; font-size:12px; color:#7d7550; line-height:1.7; }
+  @media (max-width:520px){
+    .ent{ gap:13px; padding:13px; }
+    .art{ width:84px; height:112px; }
+    /* pinned to the corner it would sit on top of the title, so it joins the flow */
+    #back{ position:static; display:inline-block; margin:0 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<a id="back" href="./backrooms.html">&#8592; BACK TO THE GAME</a>
+
+<header>
+  <h1>ENTITIES</h1>
+  <div class="sub">Everything in here with you</div>
+  <div class="count" id="count"></div>
+  <div id="filters"></div>
+</header>
+
+<div id="list"></div>
+
+<footer>
+  Threat classes follow the same scale as the game's THREAT INDEX.<br>
+  Anything marked <b>MOD</b> only shows up once that mod is installed from the MODS site.
+</footer>
+
+<script>
+/* Every entity the game can actually put in front of you. Numbers here are the
+   same ones the game uses — chances, timers and levels are copied from
+   backrooms.html rather than guessed at. */
+const ENTITIES=[
+  {
+    id:'entity', name:'THE ENTITY', where:'Level 0 · Level 1', cls:'3', group:'core',
+    art:{draw:'entity'},
+    desc:"The one people call <b>the bacteria</b>. It walks the Lobby looking for you, and once it has you it does not lose interest — it switches to a run and the chase track starts up. Sprinting is loud. So is standing still in an open room.",
+    tags:[['kill','KILLS YOU'],['','HUNTS BY SOUND'],['','GETS FASTER AS SANITY DROPS']]
+  },
+  {
+    id:'stomper', name:'THE STOMPER', where:'Level 0', cls:'3', group:'core',
+    art:{draw:'stomper'},
+    desc:"A pale mask with two red eyes, held up in the dark on four long stilts. You hear it before anything else — the floor takes each footfall. It rolls for a chance to appear every few seconds while you're in the Lobby, wanders for up to <b>55 seconds</b>, then leaves on its own.",
+    tags:[['kill','KILLS YOU'],['','12% ROLL, OVER AND OVER'],['','YOU HEAR IT FIRST']]
+  },
+  {
+    id:'pack', name:'THE BACTERIA', where:'Level 2', cls:'6', group:'core',
+    art:{draw:'entity', many:true},
+    desc:"Level 2 doesn't send one. Several come at once from behind you and spread out as they close, so backing into a corridor doesn't buy you anything. This is why the Backstage is Class 6 and why nothing down there counts as a safe room.",
+    tags:[['kill','KILLS YOU'],['','MORE THAN ONE'],['','NO SAFE ROOMS']]
+  },
+  {
+    id:'hunter', name:'THE HUNTER', where:'Level 0', cls:'2', group:'core',
+    art:{img:'hunter.png'},
+    desc:"It doesn't chase. It picks a spot where it can see you and you can nearly not see it — leaning out past a corner — and it stands there. Walk at it and it's gone before you get within <b>6 metres</b>. Look away for a second and it's gone too. It never touches you, and that's the whole point of it.",
+    tags:[['safe','NEVER CATCHES YOU'],['','PEEKS FROM CORNERS'],['','SHOWS UP MORE THE LONGER YOU PLAY']]
+  },
+  {
+    id:'evilhunter', name:'THE EVIL HUNTER', where:'Event · any run', cls:'6', group:'event',
+    art:{img:'hunter.png'},
+    desc:"A <b>25%</b> roll when a run starts. The screen goes red, RUN twitches, and a counter falls from <b>499 walls away</b> to zero over 23 seconds. When it lands, the scream plays and it is in the room with you for the rest of the 45 seconds. Survive it and the world stops being red.",
+    tags:[['kill','KILLS YOU'],['','25% CHANCE'],['','45 SECONDS'],['','ARRIVES AT 0:23']]
+  },
+  {
+    id:'watcher', name:'THE WATCHER', where:'Event · any run', cls:'6', group:'event',
+    art:{img:'watcher.png'},
+    desc:"A <b>45%</b> roll, the most common of the three events. I SEE YOU floods the screen, the whole world flashes red once a second, and the lullaby plays for the full <b>45 seconds</b> while it walks you down.",
+    tags:[['kill','KILLS YOU'],['','45% CHANCE'],['','45 SECONDS'],['','RED FLASH EVERY SECOND']]
+  },
+  {
+    id:'nwo', name:'ENTITY INFLUENCER', where:'Event · any run', cls:'6', group:'event',
+    art:{img:'entity-influencer.png'},
+    desc:"A <b>20%</b> roll, and the rarest. Everything goes white except one strip you can still see the room through, THERES NO WAY OUT shakes above it, and a beep runs without stopping for <b>45 seconds</b>. It is very tall, very thin, and it does not hurry.",
+    tags:[['kill','KILLS YOU'],['','20% CHANCE'],['','45 SECONDS'],['','THE BEEP NEVER STOPS']]
+  },
+  {
+    id:'integrity', name:'INTEGRITY', where:'Level 0 · integrity mod', cls:'?', group:'mod',
+    art:{img:'integrity.png'},
+    desc:"Comes with the <b>integrity</b> mod, along with the red world. It isn't an event you can see coming — it just turns up every <b>40 to 95 seconds</b>, hunts you for 14 to 26, and leaves. Then it comes back sooner. And sooner.",
+    tags:[['kill','KILLS YOU'],['mod','MOD ONLY'],['','COMES BACK FASTER EACH TIME'],['','SPAWNABLE IN THE CREATOR SERVER']]
+  },
+  {
+    id:'stalkermod', name:'THE STALKER', where:'Any level · stalker mod', cls:'2', group:'mod',
+    art:{draw:'entity'},
+    desc:"The <b>stalker</b> mod. One follows you for the entire run and never closes the gap. It doesn't attack. It's just always the same distance behind you, whenever you decide to check.",
+    tags:[['safe','NEVER CATCHES YOU'],['mod','MOD ONLY'],['','ALWAYS BEHIND YOU']]
+  },
+  {
+    id:'b35', name:'THIRTY FIVE OF THEM', where:'Level 0 · 35 bacteria mod', cls:'6', group:'mod',
+    art:{draw:'entity', many:true},
+    desc:"The <b>35 bacteria</b> mod. Thirty five entities, in the Lobby, from the moment you start. They spread out, they slide along walls instead of jamming on corners, and they do not stop.",
+    tags:[['kill','KILLS YOU'],['mod','MOD ONLY'],['','THIRTY FIVE AT ONCE']]
+  },
+  {
+    id:'pet', name:'YOUR PET', where:'Any level · pets mod', cls:'0', group:'mod',
+    art:{draw:'pet'},
+    desc:"The <b>pets</b> mod. One of your Minis walks around with you for the whole run. It can't fight anything and it can't help you, but it's there.",
+    tags:[['safe','HARMLESS'],['mod','MOD ONLY'],['','ONE OF YOUR MINIS']]
+  }
+];
+
+/* the ones with no photo get drawn, same shapes the game uses for its jumpscare
+   frames, so the page never shows an empty box */
+function drawArt(kind, many){
+  const c=document.createElement('canvas'); c.width=260; c.height=340;
+  const g=c.getContext('2d');
+  const px=(x,y,w,h,col)=>{ g.fillStyle=col; g.fillRect(x,y,w,h); };
+  const one=(ox,scale,dim)=>{
+    g.save(); g.translate(ox,0); g.scale(scale,scale); g.globalAlpha=dim;
+    if(kind==='stomper'){
+      px(30,72,200,150,'#1c1a20');
+      px(70,24,120,54,'#1c1a20');
+      px(75,114,45,35,'#e04030'); px(140,114,45,35,'#e04030');
+      px(85,127,20,15,'#2a0806'); px(150,127,20,15,'#2a0806');
+      for(let i=0;i<4;i++) px(35+i*55,222,23,90,'#141318');
+    } else if(kind==='pet'){
+      px(84,150,92,120,'#4c6b4c');
+      px(96,120,68,44,'#5b7d5b');
+      px(110,134,14,14,'#f0e6a8'); px(140,134,14,14,'#f0e6a8');
+      px(112,270,20,42,'#3c563c'); px(140,270,20,42,'#3c563c');
+    } else {
+      px(60,26,140,180,'#0e0e0e');
+      px(80,80,35,30,'#f5f5f5'); px(145,80,35,30,'#f5f5f5');
+      px(90,89,13,13,'#0a0a0a'); px(155,89,13,13,'#0a0a0a');
+      px(95,152,70,13,'#101010');
+      px(75,206,110,120,'#0b0b0b');
+    }
+    g.restore();
+  };
+  // the shape spans x 60..200, so the two behind are offset to stay in frame
+  if(many){ one(-40,0.72,0.45); one(75,0.72,0.45); one(0,1,1); }
+  else one(0,1,1);
+  return c;
+}
+
+function classBadge(cls){
+  return `<svg class="cls" viewBox="0 0 100 112" aria-label="Threat class ${cls}">
+    <polygon points="50,3 96,28 96,84 50,109 4,84 4,28" fill="#d7cf6c" stroke="#23200f" stroke-width="6" stroke-linejoin="round"/>
+    <circle cx="50" cy="56" r="27" fill="none" stroke="#3a3419" stroke-width="7"/>
+    <text x="50" y="60" text-anchor="middle" font-size="48" font-weight="900" fill="#1c1908"
+      font-family="Georgia,'Times New Roman',serif" dominant-baseline="middle">${cls}</text></svg>`;
+}
+
+const GROUPS=[['all','ALL'],['core','IN EVERY RUN'],['event','EVENTS'],['mod','MOD ONLY']];
+let filter='all';
+
+function render(){
+  const list=document.getElementById('list');
+  list.innerHTML=ENTITIES.map(e=>`
+    <article class="ent" data-group="${e.group}">
+      <div class="art" id="art-${e.id}"></div>
+      <div class="body">
+        ${classBadge(e.cls)}
+        <h2 class="name">${e.name}</h2>
+        <div class="where">${e.where}</div>
+        <p class="desc">${e.desc}</p>
+        <div class="tags">${e.tags.map(t=>`<span class="tag ${t[0]}">${t[1]}</span>`).join('')}</div>
+      </div>
+    </article>`).join('');
+  for(const e of ENTITIES){
+    const box=document.getElementById('art-'+e.id);
+    if(e.art.img){
+      const im=new Image(); im.alt=e.name; im.src=e.art.img;
+      // if the file ever goes missing, fall back to a drawing rather than a broken icon
+      im.onerror=()=>{ box.innerHTML=''; box.appendChild(drawArt('entity',false)); };
+      box.appendChild(im);
+    } else {
+      box.appendChild(drawArt(e.art.draw, e.art.many));
+    }
+  }
+  applyFilter();
+}
+function applyFilter(){
+  let shown=0;
+  document.querySelectorAll('.ent').forEach(el=>{
+    const on = filter==='all' || el.dataset.group===filter;
+    el.classList.toggle('hide', !on);
+    if(on) shown++;
+  });
+  document.getElementById('count').textContent =
+    shown + (shown===1?' entity':' entities') + (filter==='all' ? ' in the game' : ' in this group');
+}
+document.getElementById('filters').innerHTML =
+  GROUPS.map(([k,label])=>`<button class="chip${k==='all'?' on':''}" data-g="${k}">${label}</button>`).join('');
+document.getElementById('filters').addEventListener('click', ev=>{
+  const b=ev.target.closest('.chip'); if(!b) return;
+  filter=b.dataset.g;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on', c===b));
+  applyFilter();
+});
+render();
+</script>
+</body>
+</html>
