@@ -1582,7 +1582,7 @@
       <button class="crBtn on" id="crSelect">🎯 SELECT</button>
       <button class="crBtn danger" id="crHunt">&#128128; EVIL HUNTER</button>
       <button class="crBtn danger" id="crWatcher">&#128064; WATCHER</button>
-      <button class="crBtn danger" id="crNwo">&#128680; NO WAY OUT</button>
+      <button class="crBtn danger" id="crNwo">&#128680; ENTITY INFLUENCER</button>
       <button class="crBtn danger" id="crInteg">&#129503; INTEGRITY</button>
     </div>
   </div>
@@ -2656,7 +2656,8 @@ let catchObj=null;   // whichever creature (entity or a level-2 chaser) actually
 function startCatch(obj, foot, byStomper){
   if(modOn('invincible')) return;          // invincible mod
   const byInteg=chasers.some(c=>c.integ && c.obj===obj);
-  jumpscare(byInteg?'integrity' : watchActive?'watcher' : huntActive?'hunter' : byStomper?'stomper' : 'entity');
+  const byNwo=chasers.some(c=>c.nwo && c.obj===obj);
+  jumpscare(byInteg?'integrity' : byNwo?'nwo' : watchActive?'watcher' : huntActive?'hunter' : byStomper?'stomper' : 'entity');
   if(caught) return;
   caught=true; caughtT=0; catchBlack=false; catchObj=obj||null;
   catchFoot = (foot==null? entityFoot : foot);
@@ -6365,6 +6366,7 @@ function jumpscare(kind){
   im.src = kind==='hunter' ? HUNTER_IMG
          : kind==='watcher' ? WATCHER_IMG
          : kind==='integrity' ? INTEG_IMG
+         : kind==='nwo' ? NWO_IMG
          : entityFaceURL(kind);
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   try{ screamAudio.currentTime=0;
@@ -7209,12 +7211,13 @@ document.getElementById('crInteg').addEventListener('click', ()=>{
    seconds, the screen goes white with THERES NO WAY OUT / RUN shaking hard,
    and the thing hunts you the whole time. */
 const NWO_LEN=45, NWO_CHANCE=0.20;
-const NWO_IMG='nowayout.png', NWO_H=3.1;
+const NWO_NAME='ENTITY INFLUENCER';
+const NWO_IMG='entity-influencer.png', NWO_H=3.1;
 let nwoActive=false, nwoT=0, nwoTex=null, nwoAR=1;
 const beepAudio=document.getElementById('beepAudio');
 
-/* the artwork is optional — until the png is dropped in, it uses a drawn
-   silhouette so the encounter is playable rather than invisible */
+/* the ENTITY INFLUENCER's artwork, cut out of the photo it comes from. The
+   drawn silhouette below is only a safety net for a failed load. */
 function nwoFallbackTex(){
   const c=document.createElement('canvas'); c.width=256; c.height=320;
   const g=c.getContext('2d');
@@ -7237,7 +7240,7 @@ function addNwo(tex){
   const x=player.x-fwdX*14, z=player.z-fwdZ*14;
   sp.position.set(x, NWO_H/2, z);
   scene.add(sp);
-  chasers.push({obj:sp, x, z, foot:NWO_H/2, faceYaw:0});
+  chasers.push({obj:sp, x, z, foot:NWO_H/2, faceYaw:0, nwo:true});
 }
 function spawnNwo(){
   clearChasers();
@@ -7273,7 +7276,8 @@ function updateNwo(dt){
   if(nwoT>=NWO_LEN) stopNwo();
 }
 document.getElementById('crNwo').addEventListener('click', ()=>{
-  nwoActive ? stopNwo() : startNwo();
+  if(nwoActive){ stopNwo(); return; }
+  startNwo(); toast(NWO_NAME+' is here.');
 });
 
 /* ---------------------------------------------------------------- the Watcher
