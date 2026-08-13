@@ -990,8 +990,79 @@
   #toBeContinued span{ font-family:"Courier New",ui-monospace,monospace; font-weight:700; font-size:clamp(20px,4.4vw,34px);
     color:#eae6cf; letter-spacing:2px; opacity:0; transition:opacity 1.6s ease; }
   #toBeContinued.show span{ opacity:1; }
+  /* ===================== MINT EDITION =====================
+     A second front end for the game. Its own palette, its own graphics (drawn
+     live on #mintFx rather than shipped as images), its own buttons. It shares
+     nothing with the yellow menu above except being fixed to the viewport. */
+  #mint{ position:fixed; inset:0; z-index:24; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    background:#04120f; color:#dffaf1;
+    font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  #mint.hide{ display:none; }
+  #mintFx{ position:fixed; inset:0; width:100%; height:100%; display:block; }
+  #mintWrap{ position:relative; z-index:2; min-height:100%; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    padding:calc(env(safe-area-inset-top) + 28px) 22px calc(env(safe-area-inset-bottom) + 28px); }
+  #mintMark{ width:96px; height:96px; margin-bottom:14px; filter:drop-shadow(0 0 22px rgba(95,227,192,.55)); }
+  #mintMark svg{ width:100%; height:100%; display:block; }
+  #mintTitle{ font-size:clamp(28px,8vw,60px); font-weight:200; letter-spacing:.32em; text-indent:.32em;
+    color:#eafff8; text-shadow:0 0 30px rgba(95,227,192,.45); }
+  #mintEdition{ margin-top:10px; font-size:clamp(11px,3vw,15px); font-weight:900;
+    letter-spacing:.5em; text-indent:.5em; color:#5fe3c0; }
+  #mintVer{ margin-top:7px; font-size:11px; letter-spacing:.22em; color:#5d8f84; text-transform:uppercase; }
+  #mintPlay{ margin-top:24px; width:min(420px,86vw); padding:16px 0; border-radius:999px; cursor:pointer;
+    border:0; background:linear-gradient(135deg,#6ef0cb,#2fb99b); color:#04211b;
+    font-size:18px; font-weight:900; letter-spacing:.26em; text-indent:.26em;
+    box-shadow:0 10px 30px rgba(47,185,155,.35); }
+  #mintPlay:active{ transform:translateY(2px); }
+  #mintGrid{ margin-top:14px; width:min(420px,86vw); display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .mintCard{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; cursor:pointer;
+    padding:13px 14px; border-radius:16px; text-align:left;
+    border:1px solid rgba(95,227,192,.26); background:rgba(95,227,192,.07); color:#dffaf1; }
+  .mintCard:active{ background:rgba(95,227,192,.18); }
+  .mintCard .mi{ font-size:17px; line-height:1; color:#5fe3c0; }
+  .mintCard b{ font-size:12.5px; font-weight:900; letter-spacing:.14em; }
+  .mintCard i{ font-style:normal; font-size:10.5px; letter-spacing:.06em; color:#69a196; }
+  #mintBack{ margin-top:16px; padding:10px 22px; border-radius:999px; cursor:pointer;
+    border:1px solid rgba(223,250,241,.22); background:transparent; color:#9ecabf;
+    font-size:11px; font-weight:800; letter-spacing:.2em; }
+  #mintBack:active{ background:rgba(223,250,241,.1); }
+  /* what's-new sheet, slides up from the bottom */
+  #mintSheet{ position:fixed; inset:0; z-index:26; display:none; align-items:flex-end; justify-content:center;
+    background:rgba(2,10,8,.66); }
+  #mintSheet.show{ display:flex; }
+  #mintSheetIn{ width:min(520px,100%); max-height:80vh; overflow-y:auto; text-align:left;
+    background:#08201b; border:1px solid rgba(95,227,192,.3); border-radius:22px 22px 0 0;
+    padding:22px 22px calc(env(safe-area-inset-bottom) + 22px); }
+  #mintSheetIn h3{ margin:0; font-size:14px; letter-spacing:.24em; color:#5fe3c0; }
+  #mintSheetIn p{ margin:12px 0 0; font-size:13.5px; line-height:1.7; color:#bfe6dc; }
+  #mintSheetIn p b{ color:#eafff8; }
+  #mintClose{ margin-top:18px; width:100%; padding:12px; border-radius:14px; cursor:pointer;
+    border:1px solid rgba(95,227,192,.3); background:rgba(95,227,192,.12); color:#dffaf1;
+    font-weight:900; letter-spacing:.2em; font-size:12px; }
+  /* while mint's menu is up, the yellow edition's fixed furniture steps aside */
+  body.minting #minisBtn, body.minting #musicBtn, body.minting #postsBtn, body.minting #modsBtn,
+  body.minting #chatsBtn, body.minting #livesBtn, body.minting #settingsBtn,
+  body.minting #countdown, body.minting #creatorBtn{ display:none !important; }
+  body.minting #toast{ z-index:27; }   /* toast lives under z-24 by default */
+  /* the door into it, on the classic menu */
+  #mintGet{ margin-top:14px; padding:11px 26px; border-radius:999px; cursor:pointer; pointer-events:auto;
+    border:1px solid #3fbf9e; background:linear-gradient(135deg,rgba(110,240,203,.18),rgba(47,185,155,.1));
+    color:#8ff0d6; font-size:13px; font-weight:900; letter-spacing:.16em;
+    text-shadow:0 0 12px rgba(95,227,192,.5); }
+  #mintGet:active{ transform:translateY(2px); background:rgba(95,227,192,.26); }
+  #mintGet.installing{ pointer-events:none; }
   /* compact layout for landscape phones (short viewport height) so nothing clips off-screen */
   @media (orientation:landscape) and (max-height:520px){
+    #mintWrap{ padding-top:calc(env(safe-area-inset-top) + 12px); padding-bottom:calc(env(safe-area-inset-bottom) + 12px); }
+    #mintMark{ width:46px; height:46px; margin-bottom:6px; }
+    #mintTitle{ font-size:clamp(20px,5vw,34px); }
+    #mintEdition{ margin-top:6px; }
+    #mintVer{ margin-top:4px; }
+    #mintPlay{ margin-top:11px; padding:10px 0; font-size:15px; }
+    /* the four cards go one-across so the whole menu still fits above the fold */
+    #mintGrid{ margin-top:8px; width:min(680px,94vw); grid-template-columns:repeat(4,1fr); gap:8px; }
+    .mintCard{ padding:8px 10px; }
+    #mintBack{ margin-top:10px; }
     .screen{ justify-content:flex-start; padding-top:calc(env(safe-area-inset-top) + 14px); padding-bottom:14px; }
     #logoImg{ width:120px; margin-bottom:8px; }
     h1{ font-size:clamp(24px,6vw,42px); }
@@ -1317,8 +1388,57 @@
   <div class="ctrls" id="ctrlsDesk">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
   </div>
+  <button id="mintGet">GET MINT EDITION</button>
   <button id="shutdownBtn" class="hide">SHUT DOWN GAME</button>
   <button id="adminBtn">ADMIN PANEL</button>
+</div>
+
+<!-- ===== Mint Edition: the game's other front end. Everything in here is its
+     own — the mark, the type, the buttons, and the background, which is drawn
+     frame by frame on the canvas instead of being an image. ===== -->
+<div id="mint" class="hide">
+  <canvas id="mintFx"></canvas>
+  <div id="mintWrap">
+    <div id="mintMark">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <linearGradient id="mg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#8ffbdd"/><stop offset="1" stop-color="#2fb99b"/>
+          </linearGradient>
+        </defs>
+        <path d="M50 6 92 30v40L50 94 8 70V30z" fill="none" stroke="url(#mg)" stroke-width="3"/>
+        <path d="M50 20 78 36v28L50 80 22 64V36z" fill="rgba(95,227,192,.12)"/>
+        <rect x="41" y="40" width="18" height="30" rx="2" fill="none" stroke="#bffdea" stroke-width="2.4"/>
+        <circle cx="55" cy="56" r="1.9" fill="#bffdea"/>
+      </svg>
+    </div>
+    <div id="mintTitle">BACKROOMS</div>
+    <div id="mintEdition">MINT EDITION</div>
+    <div id="mintVer">v 1.10.10 · clean build</div>
+    <button id="mintPlay">ENTER</button>
+    <div id="mintGrid">
+      <button class="mintCard" id="mintMinis"><span class="mi">&#9670;</span><b>COLLECTION</b><i id="mintMinisSub">your minis</i></button>
+      <button class="mintCard" id="mintLevels"><span class="mi">&#9636;</span><b>LEVELS</b><i>replay a floor</i></button>
+      <button class="mintCard" id="mintNew"><span class="mi">&#10022;</span><b>WHAT'S NEW</b><i>in this edition</i></button>
+      <button class="mintCard" id="mintSet"><span class="mi">&#9881;</span><b>SETTINGS</b><i>sound &amp; look</i></button>
+    </div>
+    <button id="mintBack">&#8592; BACK TO CLASSIC</button>
+  </div>
+</div>
+<div id="mintSheet">
+  <div id="mintSheetIn">
+    <h3>WHAT'S NEW</h3>
+    <p><b>A cleaner lobby.</b> Same maze, mint air. The walls, carpet and ceiling lights all
+      run cool instead of that sick yellow, and the fog reaches further so you can actually
+      see a corridor before you're standing in it.</p>
+    <p><b>One menu, four buttons.</b> No wall of side tabs. Everything you actually press is
+      on one screen.</p>
+    <p><b>The graphics are drawn, not loaded.</b> The background you're looking at is being
+      made frame by frame — no image files, so it never pops in.</p>
+    <p><b>Nothing is lost.</b> Your minis, levels and achievements are the same save.
+      Switch back to classic whenever you want and it's all still there.</p>
+    <button id="mintClose">CLOSE</button>
+  </div>
 </div>
 
 <!-- Level select (only completed levels) -->
@@ -1649,6 +1769,12 @@ let cineActive = false, cineRunningBefore = false, cineVisibleScreen = null, cin
 // Creator Server: a free sandbox, entirely separate from the level0-3/`level` system on purpose —
 // its own tick() branch and its own movement code, so it can never interact with or regress the game.
 let creatorMode = false;
+/* MINT EDITION — the alternate front end, wired up at the bottom of this file.
+   Read up here because the surface textures are built (and applyAtmosphere runs)
+   long before that block does, and both need to know which edition this is. */
+const MINT_KEY='backrooms_mint';
+let mintOn = false, mintReady = false;
+try{ mintOn = localStorage.getItem(MINT_KEY)==='1'; }catch(e){}
 let creatorBaseplate = null, creatorClouds = [], creatorSun = null;
 let creatorObjects = [], creatorObjSeq = 0, selectedCreatorId = null, creatorOutline = null;
 let creatorKeyframes = [], creatorPlaying = false, creatorPlayIdx = 0, creatorPlayT = 0;
@@ -1726,6 +1852,18 @@ function blob(ctx,s,x,y,r,col){
 }
 function rng(seed0){ let s=seed0>>>0; return ()=>{ s=Math.imul(s^(s>>>15),2246822519)>>>0; s=Math.imul(s^(s>>>13),3266489917)>>>0; s=(s^(s>>>16))>>>0; return s/4294967296; }; }
 
+/* MINT EDITION repaint. The Lobby's surfaces are drawn yellow, and a material
+   tint only multiplies — against a texture with almost no blue in it that lands
+   on swamp green, not mint. So the pixels themselves get remapped: keep the
+   brightness (all the grime and weave survives), throw the hue away. */
+function mintPixels(x,s){
+  const img=x.getImageData(0,0,s,s), d=img.data;
+  for(let i=0;i<d.length;i+=4){
+    const L=Math.min(1,(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114)/255*1.08);
+    d[i]=Math.round(255*L*0.62); d[i+1]=Math.round(255*L); d[i+2]=Math.round(255*L*0.9);
+  }
+  x.putImageData(img,0,0);
+}
 function wallpaperTexture(){
   const s=256, c=makeCanvas(s), x=c.getContext('2d'), R=rng(7);
   x.fillStyle='#b8a848'; x.fillRect(0,0,s,s);
@@ -1740,6 +1878,7 @@ function wallpaperTexture(){
     const px=R()*s, w=2+R()*4, h=30+R()*90;
     x.fillStyle=`rgba(48,42,14,${0.06+R()*0.1})`; x.fillRect(px,R()*s,w,h);
   }
+  if(mintOn) mintPixels(x,s);
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.SRGBColorSpace;
   t.anisotropy=maxAniso(); return t;
 }
@@ -1753,6 +1892,7 @@ function carpetTexture(){
   // damp mottled patches
   for(let i=0;i<30;i++){ blob(x,s,R()*s,R()*s,16+R()*46, `rgba(20,17,4,${0.06+R()*0.16})`); }
   for(let i=0;i<14;i++){ blob(x,s,R()*s,R()*s,10+R()*30, `rgba(74,66,26,${0.05+R()*0.1})`); }
+  if(mintOn) mintPixels(x,s);
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.SRGBColorSpace;
   t.anisotropy=maxAniso(); return t;
 }
@@ -1769,6 +1909,7 @@ function ceilingTexture(){
   x.strokeStyle='rgba(40,37,20,.4)'; x.lineWidth=2; x.strokeRect(s*0.5-1,2,2,s-4);
   // grime
   for(let i=0;i<12;i++){ blob(x,s,R()*s,R()*s,14+R()*30, `rgba(30,27,12,${0.05+R()*0.12})`); }
+  if(mintOn) mintPixels(x,s);
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.SRGBColorSpace;
   t.anisotropy=maxAniso(); return t;
 }
@@ -3785,6 +3926,7 @@ function toast(msg){
 function applyAtmosphere(lv){
   if(worldRed){ makeWorldRed(); return; }   // the hunt's red overrides per-level colour
   if(integrityOn()){ applyIntegrityWorld(); return; }
+  if(mintOn){ applyMintWorld(lv); return; }
   if(lv===0){
     scene.background.setHex(0x151203); scene.fog.color.setHex(0x151203); scene.fog.near=FOG_NEAR; fogFarBase=FOG_FAR;
     ambient.color.setHex(0x37331a); ambient.intensity=0.62;
@@ -3930,6 +4072,7 @@ function showStart(){
   document.getElementById('start').classList.remove('hide');
   running=false; transitioning=false; caught=false;
   if(locked) document.exitPointerLock();
+  if(mintOn && mintReady) showMintMenu();   // installed? then this is the menu you land on
 }
 function openSettings(){
   document.getElementById('volSlider').value=Math.round(audio.getVolume()*100);
@@ -5236,6 +5379,7 @@ document.getElementById('winMenuBtn').addEventListener('click', showStart);
 document.getElementById('warnBtn').addEventListener('click',()=>{
   document.getElementById('warning').classList.add('hide');
   document.getElementById('start').classList.remove('hide');
+  if(mintOn && mintReady) showMintMenu();   // mint installed -> straight into its menu
 });
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('settingsClose').addEventListener('click', closeSettings);
@@ -7594,6 +7738,169 @@ document.getElementById('musicClose').addEventListener('click',()=>{
   tickCountdown();
   setInterval(tickCountdown,1000);
 })();
+
+/* ======================================================= MINT EDITION
+   A whole second front end. GET MINT EDITION on the classic menu installs it;
+   from then on the menu you land on is the mint one, and the Lobby itself runs
+   cool instead of yellow. BACK TO CLASSIC puts everything back. The choice is
+   remembered, so it survives a reload the way an "edition" should. */
+function saveMint(){ try{ localStorage.setItem(MINT_KEY, mintOn?'1':'0'); }catch(e){} }
+
+/* the Lobby in mint. Same maze, different air — and the surfaces are tinted
+   too, so it isn't just green light landing on yellow wallpaper. */
+function applyMintWorld(lv){
+  scene.background.setHex(0x08241e); scene.fog.color.setHex(0x08241e);
+  scene.fog.near=FOG_NEAR+1.5; fogFarBase=FOG_FAR+10;      // you can see further in here
+  ambient.color.setHex(0x5ec6c6); ambient.intensity=1.05;   // brighter than the Lobby, that's the point
+  hemi.color.setHex(0xaaf4ee); hemi.groundColor.setHex(0x1d4a46); hemi.intensity=0.9;
+  fillLight.color.setHex(0xd6fdff);
+  for(const L of lightPool) L.color.setHex(0xdefdff);
+  if(panelMat) panelMat.color.setHex(0xe8feff);   // the ceiling lights, which have no texture
+}
+/* the surfaces are repainted at the texture level, so switching editions means
+   redrawing those three canvases and handing the materials the new maps */
+function repaintSurfaces(){
+  const w=wallpaperTexture(), c=carpetTexture(), ce=ceilingTexture();
+  if(wallpaperTex) wallpaperTex.dispose();
+  if(carpetTex)    carpetTex.dispose();
+  if(ceilTex)      ceilTex.dispose();
+  wallpaperTex=w; carpetTex=c; ceilTex=ce;
+  if(structMatWall){ structMatWall.map=w;  structMatWall.needsUpdate=true; }
+  if(floorMat){      floorMat.map=c;       floorMat.needsUpdate=true; }
+  if(ceilMat){       ceilMat.map=ce;       ceilMat.needsUpdate=true; }
+}
+
+/* ---- the background. Drawn every frame instead of shipped as an image, so
+   there's nothing to load and it never pops in. ---- */
+const mintCv=document.getElementById('mintFx');
+const mintCx=mintCv.getContext('2d');
+let mintRaf=0, mintT=0, mintMotes=[];
+function mintSize(){
+  const d=Math.min(2, window.devicePixelRatio||1);
+  mintCv.width=Math.round(innerWidth*d); mintCv.height=Math.round(innerHeight*d);
+  mintCx.setTransform(d,0,0,d,0,0);
+}
+function mintSeedMotes(){
+  mintMotes=[];
+  for(let i=0;i<34;i++) mintMotes.push({
+    x:Math.random(), y:Math.random(), r:1.2+Math.random()*2.8,
+    sp:0.008+Math.random()*0.026, dr:(Math.random()-0.5)*0.05, a:0.12+Math.random()*0.34
+  });
+}
+function mintDraw(dt){
+  const W=innerWidth, H=innerHeight, cx=mintCx;
+  mintT+=dt;
+  const g=cx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#072b25'); g.addColorStop(0.55,'#051915'); g.addColorStop(1,'#020b09');
+  cx.fillStyle=g; cx.fillRect(0,0,W,H);
+  // two slow aurora blooms, drifting out of phase
+  for(let i=0;i<2;i++){
+    const px=W*(0.3+0.4*i)+Math.sin(mintT*(0.18+i*0.07)+i*2.1)*W*0.16;
+    const py=H*(0.32+0.26*i)+Math.cos(mintT*(0.13+i*0.09))*H*0.1;
+    const rad=Math.max(W,H)*(0.42-i*0.1);
+    const rg=cx.createRadialGradient(px,py,0,px,py,rad);
+    rg.addColorStop(0, i? 'rgba(60,190,190,.16)' : 'rgba(95,227,192,.20)');
+    rg.addColorStop(1,'rgba(95,227,192,0)');
+    cx.fillStyle=rg; cx.fillRect(0,0,W,H);
+  }
+  // a floor grid running to a horizon, sliding toward you
+  const hz=H*0.62;
+  cx.strokeStyle='rgba(95,227,192,.16)'; cx.lineWidth=1;
+  for(let i=1;i<=16;i++){
+    const t=((i/16)+(mintT*0.06))%1;
+    const y=hz+(H-hz)*t*t;                 // squared so lines bunch up at the horizon
+    cx.globalAlpha=0.9*(1-t)+0.08;
+    cx.beginPath(); cx.moveTo(0,y); cx.lineTo(W,y); cx.stroke();
+  }
+  cx.globalAlpha=0.5;
+  for(let i=-9;i<=9;i++){
+    cx.beginPath(); cx.moveTo(W/2+i*(W*0.055), hz); cx.lineTo(W/2+i*(W*0.44), H); cx.stroke();
+  }
+  cx.globalAlpha=1;
+  // horizon glow
+  const hg=cx.createLinearGradient(0,hz-70,0,hz+8);
+  hg.addColorStop(0,'rgba(95,227,192,0)'); hg.addColorStop(1,'rgba(143,251,221,.22)');
+  cx.fillStyle=hg; cx.fillRect(0,hz-70,W,78);
+  // motes rising
+  for(const m of mintMotes){
+    m.y-=m.sp*dt; m.x+=m.dr*dt*0.1;
+    if(m.y<-0.03){ m.y=1.03; m.x=Math.random(); }
+    cx.globalAlpha=m.a; cx.fillStyle='#a9f7e2';
+    cx.beginPath(); cx.arc(m.x*W, m.y*H, m.r, 0, Math.PI*2); cx.fill();
+  }
+  cx.globalAlpha=1;
+  // vignette, so the type in the middle stays readable
+  const vg=cx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.62)');
+  cx.fillStyle=vg; cx.fillRect(0,0,W,H);
+}
+let mintLast=0;
+function mintLoop(now){
+  const dt=Math.min(0.05,(now-mintLast)/1000)||0.016; mintLast=now;
+  mintDraw(dt);
+  mintRaf=requestAnimationFrame(mintLoop);
+}
+function mintFxStart(){
+  if(mintRaf) return;
+  mintSize(); if(!mintMotes.length) mintSeedMotes();
+  mintLast=performance.now(); mintRaf=requestAnimationFrame(mintLoop);
+}
+function mintFxStop(){ if(mintRaf) cancelAnimationFrame(mintRaf); mintRaf=0; }
+addEventListener('resize', ()=>{ if(mintRaf) mintSize(); });
+
+/* ---- showing and leaving it ---- */
+function showMintMenu(){
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('mint').classList.remove('hide');
+  document.body.classList.add('minting');
+  const sub=document.getElementById('mintMinisSub');
+  if(sub) sub.textContent=minisOwned().length+' of '+MINIS_TOTAL;
+  mintFxStart();
+}
+function hideMintMenu(){
+  document.getElementById('mint').classList.add('hide');
+  document.getElementById('mintSheet').classList.remove('show');
+  document.body.classList.remove('minting');
+  mintFxStop();
+}
+function backToClassic(){
+  mintOn=false; saveMint();
+  hideMintMenu();
+  repaintSurfaces();
+  if(panelMat) panelMat.color.setHex(0xfff3cf);
+  applyAtmosphere(level);
+  document.getElementById('start').classList.remove('hide');
+  toast('Back to the classic edition.');
+}
+document.getElementById('mintGet').addEventListener('click', ()=>{
+  const b=document.getElementById('mintGet');
+  b.classList.add('installing');
+  b.textContent='INSTALLING…';
+  // a beat of install so it reads as getting something, then the new front end
+  setTimeout(()=>{
+    mintOn=true; saveMint();
+    repaintSurfaces();
+    applyAtmosphere(level);
+    b.classList.remove('installing'); b.textContent='GET MINT EDITION';
+    showMintMenu();
+  }, 900);
+});
+document.getElementById('mintPlay').addEventListener('click', ()=>{ hideMintMenu(); newGame(); });
+document.getElementById('mintMinis').addEventListener('click', openMinis);
+document.getElementById('mintLevels').addEventListener('click', ()=>{ hideMintMenu(); openLevels(); });
+document.getElementById('mintSet').addEventListener('click', openSettings);
+document.getElementById('mintNew').addEventListener('click', ()=>document.getElementById('mintSheet').classList.add('show'));
+document.getElementById('mintClose').addEventListener('click', ()=>document.getElementById('mintSheet').classList.remove('show'));
+document.getElementById('mintSheet').addEventListener('click', e=>{
+  if(e.target.id==='mintSheet') document.getElementById('mintSheet').classList.remove('show');
+});
+document.getElementById('mintBack').addEventListener('click', backToClassic);
+mintReady=true;
+if(mintOn){
+  applyAtmosphere(level);
+  // if the classic menu is already on screen at boot, swap it for this one
+  if(!document.getElementById('start').classList.contains('hide')) showMintMenu();
+}
 
 renderer.setAnimationLoop(tick);   // drives the loop in both flat and WebXR (stereo) modes
 </script>
