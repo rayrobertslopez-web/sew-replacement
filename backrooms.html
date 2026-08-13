@@ -122,6 +122,9 @@
     color:#e9d873; text-shadow:0 0 30px rgba(201,178,74,.45), 0 3px 0 #4a3f14; animation:buzz 5s infinite; }
   @keyframes buzz{ 0%,97%,100%{opacity:1} 97.6%{opacity:.35} 98.2%{opacity:1} 98.5%{opacity:.5} 99%{opacity:1} }
   .sub{ font-size:14px; letter-spacing:5px; text-transform:uppercase; color:#b7ad84; margin:12px 0 0; }
+  /* edition line, sits right under the game's name */
+  #edition{ font-size:13px; font-weight:900; letter-spacing:3px; color:#d8cc92; margin:8px 0 0;
+    text-shadow:0 0 12px rgba(201,178,74,.35); }
   .lore{ max-width:520px; font-size:14px; line-height:1.75; color:#cbc39a; margin:20px 0 6px; }
   .lore b{ color:var(--amber); }
   .btn{ margin-top:26px; font-size:22px; font-weight:900; letter-spacing:2px; padding:15px 54px;
@@ -261,7 +264,7 @@
   body.integrity .screen{ background:#0a0000 !important; }
   body.integrity .screen::before{ content:''; position:absolute; inset:0; z-index:-1;
     background:url('integrity-menu.png') center/cover no-repeat; opacity:.92; }
-  body.integrity .screen h1, body.integrity .screen .sub{
+  body.integrity .screen h1, body.integrity .screen .sub, body.integrity #edition{
     color:#ff1a1a !important; text-shadow:0 0 18px #000, 0 0 44px rgba(255,0,0,.8) !important; }
   body.integrity .btn, body.integrity .btn2{
     background:rgba(20,0,0,.72) !important; border-color:#ff2a2a !important; color:#ff5a5a !important; }
@@ -993,6 +996,7 @@
     #logoImg{ width:120px; margin-bottom:8px; }
     h1{ font-size:clamp(24px,6vw,42px); }
     .sub{ margin-top:5px; font-size:11px; }
+    #edition{ margin-top:4px; font-size:10.5px; letter-spacing:2px; }
     .lore{ margin:8px 0 2px; font-size:12.5px; line-height:1.5; max-width:640px; }
     .btn{ margin-top:10px; padding:9px 38px; font-size:17px; }
     .menuRow{ margin-top:2px; }
@@ -1290,6 +1294,7 @@
   <button id="creatorBtn">CREATOR SERVER</button>
   <img src="./backrooms-logo.png" alt="The Backrooms logo" id="logoImg">
   <h1>THE<br>BACKROOMS</h1>
+  <div id="edition"><b>POLOROID EDITION. V. 1.10.10</b></div>
   <div class="sub">Level&nbsp;0 — “The&nbsp;Lobby”</div>
   <div class="lore">
     You noclipped out of reality. Now you're in <b>the yellow</b> — endless mono-yellow rooms,
