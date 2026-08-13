@@ -6399,7 +6399,9 @@ let peekTex=null, peekAR=81/265;   // re-read off the file once it loads
 const STALK = {
   firstDelay:[25,55],     // before it shows up at all
   gap:[22,48],            // between sightings, shortens as the run goes on
-  range:[9,17],           // how far off it stands
+  range:[7,14],           // how far off it stands
+  hideMin:0.20,           // and this much of it has to be behind the wall
+  hideMax:0.62,           // but not so much that there's nothing to see
   flee:6.5,               // walk inside this and it leaves
   lookAway:0.9,           // seconds out of view before it slips off
   maxShow:11              // it never lingers longer than this
@@ -6412,30 +6414,66 @@ function stalkReset(){
   stalkState='idle'; stalkT=0; stalkAway=0; stalkSeen=0;
   stalkNext=rand2(STALK.firstDelay);
 }
-/* somewhere it can watch you from, ideally half-hidden by a corner */
+/* how much of the sprite's own width the level hides from where you're standing.
+   The sprite is a flat quad with depth testing on, so a wall in front of part of
+   it really does cut that part away — measuring the silhouette is measuring
+   exactly what you see. */
+function peekHidden(x,z){
+  const dx=x-player.x, dz=z-player.z, d=Math.hypot(dx,dz)||0.001;
+  const px=-dz/d, pz=dx/d;                        // across the sprite, square to you
+  const half=PEEK_H*peekAR*0.5;
+  const N=7; let blocked=0;
+  for(let i=0;i<N;i++){
+    const t=(i/(N-1))*2-1;                        // -1 .. 1 across its width
+    if(!losClear(player.x,player.z, x+px*t*half, z+pz*t*half)) blocked++;
+  }
+  return blocked/N;
+}
+/* Somewhere it can lean out from. Sampling random spots and asking "is anything
+   near it" put it in the open nearly every time — a spot passes that test while
+   the sprite itself is completely visible. So instead: sweep sideways until the
+   view of it breaks against a wall, bisect down to that edge, and stand it
+   there, nudged back toward the open so its head clears the corner. */
 function findPeekSpot(){
   const fwd=player.yaw;
-  for(let tries=0; tries<26; tries++){
-    const wide = tries>16;                       // give up on the corner, take any view
-    /* both cones stay inside the view test below — a spot behind you counts as
-       "looked away" the instant it appears, so it would vanish unseen */
-    const ang = fwd + (Math.random()*2-1)*(wide?1.0:0.8);
-    const d = rand2(STALK.range);
-    const x = player.x - Math.sin(ang)*d, z = player.z - Math.cos(ang)*d;
-    const [cx,cz]=collideLevel(x,z,0.35);
-    if(Math.hypot(cx-x,cz-z)>0.05) continue;     // that spot is inside a wall
-    if(!losClear(player.x,player.z,x,z)) continue;
-    if(!wide){
-      // a real peek: visible here, blocked a step to the side, so it reads as
-      // leaning out from behind something rather than standing in the open
-      const px=-Math.cos(ang), pz=Math.sin(ang);
-      const blocked = !losClear(player.x,player.z, x+px*1.3, z+pz*1.3)
-                   || !losClear(player.x,player.z, x-px*1.3, z-pz*1.3);
-      if(!blocked) continue;
+  const spotAt=(a,d)=>({x:player.x-Math.sin(a)*d, z:player.z-Math.cos(a)*d});
+  const canStand=p=>{ const [cx,cz]=collideLevel(p.x,p.z,0.35); return Math.hypot(cx-p.x,cz-p.z)<=0.05; };
+  const visible=(a,d)=>{ const p=spotAt(a,d); return losClear(player.x,player.z,p.x,p.z); };
+  const step=0.035;
+  let open=null, best=null, bestErr=9;             // last resort: any spot you can see
+  for(let tries=0; tries<18; tries++){
+    const d=rand2(STALK.range);
+    const a0=fwd+(Math.random()*2-1)*0.7;
+    if(!visible(a0,d)) continue;
+    const p0=spotAt(a0,d);
+    if(!canStand(p0)) continue;
+    if(!open) open=p0;
+    // sweep both ways for the angle where a wall starts covering it
+    for(const dir of (Math.random()<0.5 ? [1,-1] : [-1,1])){
+      let lo=a0, hi=null;
+      for(let k=1;k<=30;k++){
+        const a=a0+dir*k*step;
+        if(Math.abs(a-fwd)>1.1) break;
+        if(!visible(a,d)){ hi=a; break; }
+        lo=a;
+      }
+      if(hi===null) continue;                     // nothing to hide behind out that way
+      for(let b=0;b<9;b++){ const m=(lo+hi)/2; if(visible(m,d)) lo=m; else hi=m; }
+      /* `lo` is the last angle still in view, which puts its middle on the wall
+         edge and hides half of it. Back off a fifth of its width toward the open
+         side: enough that the head clears the corner, little enough that it still
+         reads as leaning out from behind it. */
+      const edge=lo - dir*(PEEK_H*peekAR*0.18)/d;
+      const p=spotAt(edge,d);
+      if(!canStand(p)) continue;
+      const hid=peekHidden(p.x,p.z);
+      if(hid>=STALK.hideMin && hid<=STALK.hideMax) return p;
+      // not a clean peek, but keep the closest near-miss over standing in the open
+      const err=Math.abs(hid-0.3);
+      if(hid>0 && err<bestErr){ bestErr=err; best=p; }
     }
-    return {x,z};
   }
-  return null;
+  return best || open;
 }
 function showStalker(){
   if(!peekTex){
