@@ -966,8 +966,13 @@
   #hide5 span{ font-family:Georgia,'Times New Roman',serif; color:#0b0b0b; line-height:1;
     text-shadow:0 0 14px rgba(255,255,255,.85), 0 0 34px rgba(255,255,255,.6);
     word-break:break-word; max-width:100%; }
-  #hide5a{ font-size:clamp(30px,7.4vw,64px); letter-spacing:2px; }
+  #hide5a{ font-size:clamp(30px,7.4vw,64px); letter-spacing:2px; font-variant-numeric:tabular-nums; }
   #hide5b{ font-size:clamp(38px,9.6vw,86px); letter-spacing:3px; }
+  /* it stays up for the whole five minutes, so after the first beat it gets out
+     of the middle of the screen */
+  #hide5.small{ justify-content:flex-start; padding-top:13vh; gap:0; }
+  #hide5.small #hide5a{ font-size:clamp(22px,4.6vw,40px); }
+  #hide5.small #hide5b{ font-size:clamp(15px,3.2vw,26px); }
   @media (prefers-reduced-motion: no-preference){
     #hide5.show span{ animation:hideTwitch .11s steps(2,end) infinite; }
   }
@@ -2805,6 +2810,7 @@ function updateGuide(){
 
 /* ---------------------------------------------------------------- entity */
 function spawnEntity(){
+  if(hideOn()) return;                              // nothing hunts you while the clock runs
   if(!entityProto){ pendingEntity=true; return; }   // model still loading
   scene.add(entityProto);
   entity={obj:entityProto, x:0, z:0, dir:Math.random()*7, state:'wander', lastSeen:-99, speed:3.0, turn:0, faceYaw:0};
@@ -2920,7 +2926,7 @@ function trySpawnStomper(){
 }
 function clearStomper(){ if(stomper){ if(stomper.obj.parent) scene.remove(stomper.obj); stomper=null; } }
 function updateStomper(dt){
-  if(level!==0){ if(stomper) clearStomper(); return; }
+  if(level!==0 || hideOn()){ if(stomper) clearStomper(); return; }
   if(!stomper){
     stomperCooldown-=dt;
     if(stomperCooldown<=0 && elapsed>12){
@@ -3835,6 +3841,7 @@ function newGame(){
   clearTv();
   clearStomper();
   stomperCooldown=22; stomperShake=0;
+  stopHide(true);                       // a new run doesn't inherit someone else's five minutes
   document.getElementById('botChat').classList.add('hide');
   // reset to Level 0
   if(l1Model && l1Model.parent) scene.remove(l1Model);
@@ -4082,7 +4089,7 @@ function resumeFromCard(){
 }
 /* ------------------------------------------------- menu / level select */
 function showStart(){
-  stopEvilHunt(); stopWatcher(); stopNwo(); integStop(); endMyLive(); clearJumpscare();
+  stopEvilHunt(); stopWatcher(); stopNwo(); integStop(); stopHide(true); endMyLive(); clearJumpscare();
   ['win','levels','threat','online','posts','levelcard','loadcard','settings','devPanel','adminPanel','adminPassStep'].forEach(id=>document.getElementById(id).classList.add('hide'));
   document.getElementById('settingsBtn').classList.remove('hide');
   settingsOpen=false;
@@ -5042,7 +5049,7 @@ function tick(){
   else if(megActive){ updateMeg(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
-  updateEvilHunt(dt); updateWatcher(dt); updateNwo(dt); updateIntegrity(dt);
+  updateEvilHunt(dt); updateWatcher(dt); updateNwo(dt); updateIntegrity(dt); updateHide();
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
   /* entity-chase.mp3 is the bacteria's sound. The Hunter and the Watcher use
      their own tracks, so they must not drag this one in — level 2's pack is
@@ -6365,6 +6372,7 @@ function spawnStalker(){
   });
 }
 function updateStalker(dt){
+  if(hideOn() && stalkerObj){ scene.remove(stalkerObj); stalkerObj=null; }
   if(!stalkerObj) return;
   const dx=player.x-stalkerX, dz=player.z-stalkerZ, d=Math.hypot(dx,dz)||0.001;
   const want=9;                                   // it holds this distance, forever
@@ -6541,7 +6549,7 @@ function stalkerInView(){
   return (dx/d)*fx+(dz/d)*fz > 0.35;
 }
 function updateStalker3(dt){
-  if(level!==0 || !running || huntActive || watchActive || nwoActive){   // events get the stage
+  if(level!==0 || !running || huntActive || watchActive || nwoActive || hideOn()){   // events get the stage
     if(stalkObj && stalkState!=='idle') stalkReset();
     return;
   }
@@ -7274,7 +7282,7 @@ function integStart(){
   integSpawn(); audio.setGrowl(0.9); liveEvent('scare');
 }
 function updateIntegrity(dt){
-  const canRun = !huntActive && !watchActive && !nwoActive && (creatorMode || (running && level===0));
+  const canRun = !huntActive && !watchActive && !nwoActive && !hideOn() && (creatorMode || (running && level===0));
   if(!canRun){
     if(integState!=='idle') integStop();
     return;
@@ -7341,7 +7349,7 @@ function spawnNwo(){
   }, undefined, ()=>{ nwoTex=nwoFallbackTex(); if(nwoActive) addNwo(nwoTex); });
 }
 function startNwo(){
-  if(nwoActive || huntActive || watchActive) return;
+  if(nwoActive || huntActive || watchActive || hideOn()) return;
   nwoActive=true; nwoT=0;
   document.getElementById('nwo').classList.add('show');
   try{ beepAudio.currentTime=0;
@@ -7398,7 +7406,7 @@ function spawnWatcher(){
   });
 }
 function startWatcher(){
-  if(watchActive || huntActive || nwoActive) return;   // only ever one encounter at a time
+  if(watchActive || huntActive || nwoActive || hideOn()) return;   // only ever one encounter at a time
   watchActive=true; watchT=0;
   document.getElementById('watcherFx').classList.add('show');
   document.getElementById('watcherMsg').classList.add('show');
@@ -7466,7 +7474,7 @@ function makeWorldRed(){
 function clearWorldRed(){ if(worldRed){ worldRed=false; applyAtmosphere(level); } }
 
 function startEvilHunt(){
-  if(huntActive || watchActive || nwoActive) return;   // only ever one encounter at a time
+  if(huntActive || watchActive || nwoActive || hideOn()) return;   // only ever one encounter at a time
   huntActive=true; huntT=0; huntDropped=false;
   hideHuntTab(); document.getElementById('nothing').classList.remove('show');
   document.getElementById('hunt').classList.add('show');
@@ -7746,13 +7754,51 @@ function zalgoize(s, up, dn, mid){
   }
   return out;
 }
-function showHideCard(ms){
+/* ---- the five minutes ----
+   The card isn't a title card, it's a clock. It counts down from 5:00, and for
+   as long as it's running nothing in the level is allowed to hunt you: whatever
+   was already after you is removed, and every spawner is shut for the duration. */
+const HIDE_LEN=300;
+let hideUntil=0, hideTick=-1;
+function hideOn(){ return hideUntil>0 && performance.now()<hideUntil; }
+function clearHunters(){
+  stopEvilHunt(); stopWatcher(); stopNwo();          // and any scripted encounter mid-flight
+  if(entity){ scene.remove(entity.obj); entity=null; pendingEntity=false; }
+  clearChasers();                                    // hunt pack, integrity, NO WAY OUT, level 2
+  clearStomper(); stomperCooldown=HIDE_LEN+25;
+  integStop();
+  stalkReset();                                      // the Watcher stops peeking
+  if(stalkerObj){ scene.remove(stalkerObj); stalkerObj=null; }   // and the stalker mod
+  audio.setGrowl(0); audio.setChase(false,1);
+}
+function startHide(){
+  hideUntil=performance.now()+HIDE_LEN*1000; hideTick=-1;
+  clearHunters();
   const el=document.getElementById('hide5');
   document.getElementById('hide5a').textContent=zalgoize('5 MINUTES',9,9,1);
   document.getElementById('hide5b').textContent=zalgoize('HIDE',11,11,2);
-  el.classList.remove('show'); void el.offsetWidth;
+  el.classList.remove('small'); el.classList.remove('show'); void el.offsetWidth;
   el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'), ms||5000);
+  // big for the first beat, then out of the way — it's on screen for five minutes
+  setTimeout(()=>{ if(hideOn()) el.classList.add('small'); }, 3600);
+}
+function stopHide(quiet){
+  if(!hideUntil) return;
+  hideUntil=0; hideTick=-1;
+  const el=document.getElementById('hide5');
+  el.classList.remove('show'); el.classList.remove('small');
+  stomperCooldown=25; stalkReset();
+  if(!quiet){ clearWorldRed(); toast('It stopped looking.'); }
+}
+function updateHide(){
+  if(!hideUntil) return;
+  if(!hideOn()){ stopHide(); return; }
+  const left=Math.ceil((hideUntil-performance.now())/1000);
+  if(left===hideTick) return;                        // only redraw when the second changes
+  hideTick=left;
+  const m=Math.floor(left/60), sec=left%60;
+  document.getElementById('hide5a').textContent =
+    zalgoize(m+':'+String(sec).padStart(2,'0'), 4, 4, 0);
 }
 
 function huntPayoff(){
@@ -7760,7 +7806,7 @@ function huntPayoff(){
      If you aren't actually standing in a run any more — caught, mid-transition,
      off in the sandbox — skip straight to the rest of the payoff. */
   if(!running || caught || transitioning || creatorMode){ huntPayoffTail(); return; }
-  playEscapeScene(()=>{ showHideCard(5200); setTimeout(huntPayoffTail, 4200); });   // the card gets the screen to itself first
+  playEscapeScene(()=>{ startHide(); setTimeout(huntPayoffTail, 4200); });   // the card gets the screen to itself first
 }
 function huntPayoffTail(){
   const el=document.getElementById('survived');
