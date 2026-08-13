@@ -563,6 +563,10 @@
   /* the fixed side buttons sit over the creator server's control bars and
      intercept their clicks, so they step aside while the sandbox is open */
   body.creating #postsBtn, body.creating #minisBtn, body.creating #musicBtn{ display:none; }
+  /* nothing of the UI belongs over a cutscene */
+  body.cutscene #postsBtn, body.cutscene #minisBtn, body.cutscene #musicBtn, body.cutscene #modsBtn,
+  body.cutscene #chatsBtn, body.cutscene #livesBtn, body.cutscene #countdown,
+  body.cutscene #settingsBtn, body.cutscene #hud, body.cutscene #tvRec{ display:none !important; }
   /* ---- Evil Hunter event ----
      One red plane with a rectangular hole punched through it by clip-path, so
      the only thing you can see of the world is that window. RUN and the caption
@@ -944,6 +948,33 @@
     font-family:"Courier New",ui-monospace,monospace; font-size:clamp(14px,2.6vw,20px); line-height:1.6;
     color:#f0e6a8; text-shadow:0 2px 10px #000, 0 0 20px rgba(0,0,0,.9); opacity:0; transition:opacity 1s ease; }
   #introCaption.show{ opacity:1; }
+  /* ---- the escape cutscene, after you survive the Evil Hunter ----
+     Letterboxed third-person shot; the black bars and the fade are the only
+     chrome, everything else on screen is the 3D set. */
+  #escCine{ position:fixed; inset:0; z-index:74; pointer-events:none; display:none; }
+  #escCine.show{ display:block; }
+  #escFade{ position:fixed; inset:0; background:#000; opacity:1; }
+  #escBarT, #escBarB{ position:fixed; left:0; right:0; height:11%; background:#000; }
+  #escBarT{ top:0; } #escBarB{ bottom:0; }
+  /* ---- "5 MINUTES / HIDE" ----
+     The card is see-through: no panel behind it, just the corrupted type. The
+     faint white halo is only so black glyphs stay readable over a dark room. */
+  #hide5{ position:fixed; inset:0; z-index:75; display:none; flex-direction:column;
+    align-items:center; justify-content:center; gap:2vh; pointer-events:none;
+    padding:0 4vw; text-align:center; }
+  #hide5.show{ display:flex; }
+  #hide5 span{ font-family:Georgia,'Times New Roman',serif; color:#0b0b0b; line-height:1;
+    text-shadow:0 0 14px rgba(255,255,255,.85), 0 0 34px rgba(255,255,255,.6);
+    word-break:break-word; max-width:100%; }
+  #hide5a{ font-size:clamp(30px,7.4vw,64px); letter-spacing:2px; }
+  #hide5b{ font-size:clamp(38px,9.6vw,86px); letter-spacing:3px; }
+  @media (prefers-reduced-motion: no-preference){
+    #hide5.show span{ animation:hideTwitch .11s steps(2,end) infinite; }
+  }
+  @keyframes hideTwitch{
+    0%{ transform:translate(0,0) } 33%{ transform:translate(-3px,2px) }
+    66%{ transform:translate(3px,-2px) } 100%{ transform:translate(-1px,1px) }
+  }
   #cineBanner{ position:fixed; left:0; right:0; top:calc(env(safe-area-inset-top) + 100px); text-align:center;
     font-family:"Courier New",ui-monospace,monospace; font-size:clamp(13px,2.2vw,16px); color:#f0e6a8;
     text-shadow:0 2px 8px #000; padding:0 8vw; opacity:0; transition:opacity .8s ease; z-index:31; pointer-events:none; }
@@ -1530,6 +1561,8 @@
 
 <!-- 3PM intro cinematic + Level 4 overlays -->
 <div id="introCine"><div id="introFade"></div><div id="introCaption"></div></div>
+<div id="escCine"><div id="escFade"></div><div id="escBarT"></div><div id="escBarB"></div></div>
+<div id="hide5"><span id="hide5a"></span><span id="hide5b"></span></div>
 <div id="cineBanner"></div>
 <div id="tvRec">
   <div id="tvRecScan"></div>
@@ -5005,6 +5038,7 @@ function tick(){
   let inGame=false;
   if(tvPlaying){ updateTvRec(dt); }
   else if(cineActive){ updateCine(dt); }
+  else if(escActive){ updateEscape(); }
   else if(megActive){ updateMeg(dt); }
   else if(creatorMode){ updateCreator(dt); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
@@ -7541,7 +7575,194 @@ function openNothingTab(){
 }
 function showHuntTab(){ document.getElementById('huntTab').classList.add('show'); }
 function hideHuntTab(){ document.getElementById('huntTab').classList.remove('show'); }
+/* ------------------------------------------------ the escape cutscene
+   You survived, so you get to see it: a side-on shot of yourself running down a
+   corridor, ducking behind a wall, while the thing that was chasing you drifts
+   around in the distance still looking. It plays on a set of its own, built far
+   below the world, because the real maze around you is random — there may be no
+   wall to hide behind where you're standing, and the shot has to work every
+   time. Nothing here touches the level you'll be dropped back into. */
+const ESC_Y=-500, ESC_LEN=8.2;
+/* wall-clock, not accumulated dt: dt is capped per frame, so on a slow machine
+   an 8-second scene quietly stretches into twenty and the beats stop landing */
+let escActive=false, escT=0, escStart=0, escSet=null, escRunner=null, escHunter=null, escDone=null;
+
+function escAvatar(){                       // "you", seen from outside for once
+  const g=new THREE.Group();
+  const skin=new THREE.MeshLambertMaterial({color:0xd9b48a});
+  const cloth=new THREE.MeshLambertMaterial({color:0x5a6d96});   // light enough to read in the shot
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.22,0.6,4,10), cloth);
+  body.position.y=1.15; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.19,14,12), skin);
+  head.position.y=1.66; g.add(head);
+  /* each limb hangs off a pivot at the joint, not its own middle — rotating a
+     capsule about its centre just tilts it on the spot and reads as nothing */
+  const limb=(x,y,len,mat)=>{
+    const pv=new THREE.Group(); pv.position.set(x,y,0);
+    const m=new THREE.Mesh(new THREE.CapsuleGeometry(0.07,len,4,8), mat);
+    m.position.y=-len/2; pv.add(m); g.add(pv); return pv;
+  };
+  g.userData.arms=[limb(-0.28,1.36,0.48,cloth), limb(0.28,1.36,0.48,cloth)];
+  g.userData.legs=[limb(-0.12,0.86,0.7,cloth),  limb(0.12,0.86,0.7,cloth)];
+  return g;
+}
+function buildEscapeSet(){
+  const s=new THREE.Group();
+  s.position.y=ESC_Y;
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(70,60),
+    new THREE.MeshLambertMaterial({map:carpetTex}));
+  floor.rotation.x=-Math.PI/2; floor.position.z=8; s.add(floor);
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(70,60),
+    new THREE.MeshLambertMaterial({map:ceilTex, side:THREE.FrontSide}));
+  ceil.rotation.x=Math.PI/2; ceil.position.set(0,WALL_H,8); s.add(ceil);
+  const wallMat=new THREE.MeshLambertMaterial({map:wallpaperTex});
+  const slab=(w,x,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,WALL_H,0.4), wallMat);
+    m.position.set(x,WALL_H/2,z); s.add(m); return m; };
+  slab(70,0,22);            // the far end of the room, well behind everything
+  slab(7,6,-1.4);           // the one you get behind - it stands between you and it
+  slab(10,-16,6);           // something for the far side to read as rooms, not a void
+  /* a key light just for the shot — the room is far bigger than a corridor and
+     the ceiling panels alone leave it too dark to read as a scene */
+  const key=new THREE.DirectionalLight(0xfff2d0, 1.5); key.position.set(-6,9,-14); s.add(key);
+  const rim=new THREE.DirectionalLight(0xffe9b8, 0.8); rim.position.set(14,7,20); s.add(rim);
+  for(const z of [2,12,19]) for(let i=-3;i<=3;i++){
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.3),
+      new THREE.MeshBasicMaterial({color:0xfff3cf, fog:true}));
+    p.rotation.x=Math.PI/2; p.position.set(i*8, WALL_H-0.02, z); s.add(p);
+    const L=new THREE.PointLight(0xfff0c4, 0.9, 26); L.position.set(i*8, WALL_H-0.4, z); s.add(L);
+  }
+  return s;
+}
+function playEscapeScene(done){
+  if(escActive){ if(done) done(); return; }
+  escActive=true; escT=0; escStart=performance.now(); escDone=done||null;
+  if(!escSet){ escSet=buildEscapeSet(); }
+  if(!escSet.parent) scene.add(escSet);
+  if(!escRunner){ escRunner=escAvatar(); escSet.add(escRunner); }
+  escRunner.visible=true;
+  if(!escHunter){
+    escHunter=new THREE.Sprite(new THREE.SpriteMaterial({map:hunterTex||null, transparent:true, opacity:0}));
+    escHunter.scale.set(HUNTER_H*HUNTER_AR, HUNTER_H, 1);
+    escSet.add(escHunter);
+  }
+  if(!escHunter.material.map){                       // artwork may not be loaded yet
+    new THREE.TextureLoader().load(HUNTER_IMG, t=>{ t.colorSpace=THREE.SRGBColorSpace;
+      escHunter.material.map=t; escHunter.material.needsUpdate=true; });
+  }
+  running=false;
+  if(locked) document.exitPointerLock();
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('cross').classList.remove('show');
+  document.getElementById('touch').classList.remove('show');
+  document.getElementById('settingsBtn').classList.add('hide');
+  document.getElementById('escFade').style.opacity='1';
+  document.getElementById('escCine').classList.add('show');
+  document.body.classList.add('cutscene');
+  /* its own air: the payoff turns the world red, and that would bleed in here */
+  scene.background.setHex(0x1d1806); scene.fog.color.setHex(0x1d1806);
+  scene.fog.near=6; fogFarBase=52;
+  /* brighter than a normal room: it's a shot, and you have to be able to see
+     yourself run and the thing still looking for you at the far end */
+  ambient.color.setHex(0x8a8158); ambient.intensity=1.6;
+  hemi.color.setHex(0xd8c98c); hemi.groundColor.setHex(0x3a3418); hemi.intensity=0.95;
+  updateEscape();
+}
+function endEscapeScene(){
+  if(!escActive) return;
+  escActive=false;
+  document.getElementById('escCine').classList.remove('show');
+  document.body.classList.remove('cutscene');
+  if(escSet && escSet.parent) scene.remove(escSet);
+  applyAtmosphere(level);       // back to whatever the room you're standing in looks like
+  if(worldRed) makeWorldRed();  // ...including the payoff's red, if it's still on
+  document.getElementById('settingsBtn').classList.remove('hide');
+  running=true; clock.getDelta();
+  document.getElementById('hud').classList.add('show');
+  document.getElementById('cross').classList.toggle('show', !isTouch);
+  if(isTouch) document.getElementById('touch').classList.add('show');
+  const cb=escDone; escDone=null;
+  if(cb) cb();
+}
+function updateEscape(){
+  const t=escT=(performance.now()-escStart)/1000;
+  /* run (0-3.4) -> press in behind the slab (3.4-4.4) -> it comes looking out
+     past the far end of that slab, deep down the room, for the rest of the shot */
+  const RUN_END=3.4, HID=4.4;
+  let x, crouch=0;
+  if(t<RUN_END){ x=-11 + (t/RUN_END)*18.4; }
+  else if(t<HID){ const u=(t-RUN_END)/(HID-RUN_END); x=7.4+u*0.8; crouch=u; }
+  else { x=8.2; crouch=1; }
+  escRunner.position.set(x, 0, -2.4 + crouch*0.5);
+  escRunner.scale.y=1-crouch*0.3;
+  escRunner.rotation.y=Math.PI*0.5;                     // facing the way it's running
+  const stride=t<RUN_END?13:0, sw=Math.sin(t*stride)*0.9;
+  if(escRunner.userData.arms){
+    escRunner.userData.arms[0].rotation.x=sw;
+    escRunner.userData.arms[1].rotation.x=-sw;
+    escRunner.userData.legs[0].rotation.x=-sw;
+    escRunner.userData.legs[1].rotation.x=sw;
+  }
+  /* it stays on the far side of the slab and out past its end, so the shot holds
+     both of you: you pressed in on the near side, it hunting in the depth. */
+  const hv=Math.max(0, Math.min(1,(t-4.0)/1.0)) * Math.max(0, Math.min(1,(ESC_LEN-0.5-t)/0.8));
+  escHunter.material.opacity=hv*0.95;
+  escHunter.position.set(-2.2 + Math.sin(t*0.8)*1.6, HUNTER_H/2, 12.0 + Math.cos(t*0.55)*1.2);
+  /* side on: tracking you while you run, then easing back to a held wide shot */
+  const u=Math.min(1, Math.max(0,(t-RUN_END)/2.0)), e=u*u*(3-2*u);
+  const trackX=(t<RUN_END? x : 8.2);
+  const cx=trackX-1.2 + (4.4-(trackX-1.2))*e;
+  const cz=-8.6 + (-9.4-(-8.6))*e;
+  const lx=trackX+1.6 + (2.4-(trackX+1.6))*e;
+  const lz=-1.0 + (3.4-(-1.0))*e;
+  camera.position.set(cx, ESC_Y+1.9, cz);
+  camera.lookAt(lx, ESC_Y+1.3, lz);
+  fillLight.position.copy(camera.position);
+  const fade=document.getElementById('escFade');
+  if(t<0.7) fade.style.opacity=(1-t/0.7).toFixed(2);
+  else if(t>ESC_LEN-0.7) fade.style.opacity=Math.min(1,(t-(ESC_LEN-0.7))/0.7).toFixed(2);
+  else fade.style.opacity='0';
+  if(t>=ESC_LEN) endEscapeScene();
+}
+
+/* ---- "5 MINUTES / HIDE" ---- */
+const ZA_UP=[], ZA_DN=[], ZA_MID=[];
+for(let c=0x300;c<=0x315;c++) ZA_UP.push(String.fromCharCode(c));
+for(let c=0x34f;c<=0x36f;c++) ZA_UP.push(String.fromCharCode(c));
+for(let c=0x316;c<=0x333;c++) ZA_DN.push(String.fromCharCode(c));
+for(let c=0x339;c<=0x34e;c++) ZA_DN.push(String.fromCharCode(c));
+for(let c=0x334;c<=0x338;c++) ZA_MID.push(String.fromCharCode(c));
+const zaPick=a=>a[(Math.random()*a.length)|0];
+/* Only ASCII letters and digits get marks. Anything else is left alone — a
+   combining mark landing between the halves of a surrogate pair is what turned
+   an emoji into mojibake once already. */
+function zalgoize(s, up, dn, mid){
+  let out='';
+  for(const ch of s){
+    out+=ch;
+    if(!/[A-Za-z0-9]/.test(ch)) continue;
+    for(let i=0;i<up+((Math.random()*4)|0);i++)  out+=zaPick(ZA_UP);
+    for(let i=0;i<dn+((Math.random()*4)|0);i++)  out+=zaPick(ZA_DN);
+    for(let i=0;i<mid;i++)                       out+=zaPick(ZA_MID);
+  }
+  return out;
+}
+function showHideCard(ms){
+  const el=document.getElementById('hide5');
+  document.getElementById('hide5a').textContent=zalgoize('5 MINUTES',9,9,1);
+  document.getElementById('hide5b').textContent=zalgoize('HIDE',11,11,2);
+  el.classList.remove('show'); void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), ms||5000);
+}
+
 function huntPayoff(){
+  /* the scene first, then it hands you back to first person and the card.
+     If you aren't actually standing in a run any more — caught, mid-transition,
+     off in the sandbox — skip straight to the rest of the payoff. */
+  if(!running || caught || transitioning || creatorMode){ huntPayoffTail(); return; }
+  playEscapeScene(()=>{ showHideCard(5200); setTimeout(huntPayoffTail, 4200); });   // the card gets the screen to itself first
+}
+function huntPayoffTail(){
   const el=document.getElementById('survived');
   el.classList.remove('show'); void el.offsetWidth;   // restart the fade if it just ran
   el.classList.add('show');
