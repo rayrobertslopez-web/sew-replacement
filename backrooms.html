@@ -1585,7 +1585,7 @@
       <button class="crBtn" data-spawn="entity">HOWLER</button>
       <button class="crBtn on" id="crSelect">🎯 SELECT</button>
       <button class="crBtn danger" id="crHunt">&#128128; EVIL HUNTER</button>
-      <button class="crBtn danger" id="crWatcher">&#128064; WATCHER</button>
+      <button class="crBtn danger" id="crWatcher">&#128064; I SEE YOU</button>
       <button class="crBtn danger" id="crNwo">&#128680; ENTITY INFLUENCER</button>
       <button class="crBtn danger" id="crInteg">&#129503; INTEGRITY</button>
     </div>
@@ -6389,11 +6389,13 @@ function jumpscare(kind){
 }
 function clearJumpscare(){ clearTimeout(_jumpT); document.getElementById('jump').classList.remove('show'); }
 
-/* ------------------------------------------------------- the Hunter, stalking
+/* ------------------------------------------------------ THE WATCHER, peeking
    Nothing to do with the 45-second event. This one just lives in your run: it
    picks a spot where it can see you but you nearly can't see it, stands there
    watching, and is gone the moment you commit to walking at it. It never
    catches you — the whole point is that it refuses to resolve. */
+const WATCHER_PEEK_IMG='the-watcher.png', PEEK_H=2.9;
+let peekTex=null, peekAR=81/265;   // re-read off the file once it loads
 const STALK = {
   firstDelay:[25,55],     // before it shows up at all
   gap:[22,48],            // between sightings, shortens as the run goes on
@@ -6436,17 +6438,21 @@ function findPeekSpot(){
   return null;
 }
 function showStalker(){
-  if(!hunterTex){
-    new THREE.TextureLoader().load(HUNTER_IMG, t=>{ t.colorSpace=THREE.SRGBColorSpace; hunterTex=t; });
+  if(!peekTex){
+    new THREE.TextureLoader().load(WATCHER_PEEK_IMG, t=>{
+      t.colorSpace=THREE.SRGBColorSpace;
+      const im=t.image; if(im&&im.height) peekAR=im.width/im.height;
+      peekTex=t;
+    });
     return false;                                 // try again next tick
   }
   const spot=findPeekSpot(); if(!spot) return false;
   if(!stalkObj){
-    const mat=new THREE.SpriteMaterial({map:hunterTex, transparent:true, opacity:0, depthTest:true});
+    const mat=new THREE.SpriteMaterial({map:peekTex, transparent:true, opacity:0, depthTest:true});
     stalkObj=new THREE.Sprite(mat);
-    stalkObj.scale.set(HUNTER_H*HUNTER_AR, HUNTER_H, 1);
+    stalkObj.scale.set(PEEK_H*peekAR, PEEK_H, 1);
   }
-  stalkObj.position.set(spot.x, floorAt(spot.x,spot.z)+HUNTER_H/2, spot.z);
+  stalkObj.position.set(spot.x, floorAt(spot.x,spot.z)+PEEK_H/2, spot.z);
   stalkObj.material.opacity=0;
   if(!stalkObj.parent) scene.add(stalkObj);
   stalkState='peek'; stalkT=0; stalkAway=0;
@@ -6489,7 +6495,7 @@ function updateStalker3(dt){
   stalkObj.material.opacity=Math.min(1, stalkObj.material.opacity+dt*1.6);
   const dx=player.x-stalkObj.position.x, dz=player.z-stalkObj.position.z;
   const dist=Math.hypot(dx,dz);
-  stalkObj.position.y=floorAt(stalkObj.position.x,stalkObj.position.z)+HUNTER_H/2
+  stalkObj.position.y=floorAt(stalkObj.position.x,stalkObj.position.z)+PEEK_H/2
                       + Math.sin(elapsed*1.7)*0.03;          // barely breathing
   if(stalkerInView()) stalkAway=0; else stalkAway+=dt;
   const gone = dist<STALK.flee                                // you walked at it
@@ -7291,10 +7297,12 @@ document.getElementById('crNwo').addEventListener('click', ()=>{
   startNwo(); toast(NWO_NAME+' is here.');
 });
 
-/* ---------------------------------------------------------------- the Watcher
+/* ----------------------------------------------------------------- I SEE YOU
    Its own encounter: the lullaby plays, the screen pulses red once a second,
    I SEE YOU sits over everything, and the thing itself hunts you. Runs for the
-   length of the track and is driven by that track's clock, same as the hunt. */
+   length of the track and is driven by that track's clock, same as the hunt.
+   (Named after its own screen text — THE WATCHER is the one that peeks at you
+   from behind walls, further up this file.) */
 const WATCH_LEN=45, WATCH_CHANCE=0.45;
 const WATCHER_IMG='watcher.png', WATCHER_H=3.2, WATCHER_AR=756/755;
 let watchActive=false, watchT=0, watcherTex=null;
