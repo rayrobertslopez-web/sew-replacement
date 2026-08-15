@@ -79,7 +79,16 @@
   .btn.grey{ background:#5b6068; font-size:15px; padding:11px; }
   #pause{ background:rgba(8,10,14,.82); }
   #pause h1{ font-size:clamp(26px,7vw,48px); }
-  #seedRow{ margin-top:16px; width:min(430px,92vw); display:flex; gap:8px; }
+  /* the two servers you can join */
+  #servers{ margin-top:20px; width:min(430px,92vw); display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .srv{ font:inherit; cursor:pointer; text-align:left; padding:11px 12px; border-radius:9px;
+    border:3px solid #2a2016; background:rgba(20,16,10,.62); color:#f2ead8;
+    display:flex; flex-direction:column; gap:3px; }
+  .srv b{ font-size:13px; letter-spacing:1.5px; }
+  .srv i{ font-style:normal; font-size:10.5px; line-height:1.4; color:#b6ab8c; }
+  .srv.on i{ color:#eef5df; }
+  .srv.on{ background:#6c8f3e; box-shadow:0 4px 0 #2a2016; }
+  #seedRow{ margin-top:12px; width:min(430px,92vw); display:flex; gap:8px; }
   #seedRow input{ flex:1; min-width:0; font:inherit; font-size:14px; padding:11px; border-radius:8px;
     border:3px solid #2a2016; background:#efe6d2; color:#2a2016; font-weight:700; }
   .foot{ margin-top:18px; font-size:11.5px; color:#22321a; max-width:min(430px,92vw); line-height:1.6; }
@@ -140,6 +149,10 @@
     <p><b>Move</b> WASD · <b>Jump</b> Space · <b>Look</b> mouse · <b>Break</b> left click · <b>Place</b> right click · <b>Pick block</b> 1-9 or scroll · <b>Fly</b> F (double-tap Space) · <b>Menu</b> Esc</p>
     <p>Your world saves itself. Same seed, same world — share the number with a friend and you both get the same one.</p>
   </div>
+  <div id="servers">
+    <button class="srv on" data-world="normal"><b>OVERWORLD</b><i>hills, oceans, caves, ore</i></button>
+    <button class="srv" data-world="flat"><b>GRAVEL FLATS</b><i>dead flat, pure gravel, villages everywhere</i></button>
+  </div>
   <div id="seedRow"><input id="seedIn" placeholder="world seed (leave blank for random)" inputmode="numeric"></div>
   <button class="btn" id="playBtn">PLAY</button>
   <button class="btn grey" id="wipeBtn">NEW WORLD (erase this one)</button>
@@ -173,7 +186,8 @@ import * as THREE from 'three';
 
 /* ---------------------------------------------------------------- blocks */
 const T={ GRASS_TOP:0, GRASS_SIDE:1, DIRT:2, STONE:3, SAND:4, LOG_SIDE:5, LOG_TOP:6, LEAVES:7,
-          PLANKS:8, WATER:9, COBBLE:10, BRICK:11, COAL:12, IRON:13, GLASS:14, BEDROCK:15 };
+          PLANKS:8, WATER:9, COBBLE:10, BRICK:11, COAL:12, IRON:13, GLASS:14, BEDROCK:15,
+          GRAVEL:16 };
 const AIR=0;
 /* id -> {name, t:[+x,-x,+y,-y,+z,-z] atlas tiles, solid, opaque, liquid}.
    Index 0 is air, so the array starts with a hole in it. */
@@ -195,6 +209,7 @@ ID.COAL   = def('Coal Ore',all(T.COAL));
 ID.IRON   = def('Iron Ore',all(T.IRON));
 ID.GLASS  = def('Glass',   all(T.GLASS), {opaque:false});
 ID.BEDROCK= def('Bedrock', all(T.BEDROCK));
+ID.GRAVEL = def('Gravel',  all(T.GRAVEL));
 
 const solidAt=id=>id!==AIR && BLOCKS[id].solid;
 const opaqueAt=id=>id!==AIR && BLOCKS[id].opaque;
@@ -255,6 +270,10 @@ function makeAtlas(){
    g.strokeRect(x+.5,y+.5,TILE-1,TILE-1); g.fillStyle='rgba(255,255,255,.5)';
    g.fillRect(x+3,y+3,4,1); g.fillRect(x+3,y+3,1,4);}
   fill(T.BEDROCK,'#3a3a40');   noise(T.BEDROCK,.6,true); speck(T.BEDROCK,'#22222a',20,3);
+  /* gravel: loose stones of a few sizes rather than one flat grey */
+  fill(T.GRAVEL,'#8d8a85');    noise(T.GRAVEL,.55,true);
+  speck(T.GRAVEL,'#6f6c68',16,3); speck(T.GRAVEL,'#a5a29b',14,2);
+  speck(T.GRAVEL,'#5c5a56',20,1); speck(T.GRAVEL,'#b8b4ab',12,1);
 
   const tex=new THREE.CanvasTexture(c);
   tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter;
@@ -299,7 +318,14 @@ function noise3(x,y,z){
   return l(l(l(c000,c100,xf),l(c010,c110,xf),yf), l(l(c001,c101,xf),l(c011,c111,xf),yf), zf);
 }
 const WORLD_H=72, SEA=30;
+/* Two servers. NORMAL is the hilly world with oceans and caves; FLAT is a
+   dead-level slab of gravel and nothing else — no bedrock, no dirt, no stone,
+   no water — with trees and villages standing on top of it. */
+let worldType='normal';
+const FLAT_TOP=40;                       // well above SEA, so no water is ever placed
+const isFlat=()=>worldType==='flat';
 function heightAt(x,z){
+  if(isFlat()) return FLAT_TOP;
   /* centred a little above sea level, so coastlines and lakes actually happen
      instead of the whole map sitting high and dry */
   let h = 18
@@ -322,7 +348,7 @@ function rngFrom(a,b){                  // deterministic per-village stream
   return ()=>{ s=(Math.imul(s,1664525)+1013904223)>>>0; return s/4294967296; };
 }
 function villageAt(gx,gz){
-  if(hash2(gx*911+7, gz*733-13) < 0.80) return null;      // roughly one slot in five
+  if(hash2(gx*911+7, gz*733-13) < (isFlat()?0.42:0.80)) return null;   // far more of them on the flat server
   const R=rngFrom(gx*31+5, gz*17-9);
   const ox=(gx*VSPACING)*CX + Math.floor(R()*VSPACING*CX);
   const oz=(gz*VSPACING)*CZ + Math.floor(R()*VSPACING*CZ);
@@ -350,6 +376,8 @@ function stampVillages(ch){
     if(lx<0||lx>=CX||lz<0||lz>=CZ) return;
     ch.data[idx(lx,wy,lz)]=id;
   };
+  const FILL = isFlat()? ID.GRAVEL : ID.DIRT;      // what sits under a floor
+  const PATH = isFlat()? ID.COBBLE : ID.DIRT;      // and what the paths are made of
   for(let gx=gx0-1;gx<=gx0+1;gx++) for(let gz=gz0-1;gz<=gz0+1;gz++){
     const v=villageAt(gx,gz); if(!v) continue;
     // the square everyone's houses face onto
@@ -361,13 +389,13 @@ function stampVillages(ch){
       const steps=Math.max(Math.abs(h.x-v.ox), Math.abs(h.z-v.oz));
       for(let s=0;s<=steps;s++){
         const px=Math.round(h.x+(v.ox-h.x)*s/steps), pz=Math.round(h.z+(v.oz-h.z)*s/steps);
-        put(px, heightAt(px,pz), pz, ID.DIRT);
+        put(px, heightAt(px,pz), pz, PATH);
       }
       for(let dx=-h.w;dx<=h.w;dx++) for(let dz=-h.d;dz<=h.d;dz++){
         const wx=h.x+dx, wz=h.z+dz;
         const edge = Math.abs(dx)===h.w || Math.abs(dz)===h.d;
         put(wx, y, wz, ID.PLANKS);                       // floor, levelled
-        for(let k=1;k<=3;k++) put(wx, y-k, wz, ID.DIRT);  // and something under it
+        for(let k=1;k<=3;k++) put(wx, y-k, wz, FILL);     // and something under it
         if(edge){
           const corner = Math.abs(dx)===h.w && Math.abs(dz)===h.d;
           for(let k=1;k<=3;k++) put(wx, y+k, wz, corner?ID.LOG:ID.PLANKS);
@@ -407,7 +435,15 @@ const idx=(x,y,z)=>(y*CZ + z)*CX + x;        // x,y,z are chunk-local
 function genChunk(cx,cz){
   const data=new Uint8Array(CX*CY*CZ);
   const tops=new Int16Array(CX*CZ);
-  for(let x=0;x<CX;x++) for(let z=0;z<CZ;z++){
+  if(isFlat()){
+    /* the whole point of this server: one material, all the way down, with
+       nothing under it and nothing mixed in */
+    for(let x=0;x<CX;x++) for(let z=0;z<CZ;z++){
+      tops[z*CX+x]=FLAT_TOP;
+      for(let y=0;y<=FLAT_TOP;y++) data[idx(x,y,z)]=ID.GRAVEL;
+    }
+  }
+  else for(let x=0;x<CX;x++) for(let z=0;z<CZ;z++){
     const wx=cx*CX+x, wz=cz*CZ+z;
     const h=heightAt(wx,wz);
     tops[z*CX+x]=h;
@@ -437,7 +473,8 @@ function genChunk(cx,cz){
   for(let x=2;x<CX-2;x++) for(let z=2;z<CZ-2;z++){
     const wx=cx*CX+x, wz=cz*CZ+z, h=tops[z*CX+x];
     if(h<=SEA+1 || h>WORLD_H-12) continue;
-    if(data[idx(x,h,z)]!==ID.GRASS) continue;
+    const ground=data[idx(x,h,z)];
+    if(ground!==(isFlat()?ID.GRAVEL:ID.GRASS)) continue;
     if(hash2(wx*7+31, wz*7-17) < 0.982) continue;   // ~1.8% of columns
     const th=4+((hash2(wx,wz)*3)|0);
     for(let i=1;i<=th;i++) data[idx(x,h+i,z)]=ID.LOG;
@@ -501,22 +538,24 @@ function applyEdits(ch){
     ch.data[idx(x-ch.cx*CX, y, z-ch.cz*CZ)]=id;
   }
 }
+/* one slot per server: joining the flats can't overwrite the overworld */
+function saveKey(){ return worldType==='flat' ? 'blockworld_flat_v1' : 'blockworld_v1'; }
 let saveT=0;
 function saveSoon(){ clearTimeout(saveT); saveT=setTimeout(saveWorld, 900); }
 function saveWorld(){
   try{
     const flat=[]; for(const [k,v] of edits) flat.push(k+':'+v);
-    localStorage.setItem('blockworld_v1', JSON.stringify({
+    localStorage.setItem(saveKey(), JSON.stringify({
       seed:SEED, edits:flat,
       pos:[+player.x.toFixed(2),+player.y.toFixed(2),+player.z.toFixed(2)],
       yaw:+player.yaw.toFixed(3), pitch:+player.pitch.toFixed(3),
-      sel:selSlot, time:+dayT.toFixed(2), hp, hunger, meat
+      sel:selSlot, time:+dayT.toFixed(2), hp, hunger, meat, worldType
     }));
   }catch(e){}
 }
 function loadWorld(){
   try{
-    const s=JSON.parse(localStorage.getItem('blockworld_v1')||'null');
+    const s=JSON.parse(localStorage.getItem(saveKey())||'null');
     if(!s) return null;
     edits=new Map((s.edits||[]).map(e=>{ const i=e.lastIndexOf(':');
       return [e.slice(0,i), +e.slice(i+1)]; }));
@@ -830,6 +869,11 @@ function respawn(){
 const KINDS={
   boar:  {name:'Boar',  body:0xd08a86, head:0xc47a76, leg:0x8f5a57, w:0.9, h:0.85, hp:6, speed:1.5, drop:2},
   woolly:{name:'Woolly',body:0xece6da, head:0xd8cbb8, leg:0x6f6154, w:0.8, h:1.0,  hp:6, speed:1.2, drop:2},
+  /* village folk. Uprights, not quadrupeds, and they never leave home. */
+  villager:{name:'Villager', biped:true, body:0x6e5b3f, head:0xd6ab84, leg:0x4a3d2a, arm:0x7d6949,
+            w:0.62, h:1.75, hp:12, speed:1.0, drop:0, home:14},
+  golem:   {name:'Golem',    biped:true, body:0x9aa0a6, head:0x8d9399, leg:0x7c8288, arm:0x8d9399,
+            w:1.05, h:2.45, hp:60, speed:1.6, drop:0, home:22, guard:true},
 };
 const animals=[];
 const MAX_ANIMALS=14;
@@ -840,6 +884,26 @@ function makeAnimal(kind){
     const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshLambertMaterial({color:col}));
     m.position.set(x,y,z); g.add(m); return m;
   };
+  if(K.biped){
+    /* stands upright: legs under a torso, a head on top, arms that swing.
+       Same userData.legs contract as the animals so one walk cycle drives both. */
+    const legH=K.h*0.42, torsoH=K.h*0.38;
+    const torso=box(K.w, torsoH, K.w*0.5, K.body, 0, legH+torsoH/2, 0);
+    box(K.w*0.62, K.h*0.2, K.w*0.55, K.head, 0, legH+torsoH+K.h*0.1, 0);
+    box(0.09,0.09,0.02, 0x120d0a, -K.w*0.15, legH+torsoH+K.h*0.12, K.w*0.29);
+    box(0.09,0.09,0.02, 0x120d0a,  K.w*0.15, legH+torsoH+K.h*0.12, K.w*0.29);
+    const arms=[
+      box(K.w*0.2, torsoH*0.92, K.w*0.2, K.arm, -K.w*0.6, legH+torsoH*0.55, 0),
+      box(K.w*0.2, torsoH*0.92, K.w*0.2, K.arm,  K.w*0.6, legH+torsoH*0.55, 0),
+    ];
+    const legs=[
+      box(K.w*0.26, legH, K.w*0.26, K.leg, -K.w*0.22, legH/2, 0),
+      box(K.w*0.26, legH, K.w*0.26, K.leg,  K.w*0.22, legH/2, 0),
+      arms[0], arms[1],                    // index 2/3 swing opposite, like the quadrupeds
+    ];
+    g.userData={legs, biped:true};
+    return g;
+  }
   const body=box(K.w, K.h*0.62, K.w*1.5, K.body, 0, K.h*0.62, 0);
   const head=box(K.w*0.7, K.h*0.55, K.w*0.6, K.head, 0, K.h*0.85, K.w*0.9);
   box(0.09,0.09,0.02, 0x120d0a, -0.16, K.h*0.95, K.w*1.19);
@@ -859,7 +923,7 @@ function spawnAnimal(){
     const x=Math.round(player.x+Math.cos(a)*d), z=Math.round(player.z+Math.sin(a)*d);
     const h=heightAt(x,z);
     if(h<=SEA+1) continue;
-    if(getBlock(x,h,z)!==ID.GRASS) continue;
+    if(getBlock(x,h,z)!==(isFlat()?ID.GRAVEL:ID.GRASS)) continue;   // gravel is the ground out on the flats
     if(getBlock(x,h+1,z)!==AIR) continue;
     const obj=makeAnimal(kind);
     obj.position.set(x+0.5, h+1, z+0.5);
@@ -870,6 +934,52 @@ function spawnAnimal(){
     return;
   }
 }
+/* ---- village folk ----
+   Villagers and golems belong to a village rather than to the wilderness: they
+   spawn once the player is close enough to see one, keep to it, and are cleaned
+   up along with everything else when you wander off. */
+const peopledVillages=new Set();
+function nearbyVillage(){
+  const gx0=Math.floor(Math.floor(player.x/CX)/VSPACING), gz0=Math.floor(Math.floor(player.z/CZ)/VSPACING);
+  let best=null, bestD=1e9;
+  for(let gx=gx0-1;gx<=gx0+1;gx++) for(let gz=gz0-1;gz<=gz0+1;gz++){
+    const v=villageAt(gx,gz); if(!v || !v.houses.length) continue;
+    const d=Math.hypot(v.ox-player.x, v.oz-player.z);
+    if(d<bestD){ bestD=d; best={v, key:gx+':'+gz, d}; }
+  }
+  return best;
+}
+function placeMob(kind, x, z, home){
+  const h=heightAt(x,z);
+  if(h<=SEA+1) return null;
+  const obj=makeAnimal(kind);
+  obj.position.set(x+0.5, h+1, z+0.5);
+  scene.add(obj);
+  const m={kind, obj, x:x+0.5, y:h+1, z:z+0.5, vy:0, hp:KINDS[kind].hp,
+    dir:Math.random()*Math.PI*2, wait:0.3+Math.random()*1.5, moving:true, walk:0, hurtT:0,
+    home, anger:0};
+  animals.push(m);
+  return m;
+}
+function populateVillage(){
+  const near=nearbyVillage();
+  if(!near || near.d>62) return;
+  if(peopledVillages.has(near.key)) return;
+  peopledVillages.add(near.key);
+  const v=near.v, home={x:v.ox, z:v.oz};
+  // one villager per house plus a couple wandering the square
+  for(const h of v.houses) placeMob('villager', h.x+ (Math.random()<0.5?-1:1)*(h.w+1), h.z, home);
+  placeMob('villager', v.ox+2, v.oz-2, home);
+  placeMob('villager', v.ox-2, v.oz+2, home);
+  // and the guards
+  const golems = 1 + (v.houses.length>=4 ? 1 : 0);
+  for(let i=0;i<golems;i++)
+    placeMob('golem', v.ox + (i?5:-5), v.oz + (i?-4:4), home);
+}
+function angerGolems(){
+  for(const a of animals) if(KINDS[a.kind].guard) a.anger=14;    // they hold a grudge
+}
+
 function animalBlocked(x,y,z,r){
   for(let yy=Math.floor(y); yy<=Math.floor(y+0.9); yy++)
     for(let xx=Math.floor(x-r); xx<=Math.floor(x+r); xx++)
@@ -879,13 +989,39 @@ function animalBlocked(x,y,z,r){
 }
 function updateAnimals(dt){
   animalT-=dt;
-  if(animalT<=0){ animalT=2.5; if(animals.length<MAX_ANIMALS && Math.random()<0.7) spawnAnimal(); }
+  if(animalT<=0){
+    animalT=2.5;
+    if(animals.length<MAX_ANIMALS && Math.random()<0.7) spawnAnimal();
+    populateVillage();
+  }
   for(let i=animals.length-1;i>=0;i--){
     const a=animals[i], K=KINDS[a.kind];
     // too far away to care about — let it go and spawn a fresh one later
-    if(Math.hypot(a.x-player.x, a.z-player.z)>90){ scene.remove(a.obj); animals.splice(i,1); continue; }
+    if(Math.hypot(a.x-player.x, a.z-player.z)>90){
+      scene.remove(a.obj); animals.splice(i,1);
+      if(a.home) peopledVillages.clear();          // its village can repopulate later
+      continue;
+    }
     a.wait-=dt;
-    if(a.wait<=0){ a.wait=1.5+Math.random()*4; a.dir=Math.random()*Math.PI*2; a.moving=Math.random()<0.7; }
+    if(a.anger>0) a.anger-=dt;
+    if(a.wait<=0){
+      a.wait=1.5+Math.random()*4;
+      a.moving=Math.random()<0.7;
+      if(a.home && Math.hypot(a.x-a.home.x, a.z-a.home.z) > K.home){
+        a.dir=Math.atan2(a.home.z-a.z, a.home.x-a.x);   // wandered off — head back
+        a.moving=true;
+      } else a.dir=Math.random()*Math.PI*2;
+    }
+    // an angry golem drops everything else and comes for you
+    if(K.guard && a.anger>0){
+      a.dir=Math.atan2(player.z-a.z, player.x-a.x);
+      a.moving=true;
+      const d=Math.hypot(player.x-a.x, player.z-a.z);
+      if(d<1.9){
+        a.swing=(a.swing||0)-dt;
+        if(a.swing<=0){ a.swing=1.1; hurt(4, 'A golem knocked you down.'); }
+      }
+    }
     let moved=false;
     if(a.moving){
       const nx=a.x+Math.cos(a.dir)*K.speed*dt, nz=a.z+Math.sin(a.dir)*K.speed*dt;
@@ -940,19 +1076,27 @@ function animalInCrosshair(){
 function punch(){
   const a=animalInCrosshair();
   if(!a) return false;
+  const K=KINDS[a.kind];
   a.hp-=3; a.hurtT=0.25;
   a.dir=Math.atan2(a.z-player.z, a.x-player.x); a.moving=true; a.wait=1.6;   // it bolts
   exhaust+=0.3;
+  if(a.home || K.guard){
+    angerGolems();                                   // the village saw that
+    if(K.guard) a.dir=Math.atan2(player.z-a.z, player.x-a.x);   // this one turns on you
+    else hint('The village saw that.');
+  }
   if(a.hp<=0){
-    meat+=KINDS[a.kind].drop;
+    if(K.drop>0){
+      meat+=K.drop;
+      hint('+'+K.drop+' meat — press E to eat');
+      drawStats();
+    } else hint(K.name+' down.');
     scene.remove(a.obj);
     animals.splice(animals.indexOf(a),1);
-    hint('+'+KINDS[a.kind].drop+' meat — press E to eat');
-    drawStats();
   }
   return true;
 }
-function clearAnimals(){ for(const a of animals) scene.remove(a.obj); animals.length=0; }
+function clearAnimals(){ for(const a of animals) scene.remove(a.obj); animals.length=0; peopledVillages.clear(); }
 
 /* ------------------------------------------------------------- raycasting
    Amanatides & Woo voxel walk: steps block to block instead of sampling,
@@ -999,7 +1143,7 @@ function placeBlock(){
 }
 
 /* ---------------------------------------------------------------- hotbar */
-const HOTBAR=[ID.GRASS, ID.DIRT, ID.STONE, ID.COBBLE, ID.SAND, ID.PLANKS, ID.LOG, ID.BRICK, ID.GLASS];
+const HOTBAR=[ID.GRASS, ID.DIRT, ID.STONE, ID.COBBLE, ID.GRAVEL, ID.PLANKS, ID.LOG, ID.BRICK, ID.GLASS];
 let selSlot=0;
 function buildHotbar(){
   const bar=document.getElementById('hotbar');
@@ -1196,7 +1340,7 @@ function startGame(){
   }
   exhaust=0; airT=0; fallFrom=null; dead=false;
   document.getElementById('dead').classList.remove('show');
-  clearAnimals();
+  clearAnimals(); peopledVillages.clear();
   drawStats();
   player.vx=player.vy=player.vz=0; player.fly=false;
 
@@ -1227,7 +1371,8 @@ function pause(){
   document.getElementById('touch').classList.remove('show');
   document.getElementById('menuBtn').classList.remove('show');
   document.getElementById('pauseStats').innerHTML =
-    `Seed <b>${SEED}</b> &middot; ${edits.size} block${edits.size===1?'':'s'} changed &middot; ` +
+    `<b>${worldType==='flat'?'GRAVEL FLATS':'OVERWORLD'}</b> &middot; seed <b>${SEED}</b> &middot; ` +
+    `${edits.size} block${edits.size===1?'':'s'} changed &middot; ` +
     `standing at <b>${Math.floor(player.x)}, ${Math.floor(player.y)}, ${Math.floor(player.z)}</b>`;
   saveWorld();
 }
@@ -1252,13 +1397,20 @@ function quitToTitle(){
 }
 function hashStr(s){ let h=2166136261; for(const c of s){ h^=c.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; }
 
+document.getElementById('servers').addEventListener('click', e=>{
+  const b=e.target.closest('.srv'); if(!b) return;
+  worldType=b.dataset.world;
+  document.querySelectorAll('.srv').forEach(el=>el.classList.toggle('on', el===b));
+  const s=loadWorld();                       // show that server's seed, not the other one's
+  document.getElementById('seedIn').value = s ? s.seed : '';
+});
 document.getElementById('playBtn').addEventListener('click', startGame);
 document.getElementById('resumeBtn').addEventListener('click', resume);
 document.getElementById('quitBtn').addEventListener('click', quitToTitle);
 document.getElementById('menuBtn').addEventListener('click', pause);
 document.getElementById('respawnBtn').addEventListener('click', reviveAndRespawn);
 document.getElementById('wipeBtn').addEventListener('click', ()=>{
-  try{ localStorage.removeItem('blockworld_v1'); }catch(e){}
+  try{ localStorage.removeItem(saveKey()); }catch(e){}
   edits=new Map();
   document.getElementById('seedIn').value='';
   hint('World erased — press PLAY for a fresh one.');
@@ -1285,7 +1437,7 @@ function tick(){
     document.getElementById('info').innerHTML =
       `BLOCKWORLD &nbsp; ${fps} fps<br>` +
       `xyz ${Math.floor(player.x)} ${Math.floor(player.y)} ${Math.floor(player.z)}<br>` +
-      `chunks ${chunks.size} &nbsp; seed ${SEED}<br>` +
+      `chunks ${chunks.size} &nbsp; seed ${SEED} &nbsp; ${worldType==='flat'?'GRAVEL FLATS':'OVERWORLD'}<br>` +
       `${String(hh).padStart(2,'0')}:00 &nbsp; ${player.fly?'flying':(player.inWater?'swimming':'walking')}` +
       `<br>animals ${animals.length} &nbsp; meat ${meat} (E to eat)`;
   }
@@ -1298,6 +1450,7 @@ drawMeatIcon(); drawStats();
 setupDesktop();
 if(isTouch) setupTouch();
 { const s=loadWorld(); if(s) document.getElementById('seedIn').value=s.seed; }
+/* a flat world has no grass, so its animals graze on gravel instead */
 addEventListener('beforeunload', saveWorld);
 renderer.setAnimationLoop(tick);
 </script>
