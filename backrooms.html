@@ -1156,7 +1156,7 @@
 <div id="dread"></div>
 
 <div id="countdown"><span id="cdLabel">UPDATE IN...</span><span id="cdTime">--:--:--</span></div>
-<div id="threeAm"><span id="taLabel">3:00 AM IN...</span><span id="taTime">--:--:--</span></div>
+<div id="threeAm"><span id="taLabel">ADMIN ABUSE IN...</span><span id="taTime">--:--:--</span></div>
 
 <button id="minisBtn">MiNiS</button>
 <div id="minisScreen">
@@ -8093,7 +8093,7 @@ document.getElementById('musicClose').addEventListener('click',()=>{
   setInterval(tickCountdown,1000);
 })();
 
-/* ------------------------------------------------------------ the 3 AM clock
+/* -------------------------------------------------------- ADMIN ABUSE clock
    Counts down to the next 3:00 AM on this device's own clock, so it's the same
    3 AM you'd be awake for. It rolls forward on its own: while the 3 o'clock
    hour is actually running it says so, and at 4:00 it starts counting to
@@ -8110,9 +8110,9 @@ function nextThreeAm(now){
   const p2=n=>('0'+n).slice(-2);
   function tick3am(){
     const now=new Date();
-    if(now.getHours()===3){                  // it's 3 AM right now
+    if(now.getHours()===3){                  // the hour itself is running
       elBox.classList.add('now');
-      elT.textContent="IT'S 3:00 AM";
+      elT.textContent="IT'S HAPPENING";
       return;
     }
     elBox.classList.remove('now');
