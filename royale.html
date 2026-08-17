@@ -136,6 +136,81 @@ button{ font-family:inherit; }
 .card.locked .pr{ color:var(--sub); }
 .card .tag{ position:absolute; left:6px; top:6px; font-size:9px; font-weight:900; padding:2px 6px; border-radius:20px; color:#0a0c0f; }
 
+/* ---------------- lobby (play menu) ---------------- */
+#menu.screen{ display:block; padding:0; overflow:hidden; background:#0b0e1a; text-align:left; }
+#menuCanvas{ position:absolute; inset:0; width:100%; height:100%; }
+#lobbyTop{ position:absolute; left:0; right:0; top:0; display:flex; align-items:center; gap:4px;
+  padding:calc(env(safe-area-inset-top) + 10px) 16px 10px; background:linear-gradient(180deg,rgba(6,8,14,.8),rgba(6,8,14,0)); }
+#lobbyLogo{ font-weight:900; font-size:13px; letter-spacing:1px; color:#fff; margin-right:14px; white-space:nowrap; flex:none; }
+#lobbyLogo span{ color:var(--acc); }
+#lobbyTabs{ display:flex; gap:4px; flex:1; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+#lobbyTabs::-webkit-scrollbar{ display:none; }
+.ltab{ flex:none; padding:8px 12px; font-size:11.5px; font-weight:800; letter-spacing:.3px; color:var(--sub);
+  border-radius:7px; cursor:pointer; white-space:nowrap; }
+.ltab.on{ color:#1a1200; background:var(--acc); }
+.ltab:not(.on):hover{ color:#fff; }
+#lobbyIcons{ display:flex; align-items:center; gap:8px; margin-left:10px; flex:none; }
+.ichip{ display:flex; align-items:center; gap:5px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+  border-radius:20px; padding:7px 13px; font-weight:900; color:var(--acc2); font-size:12.5px; white-space:nowrap; }
+.icbtn{ position:relative; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+  color:#fff; font-size:13px; font-weight:900; cursor:pointer; flex:none; }
+.icbtn .dot{ position:absolute; top:-2px; right:-2px; width:14px; height:14px; border-radius:50%; background:var(--bad); color:#fff;
+  font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center; border:2px solid #0b0e1a; }
+
+#lobbyPromo{ position:absolute; left:16px; top:calc(env(safe-area-inset-top) + 66px); width:190px; background:rgba(8,10,18,.72);
+  border:1px solid rgba(255,255,255,.13); border-radius:12px; overflow:hidden; }
+.promoThumb{ height:64px; background:linear-gradient(135deg,#3a2a10,#1a1020); position:relative; }
+.promoThumb:before{ content:"NEW"; position:absolute; left:8px; top:8px; background:var(--acc); color:#1a1200; font-size:9px;
+  font-weight:900; padding:2px 6px; border-radius:4px; letter-spacing:.5px; }
+.promoTxt{ padding:8px 10px; }
+.promoTxt b{ display:block; color:#fff; font-size:11px; letter-spacing:.3px; }
+.promoTxt i{ font-style:normal; color:var(--sub); font-size:10px; }
+
+#lobbyName{ position:absolute; left:50%; top:calc(env(safe-area-inset-top) + 66px); transform:translateX(-50%);
+  display:flex; align-items:center; gap:6px; background:rgba(8,10,18,.6); border:1px solid rgba(255,255,255,.16);
+  border-radius:20px; padding:5px 12px 5px 5px; color:#fff; font-size:11.5px; font-weight:700; white-space:nowrap; }
+#lobbyName .av{ width:20px; height:20px; border-radius:50%; background:var(--acc); flex:none; }
+
+#squadRow{ position:absolute; left:50%; bottom:132px; transform:translateX(-50%); display:flex; gap:30px; }
+.squadSlot{ width:40px; height:13px; border-radius:50%; border:2px solid rgba(255,255,255,.25); background:rgba(0,0,0,.25); }
+.squadSlot.add{ display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.45); font-weight:900; font-size:13px; cursor:pointer; }
+
+#modeCard{ position:absolute; left:16px; bottom:calc(env(safe-area-inset-bottom) + 16px); width:min(300px,86vw);
+  background:rgba(8,10,18,.8); border:1px solid rgba(255,255,255,.16); border-radius:14px; padding:14px 16px; }
+#modeCard>b{ color:#fff; font-size:15px; letter-spacing:.5px; }
+#modeSub{ margin-top:3px; color:var(--acc2); font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px; cursor:pointer; }
+#modeSub .sw{ color:var(--sub); font-size:9.5px; font-weight:800; text-decoration:underline; margin-left:auto; letter-spacing:.4px; }
+#modeCard .btn{ width:100%; margin-top:12px; }
+
+#lvlBadge{ position:absolute; right:calc(env(safe-area-inset-right) + 16px); bottom:calc(env(safe-area-inset-bottom) + 16px);
+  width:46px; height:46px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #9a5cff, #5a2ea8);
+  color:#fff; font-weight:900; font-size:9.5px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  border:2px solid rgba(255,255,255,.35); line-height:1.15; }
+#lvlBadge b{ font-size:14px; }
+
+#hintChips{ position:absolute; right:calc(env(safe-area-inset-right) + 16px); bottom:calc(env(safe-area-inset-bottom) + 72px);
+  display:flex; flex-direction:column; gap:5px; align-items:flex-end; }
+.hchip{ background:rgba(8,10,18,.62); border:1px solid rgba(255,255,255,.16); color:var(--sub); font-size:10.5px;
+  font-weight:700; padding:5px 10px; border-radius:20px; white-space:nowrap; }
+
+#helpPanel{ position:absolute; right:16px; top:calc(env(safe-area-inset-top) + 62px); width:min(320px,86vw);
+  background:rgba(8,10,18,.94); border:1px solid rgba(255,255,255,.18); border-radius:12px; padding:14px 16px;
+  color:var(--sub); font-size:12px; line-height:1.6; display:none; }
+#helpPanel.show{ display:block; }
+#helpPanel p{ margin:0 0 7px; } #helpPanel p:last-child{ margin-bottom:0; }
+#helpPanel b{ color:var(--acc2); }
+
+#toast{ position:absolute; left:50%; bottom:118px; transform:translate(-50%,10px); background:rgba(8,10,18,.92);
+  border:1px solid rgba(255,255,255,.2); color:#fff; font-size:12.5px; font-weight:700; padding:9px 16px; border-radius:20px;
+  opacity:0; transition:all .25s; pointer-events:none; white-space:nowrap; }
+#toast.show{ opacity:1; transform:translate(-50%,0); }
+
+@media(max-width:640px){
+  #lobbyPromo,#squadRow,#lobbyName{ display:none; }
+  #lobbyTabs{ font-size:11px; }
+  #hintChips{ display:none; }
+}
+
 /* ---------------- touch ---------------- */
 #touch{ position:fixed; inset:0; z-index:9; display:none; pointer-events:none; }
 #touch.show{ display:block; }
@@ -204,30 +279,60 @@ button{ font-family:inherit; }
   <button class="tbtn" id="tReload">RLD</button>
 </div>
 
-<!-- ===================== menu ===================== -->
+<!-- ===================== menu (lobby) ===================== -->
 <div id="menu" class="screen">
-  <h1 class="title">SCRAP<span class="s">ROYALE</span></h1>
-  <div class="sub">last one standing wins the pile</div>
-  <div id="bolts" style="margin-top:14px">⚙ <span id="boltsN">0</span> Bolts</div>
-  <div class="topstat">
-    <div><b id="statWins">0</b>Wins</div>
-    <div><b id="statKills">0</b>Eliminations</div>
-    <div><b id="statMatches">0</b>Matches</div>
+  <canvas id="menuCanvas"></canvas>
+
+  <div id="lobbyTop">
+    <div id="lobbyLogo">SCRAP<span>ROYALE</span></div>
+    <div id="lobbyTabs">
+      <div class="ltab on" data-tab="play">PLAY</div>
+      <div class="ltab" data-tab="showdown">✕ SHOWDOWN</div>
+      <div class="ltab" data-tab="shop">SHOP</div>
+      <div class="ltab" data-tab="locker">LOCKER*</div>
+      <div class="ltab" data-tab="passes">PASSES</div>
+      <div class="ltab" data-tab="quests">QUESTS</div>
+      <div class="ltab" data-tab="compete">⊙ COMPETE</div>
+      <div class="ltab" data-tab="career">CAREER</div>
+    </div>
+    <div id="lobbyIcons">
+      <div class="ichip">⚙ <span id="boltsN">0</span></div>
+      <button class="icbtn" id="helpBtn" title="Controls">?</button>
+      <button class="icbtn" id="bellBtn">🔔<span class="dot">!</span></button>
+    </div>
   </div>
-  <div class="modes">
-    <div class="mode on" id="modeBuild"><b>BUILD ROYALE</b><i>harvest scrap, build forts, fight to the last</i></div>
-    <div class="mode" id="modeZero"><b>ZERO BUILD</b><i>no building — pure gunfights</i></div>
+
+  <div id="helpPanel">
+    <p><b>Move</b> WASD / joystick &nbsp;·&nbsp; <b>Look</b> mouse / drag</p>
+    <p><b>Fire</b> click / FIRE &nbsp;·&nbsp; <b>Aim</b> right-click / AIM</p>
+    <p><b>Harvest</b> hold fire on trees &amp; rocks with the axe out</p>
+    <p><b>Build</b> select the build slot, click to place, scroll/1-4 to pick a piece</p>
+    <p><b>Edit</b> aim at your own wall + press F / EDIT for a window or door</p>
+    <p style="margin-top:8px;color:#5b6472">Everything on this island — trees, guns, buildings, faces — is drawn by the game itself. Nothing downloaded.</p>
   </div>
-  <button class="btn big" id="playBtn">DROP IN</button>
-  <div class="row">
-    <button class="btn sec" id="lockerBtn">🧑 LOCKER</button>
-    <button class="btn sec" id="shopBtn">🛒 SHOP</button>
+
+  <div id="lobbyPromo">
+    <div class="promoThumb"></div>
+    <div class="promoTxt"><b>ZERO BUILD IS LIVE</b><i>pure gunfights, no forts</i></div>
   </div>
-  <div class="panel" style="margin-top:16px">
-    <p><b>Move</b> WASD / joystick · <b>Look</b> mouse / drag · <b>Fire</b> click / FIRE · <b>Aim</b> right-click / AIM</p>
-    <p><b>Harvest</b> hold fire on trees &amp; rocks with the axe out · <b>Build</b> select the build slot, click to place, scroll/1-4 to pick a piece · <b>Edit</b> aim at your own wall + press F / EDIT to add a window or door</p>
-    <p>Everything on this island — trees, guns, buildings, faces — is drawn by the game itself. Nothing downloaded.</p>
+
+  <div id="lobbyName"><span class="av"></span><span id="playerTag">Rookie</span></div>
+
+  <div id="squadRow">
+    <div class="squadSlot add" title="Solo only for now">+</div>
+    <div class="squadSlot add" title="Solo only for now">+</div>
+    <div class="squadSlot add" title="Solo only for now">+</div>
   </div>
+
+  <div id="modeCard">
+    <b>BATTLE ROYALE</b>
+    <div id="modeSub" title="Tap to switch mode">🔧 <span id="modeSubTxt">Build Royale, Solo</span><span class="sw">SWITCH</span></div>
+    <button class="btn big" id="playBtn">PLAY</button>
+  </div>
+
+  <div id="lvlBadge"><b id="lvlN">1</b>LVL</div>
+  <div id="hintChips"><div class="hchip" id="statChip">🏆 0 · 💀 0</div></div>
+  <div id="toast"></div>
 </div>
 
 <!-- ===================== locker ===================== -->
@@ -474,7 +579,7 @@ function initThree(){
   sun.shadow.camera.near=10; sun.shadow.camera.far=300; sun.shadow.bias=-0.0018;
   scene.add(sun); scene.add(sun.target);
 
-  addEventListener('resize', ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+  addEventListener('resize', ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); resizePreview(); });
 }
 
 /* ------------------------------------------------------------ terrain */
@@ -1469,6 +1574,7 @@ function landPlayer(){
 
 /* -------------------------------------------------------- match flow */
 function startMatch(){
+  stopPreview();
   resetMatchWorld();
   setupPlayer();
   setupBots();
@@ -1524,6 +1630,76 @@ function backToMenu(){
   $('hud').classList.remove('show'); $('menuBtn').classList.remove('show'); $('touch').classList.remove('show');
   $('menu').classList.remove('hide');
   renderMenuStats();
+  startPreview();
+}
+
+/* -------------------------------------------------------- lobby character preview */
+let previewRenderer, previewScene, previewCamera, previewChar, previewReq=null;
+function initPreview(){
+  const cv=$('menuCanvas');
+  previewRenderer=new THREE.WebGLRenderer({canvas:cv, antialias:true});
+  previewRenderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
+  previewRenderer.shadowMap.enabled=true; previewRenderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  previewRenderer.outputColorSpace=THREE.SRGBColorSpace;
+  previewScene=new THREE.Scene();
+  previewScene.background=new THREE.Color('#171b2c');
+  previewScene.fog=new THREE.Fog('#171b2c', 9, 26);
+  previewCamera=new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+  previewCamera.position.set(0, 1.5, 7.4);
+  previewCamera.lookAt(0, 0.95, 0);
+
+  const hemi=new THREE.HemisphereLight('#8fb0ff','#1a1030', 0.85); previewScene.add(hemi);
+  const key=new THREE.DirectionalLight('#ffd9a0', 1.5); key.position.set(3,6,4); key.castShadow=true;
+  key.shadow.mapSize.set(1024,1024); previewScene.add(key);
+  const rim=new THREE.DirectionalLight('#7ab8ff', 0.7); rim.position.set(-4,3,-3); previewScene.add(rim);
+
+  const plat=new THREE.Mesh(new THREE.CylinderGeometry(1.55,1.65,0.25,28), new THREE.MeshStandardMaterial({color:'#2a2f3f', metalness:0.4, roughness:0.5, flatShading:true}));
+  plat.position.y=-0.02; plat.receiveShadow=true; previewScene.add(plat);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(1.56,1.72,40), new THREE.MeshBasicMaterial({color:'#f9b000', side:THREE.DoubleSide, transparent:true, opacity:0.85}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=0.01; previewScene.add(ring);
+
+  const skylineMat=new THREE.MeshBasicMaterial({color:'#0c0e1a'});
+  const rng=mulberry32(4242);
+  for(let i=-7;i<=7;i++){
+    const h=1.2+rng()*3.0, w=0.5+rng()*0.7;
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,w), skylineMat);
+    m.position.set(i*0.85+(rng()-0.5)*0.3, h/2-0.35, -9-rng()*4);
+    previewScene.add(m);
+  }
+  const emberGeo=new THREE.BufferGeometry();
+  const N=60, pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++){ pos[i*3]=(rng()-0.5)*10; pos[i*3+1]=rng()*4; pos[i*3+2]=-3-rng()*10; }
+  emberGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const embers=new THREE.Points(emberGeo, new THREE.PointsMaterial({color:'#ffb454', size:0.05, transparent:true, opacity:0.7}));
+  previewScene.add(embers); previewScene.userData.embers=embers;
+
+  previewChar=buildCharacter(skinById(ECO.equipped));
+  previewScene.add(previewChar);
+  resizePreview();
+}
+function refreshPreviewChar(){
+  if(!previewScene) return;
+  if(previewChar) previewScene.remove(previewChar);
+  previewChar=buildCharacter(skinById(ECO.equipped));
+  previewScene.add(previewChar);
+}
+function resizePreview(){
+  if(!previewRenderer) return;
+  previewRenderer.setSize(innerWidth, innerHeight, false);
+  previewCamera.aspect=innerWidth/innerHeight; previewCamera.updateProjectionMatrix();
+}
+function animatePreview(t){
+  previewReq=requestAnimationFrame(animatePreview);
+  if(previewChar) previewChar.rotation.y += 0.006;
+  const em=previewScene.userData.embers; if(em) em.rotation.y += 0.0006;
+  previewRenderer.render(previewScene, previewCamera);
+}
+function startPreview(){ if(!previewRenderer) initPreview(); resizePreview(); if(!previewReq) animatePreview(); }
+function stopPreview(){ if(previewReq){ cancelAnimationFrame(previewReq); previewReq=null; } }
+let toastT=null;
+function toast(msg){
+  const el=$('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'), 1800);
 }
 
 /* -------------------------------------------------------- locker / shop UI */
@@ -1541,7 +1717,7 @@ function renderLocker(){
     const pr=document.createElement('div'); pr.className='pr'; pr.style.color=owned?(ECO.equipped===s.id?'var(--ok)':'var(--sub)'):'var(--sub)';
     pr.textContent = owned ? (ECO.equipped===s.id?'EQUIPPED':'TAP TO EQUIP') : 'LOCKED — buy in shop';
     card.appendChild(pr);
-    if(owned) card.onclick=()=>{ ECO.equipped=s.id; saveEco(); renderLocker(); };
+    if(owned) card.onclick=()=>{ ECO.equipped=s.id; saveEco(); renderLocker(); refreshPreviewChar(); };
     grid.appendChild(card);
   }
   $('boltsN2').textContent=ECO.bolts;
@@ -1576,7 +1752,10 @@ function drawSkinPreview(cv,s){
 }
 function renderMenuStats(){
   $('boltsN').textContent=ECO.bolts;
-  $('statWins').textContent=ECO.wins; $('statKills').textContent=ECO.kills; $('statMatches').textContent=ECO.matches;
+  $('statChip').textContent=`🏆 ${ECO.wins} · 💀 ${ECO.kills}`;
+  $('lvlN').textContent=1+Math.floor(ECO.matches/3);
+  $('playerTag').textContent=skinById(ECO.equipped).name;
+  $('modeSubTxt').textContent=(MODE==='build'?'Build Royale':'Zero Build')+', Solo';
 }
 
 /* -------------------------------------------------------- input: desktop */
@@ -1688,14 +1867,28 @@ function resumeGame(){
 }
 
 /* -------------------------------------------------------- wire up UI */
+function goLocker(){ stopPreview(); $('menu').classList.add('hide'); $('locker').classList.remove('hide'); renderLocker(); }
+function goShop(){ stopPreview(); $('menu').classList.add('hide'); $('shop').classList.remove('hide'); renderShop(); }
 function wireUI(){
-  $('modeBuild').onclick=()=>{ MODE='build'; $('modeBuild').classList.add('on'); $('modeZero').classList.remove('on'); };
-  $('modeZero').onclick=()=>{ MODE='zero'; $('modeZero').classList.add('on'); $('modeBuild').classList.remove('on'); };
+  document.querySelectorAll('.ltab').forEach(tab=>{
+    tab.onclick=()=>{
+      const t=tab.dataset.tab;
+      if(t==='play') return;
+      if(t==='shop'){ goShop(); return; }
+      if(t==='locker'){ goLocker(); return; }
+      toast('Coming soon');
+    };
+  });
+  $('modeSub').onclick=()=>{
+    MODE = MODE==='build' ? 'zero' : 'build';
+    $('modeSubTxt').textContent=(MODE==='build'?'Build Royale':'Zero Build')+', Solo';
+  };
+  $('helpBtn').onclick=()=>$('helpPanel').classList.toggle('show');
+  $('bellBtn').onclick=()=>toast('No notifications yet');
+  document.querySelectorAll('.squadSlot.add').forEach(s=>{ s.onclick=()=>toast('Solo only for now'); });
   $('playBtn').onclick=()=>startMatch();
-  $('lockerBtn').onclick=()=>{ $('menu').classList.add('hide'); $('locker').classList.remove('hide'); renderLocker(); };
-  $('lockerBack').onclick=()=>{ $('locker').classList.add('hide'); $('menu').classList.remove('hide'); renderMenuStats(); };
-  $('shopBtn').onclick=()=>{ $('menu').classList.add('hide'); $('shop').classList.remove('hide'); renderShop(); };
-  $('shopBack').onclick=()=>{ $('shop').classList.add('hide'); $('menu').classList.remove('hide'); renderMenuStats(); };
+  $('lockerBack').onclick=()=>{ $('locker').classList.add('hide'); $('menu').classList.remove('hide'); renderMenuStats(); startPreview(); };
+  $('shopBack').onclick=()=>{ $('shop').classList.add('hide'); $('menu').classList.remove('hide'); renderMenuStats(); startPreview(); };
   $('resumeBtn').onclick=resumeGame;
   $('quitBtn').onclick=()=>{ matchState='menu'; backToMenu(); };
   $('againBtn1').onclick=()=>startMatch();
@@ -1718,7 +1911,7 @@ function animate(){
   } else if(matchState==='bus'||matchState==='skydive'||matchState==='glide'){
     updateDrop(dt);
   }
-  renderer.render(scene,camera);
+  if(matchState!=='menu') renderer.render(scene,camera);
 }
 
 /* -------------------------------------------------------- boot */
@@ -1733,6 +1926,7 @@ function boot(){
   setupDesktop();
   setupTouch();
   renderMenuStats();
+  startPreview();
   animate();
 }
 boot();
