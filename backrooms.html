@@ -1149,6 +1149,97 @@
     text-shadow:0 0 12px rgba(95,227,192,.5); }
   #mintGet:active{ transform:translateY(2px); background:rgba(95,227,192,.26); }
   #mintGet.installing{ pointer-events:none; }
+  /* ===================== POLOROID EDITION front page =====================
+     A flat yellow poster instead of the old centred dark card: title hard to
+     the left, the play controls stacked under it, the season flash top right,
+     the tagline and version along the bottom. Every button the menu used to
+     carry is still here, just re-dressed as poster type. */
+  #start{ background:#f3c515; color:#17140a;
+    align-items:stretch; justify-content:flex-start; text-align:left;
+    padding:calc(env(safe-area-inset-top) + 26px) calc(env(safe-area-inset-right) + 30px)
+            calc(env(safe-area-inset-bottom) + 66px) calc(env(safe-area-inset-left) + 30px); }
+  #start #logoImg{ display:none; }          /* the poster carries the name in type */
+  #stMain{ position:relative; z-index:1; width:100%; max-width:820px; }
+  #start h1{ margin:0; font-family:'Rockwell','Roboto Slab',Georgia,'Times New Roman',serif;
+    font-size:clamp(42px,11vw,92px); font-weight:800; line-height:.98; letter-spacing:0;
+    color:#131009; text-shadow:none; animation:none; }
+  #start #edition{ margin:10px 0 0; font-family:'Rockwell','Roboto Slab',Georgia,serif;
+    font-size:clamp(15px,3.6vw,27px); font-weight:700; letter-spacing:.12em;
+    color:#8b8272; text-shadow:none; }
+  #start .sub{ margin:6px 0 0; font-size:11.5px; letter-spacing:.22em; color:#8b8272; }
+  /* the two big plays */
+  #start .pBtn{ display:block; margin:26px 0 0; padding:6px 18px 11px; border:0; border-radius:3px;
+    background:#232327; color:#9b9ba1; cursor:pointer; pointer-events:auto;
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif; font-weight:900;
+    font-size:clamp(28px,7.2vw,54px); line-height:1; letter-spacing:.5px; }
+  #start .pBtn:active{ background:#3b3b42; color:#fff; }
+  #start .pLink{ display:block; margin:18px 0 0; padding:0; border:0; background:none;
+    color:#5e5e67; cursor:pointer; pointer-events:auto; text-align:left;
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif; font-weight:900;
+    font-size:clamp(22px,5.6vw,42px); line-height:1; letter-spacing:.5px; }
+  #start .pLink:active{ color:#17171b; }
+  /* everything else, as a row of poster links */
+  #stLinks{ margin:26px 0 0; display:flex; flex-wrap:wrap; align-items:center; gap:11px 20px; }
+  #start .sLink{ padding:0; border:0; background:none; cursor:pointer; pointer-events:auto;
+    font-family:inherit; font-weight:900; font-size:12.5px; letter-spacing:.13em;
+    text-transform:uppercase; color:#6d6453; }
+  #start .sLink:active{ color:#131009; }
+  #start #adminBtn, #start #shutdownBtn, #start #creatorBtn{ position:static;
+    opacity:1; border-radius:0; padding:0; border:0; background:none; }
+  #start #adminBtn{ color:#5a3d78; }
+  #start #shutdownBtn{ color:#8e3326; }
+  #start #mintGet{ margin:0; padding:7px 15px; border-radius:999px; border:0;
+    background:#0e6a56; color:#c9ffef; font-size:11.5px; font-weight:900; letter-spacing:.14em;
+    text-shadow:none; }
+  #start #mintGet:active{ transform:translateY(1px); background:#12866c; }
+  #start #vrRow{ margin:0; }
+  #start .lore{ margin:22px 0 0; max-width:560px; font-size:12.5px; line-height:1.7; color:#5f5849; }
+  #start .lore b{ color:#131009; }
+  #start .ctrls{ margin:12px 0 0; color:#7e7666; }
+  #start .ctrls kbd{ background:rgba(0,0,0,.1); border-color:rgba(0,0,0,.25); color:#3a3428; }
+  /* season flash, top right */
+  #stSeason{ position:absolute; z-index:2; text-align:right;
+    top:calc(env(safe-area-inset-top) + 18px); right:calc(env(safe-area-inset-right) + 26px); }
+  #stSeason b, #stSeason i{ display:block; font-style:normal; line-height:1;
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif; font-weight:900; }
+  #stSeason b{ font-size:clamp(22px,6vw,44px); color:#8e8e95; }
+  #stSeason i{ margin-top:5px; font-size:clamp(13px,3.4vw,25px); color:#fff; }
+  /* tagline and version along the bottom edge */
+  /* in the flow, pushed to the floor by the auto margin — so it still lands at the
+     bottom on a tall screen but never lies over the poster on a short one.
+     The right padding keeps the version clear of the tab rail. */
+  #stFoot{ position:relative; z-index:2; margin:auto 0 0; padding:30px 130px 0 0;
+    display:flex; justify-content:space-between; align-items:flex-end; gap:16px; pointer-events:none; }
+  #stTag{ font-size:12px; font-weight:900; color:#151b3d; }
+  #stVer{ font-size:13.5px; font-weight:700; letter-spacing:.06em; color:#7d7566; white-space:nowrap; }
+  #stCurl{ position:absolute; right:0; bottom:0; width:46px; height:46px; z-index:1;
+    background:#17140a; clip-path:polygon(100% 0, 100% 100%, 0 100%); }
+  /* the fixed furniture has to make room for the poster */
+  body.atmenu #countdown, body.atmenu #threeAm{ z-index:22; left:auto; align-items:flex-end;
+    right:calc(env(safe-area-inset-right) + 26px); background:none; border:0; padding:0; }
+  body.atmenu #countdown{ top:calc(env(safe-area-inset-top) + 104px); }
+  body.atmenu #threeAm{ top:calc(env(safe-area-inset-top) + 146px); }
+  body.atmenu #cdLabel, body.atmenu #taLabel{ color:#8b8272; }
+  body.atmenu #cdTime{ color:#2b2721; text-shadow:none; }
+  body.atmenu #taTime{ color:#4b3d60; text-shadow:none; }
+  /* the two left-hand tabs cross the title, so on the poster they join the right rail */
+  body.atmenu #minisBtn, body.atmenu #musicBtn{ left:auto; top:auto; transform:none;
+    right:0; border-left:2px solid #fff; border-right:none; border-radius:12px 0 0 12px;
+    padding:12px 12px 12px 16px; }
+  body.atmenu #minisBtn{ bottom:calc(env(safe-area-inset-bottom) + 218px); font-size:13px; }
+  body.atmenu #musicBtn{ bottom:calc(env(safe-area-inset-bottom) + 268px); }
+  body.atmenu #settingsBtn{ top:auto; bottom:calc(env(safe-area-inset-bottom) + 322px);
+    right:calc(env(safe-area-inset-right) + 8px); background:#232327; border-color:#232327; color:#f3c515; }
+  body.atmenu #huntTab{ display:none; }   /* its dark sliver reads as a smudge on the yellow */
+  /* on a narrow screen the title runs under the clocks, so they drop to the left margin */
+  @media (max-width:620px){
+    body.atmenu #countdown, body.atmenu #threeAm{ top:auto; right:auto; align-items:flex-start;
+      left:calc(env(safe-area-inset-left) + 30px); }
+    body.atmenu #countdown{ bottom:calc(env(safe-area-inset-bottom) + 112px); }
+    body.atmenu #threeAm{ bottom:calc(env(safe-area-inset-bottom) + 154px); }
+    #stFoot{ padding-right:0; }
+  }
+
   /* compact layout for landscape phones (short viewport height) so nothing clips off-screen */
   @media (orientation:landscape) and (max-height:520px){
     #mintWrap{ padding-top:calc(env(safe-area-inset-top) + 12px); padding-bottom:calc(env(safe-area-inset-bottom) + 12px); }
@@ -1183,6 +1274,32 @@
     .tc-hex{ width:58px; height:66px; right:12px; }
     #gameover .go-title{ top:12%; font-size:clamp(32px,9vw,64px); }
     #gameover .go-underline{ top:calc(12% + clamp(44px,11vw,76px)); }
+    /* the poster shrinks too, or it scrolls off a laid-down phone */
+    #start{ padding-bottom:calc(env(safe-area-inset-bottom) + 16px); }
+    #start h1{ font-size:clamp(26px,6.4vw,46px); }
+    #start #edition{ margin-top:6px; font-size:clamp(12px,2.8vw,18px); }
+    #start .sub{ margin-top:3px; font-size:10px; }
+    #start .pBtn{ margin-top:12px; padding:4px 13px 8px; font-size:clamp(20px,4.8vw,34px); }
+    #start .pLink{ margin-top:10px; font-size:clamp(16px,3.8vw,26px); }
+    #stLinks{ margin-top:13px; gap:8px 16px; }
+    #start .lore{ margin-top:12px; font-size:11.5px; line-height:1.55; }
+    #start .ctrls{ margin-top:7px; }
+    #stFoot{ padding-top:14px; }
+    #stSeason b{ font-size:clamp(18px,4.6vw,31px); }
+    #stSeason i{ font-size:clamp(11px,2.8vw,18px); }
+    #start .lore, #start .ctrls{ display:none; }
+    /* laid-down phones have no vertical room for a six-deep right rail, so the two
+       tabs go back to the left and the poster is indented clear of them */
+    body.atmenu #minisBtn{ left:0; right:auto; top:50%; bottom:auto; transform:translateY(-50%);
+      border-left:none; border-right:2px solid #fff; border-radius:0 12px 12px 0; padding:12px 16px 12px 12px; }
+    body.atmenu #musicBtn{ left:0; right:auto; top:auto; bottom:calc(env(safe-area-inset-bottom) + 18px);
+      border-left:none; border-right:2px solid #fff; border-radius:0 12px 12px 0; padding:12px 16px 12px 12px; }
+    body.atmenu #settingsBtn{ top:calc(env(safe-area-inset-top) + 46px); bottom:auto;
+      right:calc(env(safe-area-inset-right) + 14px); }
+    body.atmenu #countdown, body.atmenu #threeAm{ display:none; }   /* still there in-game */
+    #stMain, #stFoot{ padding-left:98px; }
+    #stLinks{ padding-right:130px; }
+    #stSeason{ top:calc(env(safe-area-inset-top) + 14px); right:calc(env(safe-area-inset-right) + 62px); }
   }
 </style>
 </head>
@@ -1470,36 +1587,41 @@
 
 <!-- Start screen -->
 <div id="start" class="screen hide">
-  <button id="creatorBtn">CREATOR SERVER</button>
+  <div id="stSeason"><b>SEASON 1</b><i>UPDATE SOON</i></div>
   <img src="./backrooms-logo.png" alt="The Backrooms logo" id="logoImg">
-  <h1>THE<br>BACKROOMS</h1>
-  <div id="edition"><b>POLOROID EDITION. V. 1.10.10</b></div>
-  <div class="sub">Level&nbsp;0 — “The&nbsp;Lobby”</div>
-  <div class="lore">
-    You noclipped out of reality. Now you're in <b>the yellow</b> — endless mono-yellow rooms,
-    the wet stink of old <b>moist carpet</b>, and the ceaseless <b>hum of fluorescent lights</b> at
-    maximum buzz. Something else is in here with you, and it has learned your footsteps.
-    Keep your <b>sanity</b> up, find an <b>exit</b>, and pray it doesn't find you first.
+  <div id="stMain">
+    <h1>THE<br>BACKROOMS</h1>
+    <div id="edition"><b>POLOROID EDITION</b></div>
+    <div class="sub">Level&nbsp;0 — “The&nbsp;Lobby”</div>
+
+    <button class="pBtn" id="playBtn">START</button>
+    <button class="pLink" id="continueBtn">CONTINUE GAME</button>
+
+    <div id="stLinks">
+      <button class="sLink" id="onlineBtn">ONLINE</button>
+      <button class="sLink" id="levelsBtn">LEVELS</button>
+      <button class="sLink" id="threatBtn">THREAT INDEX</button>
+      <button class="sLink" id="entitiesBtn">ENTITIES</button>
+      <button class="sLink" id="menuPostsBtn">POSTS</button>
+      <button class="sLink" id="creatorBtn">CREATOR SERVER</button>
+      <span id="vrRow" style="display:none"><button class="sLink" id="vrBtn">&#129488; ENTER VR</button></span>
+      <button class="sLink" id="adminBtn">ADMIN PANEL</button>
+      <button class="sLink hide" id="shutdownBtn">SHUT DOWN GAME</button>
+      <button id="mintGet">GET MINT EDITION</button>
+    </div>
+
+    <div class="lore">
+      You noclipped out of reality. Now you're in <b>the yellow</b> — endless mono-yellow rooms,
+      the wet stink of old <b>moist carpet</b>, and the ceaseless <b>hum of fluorescent lights</b> at
+      maximum buzz. Something else is in here with you, and it has learned your footsteps.
+      Keep your <b>sanity</b> up, find an <b>exit</b>, and pray it doesn't find you first.
+    </div>
+    <div class="ctrls" id="ctrlsDesk">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
+    </div>
   </div>
-  <div class="menuRow modeRow">
-    <button class="btn" id="playBtn">OFFLINE</button>
-    <button class="btn" id="onlineBtn">ONLINE</button>
-  </div>
-  <div class="menuRow">
-    <button class="btn2" id="levelsBtn">LEVELS</button>
-    <button class="btn2" id="threatBtn">THREAT INDEX</button>
-    <button class="btn2" id="entitiesBtn">ENTITIES</button>
-    <button class="btn2" id="menuPostsBtn">POSTS</button>
-  </div>
-  <div class="menuRow" id="vrRow" style="display:none">
-    <button class="btn" id="vrBtn" style="border-color:#7bd3ff;color:#bfeaff">&#129488; ENTER VR</button>
-  </div>
-  <div class="ctrls" id="ctrlsDesk">
-    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
-  </div>
-  <button id="mintGet">GET MINT EDITION</button>
-  <button id="shutdownBtn" class="hide">SHUT DOWN GAME</button>
-  <button id="adminBtn">ADMIN PANEL</button>
+  <div id="stFoot"><span id="stTag">theres nothing to be afraid of:</span><span id="stVer">V 1.10.10</span></div>
+  <div id="stCurl"></div>
 </div>
 
 <!-- ===== Mint Edition: the game's other front end. Everything in here is its
@@ -5114,6 +5236,8 @@ let _wasChased=false;
 function tick(){
   const dt=Math.min(0.05, clock.getDelta());
   xrOn = renderer.xr.isPresenting;
+  /* the poster menu re-dresses the fixed furniture, so it needs to know when it's up */
+  document.body.classList.toggle('atmenu', !document.getElementById('start').classList.contains('hide'));
   /* one flag for "you are actually in a game right now" — the SAY button hangs off it */
   document.body.classList.toggle('playing', !!(running||creatorMode||megActive)
     && !tvPlaying && !cineActive && !escActive && !settingsOpen && !shutdownActive);
@@ -5464,6 +5588,12 @@ setupTouch();
 setupGamepad();
 if(isTouch){ document.getElementById('ctrlsDesk').innerHTML='Left thumb — move &nbsp;·&nbsp; right — look &nbsp;·&nbsp; <b>RUN</b> to sprint'; }
 document.getElementById('playBtn').addEventListener('click',()=>{ audio.ensure(); enterMegRoom(); });
+/* CONTINUE GAME drops you straight back at the deepest level you've reached,
+   skipping the hazmat prologue. With nothing reached yet that's a plain Level 0. */
+document.getElementById('continueBtn').addEventListener('click',()=>{
+  const far=Math.min(LEVELS.length-1, Math.max(0, ...[...discovered].filter(i=>Number.isInteger(i))));
+  startAtLevel(far);
+});
 document.getElementById('vrBtn').addEventListener('click', enterVR);
 if(navigator.xr && navigator.xr.isSessionSupported){
   navigator.xr.isSessionSupported('immersive-vr').then(ok=>{ if(ok) document.getElementById('vrRow').style.display=''; }).catch(()=>{});
