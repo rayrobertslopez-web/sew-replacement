@@ -95,6 +95,42 @@
   #botChatSend{ font-size:12px; font-weight:800; letter-spacing:1px; padding:9px 14px; border-radius:8px;
     border:1px solid #b7a03f; background:rgba(201,178,74,.14); color:#f0e6a8; cursor:pointer; pointer-events:auto; font-family:inherit; }
 
+  /* ---- SAY: type anything and it goes up on the screen ----
+     the button rides with the HUD, so it shows up in every run and vanishes
+     the moment you're back in a menu, with no extra wiring at each site */
+  #sayBtn, #sayBar{ display:none; }
+  body.playing #sayBtn{ display:flex; }
+  body.playing #sayBar.open{ display:flex; }
+  body.cutscene #sayBtn, body.cutscene #sayBar,
+  body.saying #sayBtn{ display:none !important; }
+  /* it rides the left rail under MiNiS — the right rail is already four tabs deep */
+  #sayBtn{ position:fixed; z-index:31; left:0; top:calc(50% + 44px);
+    align-items:center; gap:7px; padding:12px 16px 12px 12px;
+    border:2px solid #fff; border-left:none; border-radius:0 12px 12px 0;
+    background:rgba(70,70,70,.92); color:#fff; cursor:pointer; pointer-events:auto;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
+  #sayBtn:active{ background:rgba(120,120,120,.95); }
+  #sayBtn i{ font-style:normal; font-size:15px; line-height:1; }
+  body.creating #sayBtn{ display:none; }
+  #sayBar{ position:fixed; z-index:26; left:50%; transform:translateX(-50%);
+    bottom:calc(env(safe-area-inset-bottom) + 26px); width:min(460px,calc(100vw - 32px)); gap:8px; }
+  #sayIn{ flex:1; min-width:0; background:rgba(12,10,2,.88); border:2px solid #b7a03f; border-radius:10px;
+    color:#f4ead0; padding:12px 14px; font-size:15px; font-family:inherit; outline:none; }
+  #saySend{ font-size:13px; font-weight:900; letter-spacing:1px; padding:12px 18px; border-radius:10px;
+    border:2px solid #b7a03f; background:rgba(201,178,74,.18); color:#f0e6a8; cursor:pointer; font-family:inherit; }
+  #sayMsg{ position:fixed; z-index:17; left:50%; top:20%; transform:translateX(-50%);
+    max-width:88vw; text-align:center; pointer-events:none; opacity:0; transition:opacity .35s;
+    font-size:clamp(20px,5.4vw,38px); font-weight:900; letter-spacing:1px; line-height:1.25;
+    color:#f6e79a; text-shadow:0 0 24px rgba(201,178,74,.6), 0 3px 0 #2a2408, 0 2px 12px #000;
+    word-wrap:break-word; overflow-wrap:anywhere; }
+  #sayMsg.show{ opacity:1; }
+  /* mint edition drops the yellow, so SAY gets a mint face too */
+  body.minting #sayBtn{ border-color:rgba(95,227,192,.6); color:#d7fff4; background:rgba(4,18,15,.9);
+    font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-weight:800; }
+  body.minting #sayIn{ border-color:#3fbfa2; color:#d7fff4; background:rgba(4,18,15,.9); }
+  body.minting #saySend{ border-color:#3fbfa2; color:#d7fff4; background:rgba(95,227,192,.16); }
+  body.minting #sayMsg{ color:#8ff0d8; text-shadow:0 0 24px rgba(95,227,192,.55), 0 2px 12px #000; }
+
   /* ---- mobile controls ---- */
   #touch{ position:fixed; inset:0; z-index:7; display:none; }
   #touch.show{ display:block; }
@@ -1379,6 +1415,14 @@
     <button id="botChatSend">SEND</button>
   </div>
 </div>
+
+<!-- SAY: type anything, it goes up on the screen -->
+<button id="sayBtn" type="button" title="Say something on screen"><i>💬</i>SAY</button>
+<div id="sayBar">
+  <input id="sayIn" maxlength="120" placeholder="Type anything…" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+  <button id="saySend" type="button">SAY IT</button>
+</div>
+<div id="sayMsg"></div>
 
 <!-- HUD (camcorder viewfinder) -->
 <div id="hud">
@@ -4134,6 +4178,10 @@ function showStart(){
   const _cd=document.getElementById('countdown'); if(_cd) _cd.style.display='';
   if(tvPlaying) endTvRec();
   botChatOpen=false;
+  /* the SAY bar must not survive a trip back to the menu */
+  document.getElementById('sayBar').classList.remove('open');
+  document.body.classList.remove('saying');
+  const _sm=document.getElementById('sayMsg'); if(_sm) _sm.classList.remove('show');
   document.getElementById('botChat').classList.add('hide');
   document.getElementById('blackout').style.opacity='0';
   document.getElementById('dread').style.opacity='0';
@@ -5066,6 +5114,9 @@ let _wasChased=false;
 function tick(){
   const dt=Math.min(0.05, clock.getDelta());
   xrOn = renderer.xr.isPresenting;
+  /* one flag for "you are actually in a game right now" — the SAY button hangs off it */
+  document.body.classList.toggle('playing', !!(running||creatorMode||megActive)
+    && !tvPlaying && !cineActive && !escActive && !settingsOpen && !shutdownActive);
   pollGamepad(dt);
   if(xrOn) updateXR(dt);                            // VR locomotion moves the player before the world ticks
   let inGame=false;
@@ -5509,6 +5560,43 @@ document.getElementById('botChatInput').addEventListener('blur', ()=>{ botChatOp
 document.getElementById('botChatInput').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); sendBotChat(); }
   else if(e.key==='Escape'){ e.preventDefault(); e.target.blur(); }
+});
+
+/* ---------------------------------------------------------------- SAY
+   a button that's there every run: type anything and it goes up on screen.
+   it reuses botChatOpen so the keys you type can't also drive the player. */
+let sayFade=null;
+function openSay(){
+  document.getElementById('sayBar').classList.add('open');
+  document.body.classList.add('saying');
+  botChatOpen=true;
+  if(locked) document.exitPointerLock();
+  const i=document.getElementById('sayIn');
+  i.value=''; setTimeout(()=>i.focus(),0);
+}
+function closeSay(){
+  document.getElementById('sayBar').classList.remove('open');
+  document.body.classList.remove('saying');
+  document.getElementById('sayIn').blur();
+  botChatOpen=false;
+}
+function saySomething(){
+  const i=document.getElementById('sayIn');
+  const txt=i.value.trim();
+  closeSay();
+  if(!txt) return;
+  const m=document.getElementById('sayMsg');
+  m.textContent=txt; m.classList.add('show');
+  clearTimeout(sayFade);
+  /* long messages get a little longer on screen so they can actually be read */
+  sayFade=setTimeout(()=>m.classList.remove('show'), 4000+Math.min(4000,txt.length*60));
+}
+document.getElementById('sayBtn').addEventListener('click', e=>{ e.preventDefault(); openSay(); });
+document.getElementById('saySend').addEventListener('click', e=>{ e.preventDefault(); saySomething(); });
+document.getElementById('sayIn').addEventListener('keydown', e=>{
+  e.stopPropagation();
+  if(e.key==='Enter'){ e.preventDefault(); saySomething(); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeSay(); }
 });
 
 /* ---------------------------------------------------------------- minis collection */
