@@ -8739,9 +8739,11 @@ function hms(ms){
   let wasOn=null;
   function tickSeason(){
     const on=s2On();
-    n.textContent = on ? 'SEASON 2' : 'SEASON 1';
+    /* the corner reads SEASON 2 from now on — what waits for 10 PM is the
+       content the season brings, not the name of it */
+    n.textContent = 'SEASON 2';
     sub.textContent = on ? 'OUT NOW' : 'UPDATE SOON';
-    t.textContent = on ? 'VARIANTS ARE LIVE' : 'SEASON 2 IN '+hms(S2_AT-Date.now());
+    t.textContent = on ? 'VARIANTS ARE LIVE' : 'VARIANTS IN '+hms(S2_AT-Date.now());
     box.classList.toggle('s2', on);
     /* caught the moment it turned over while someone was sitting here */
     if(wasOn===false && on){
