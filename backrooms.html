@@ -10,6 +10,26 @@
 <link rel="icon" href="./backrooms-logo.png">
 <link rel="apple-touch-icon" href="./backrooms-logo.png">
 <style>
+  /* ---- shutdown gate ---- */
+  #gone{ position:fixed; inset:0; z-index:2147483647; display:flex;
+    align-items:center; justify-content:center; padding:20px;
+    background:#111214; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  #goneBox{ width:min(560px,92vmin); aspect-ratio:1/1; background:#8b8b8f; color:#1b1c1e;
+    border:1px solid #6f6f74; border-radius:4px; box-shadow:0 24px 70px rgba(0,0,0,.6);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:34px 30px 22px; position:relative; }
+  #goneBox b{ font-size:clamp(19px,4.4vw,29px); font-weight:900; line-height:1.25; letter-spacing:.2px; }
+  #goneBox span{ margin-top:12px; font-size:clamp(13px,3vw,17px); font-weight:600; color:#33353a; }
+  #goneBox p{ margin:26px 0 0; font-size:clamp(11.5px,2.6vw,14px); line-height:1.85; color:#3b3d42; }
+  #goneBox p em{ font-style:normal; font-weight:800; color:#26282c; }
+  #goneBox i{ position:absolute; left:0; right:0; bottom:20px; font-style:normal;
+    font-family:"Courier New",ui-monospace,monospace; font-size:12px; font-weight:700;
+    letter-spacing:1.6px; color:#4a4c51; }
+  /* nothing of the game may show through it */
+  html.shutdown body > *:not(#gone){ display:none !important; }
+  html.shutdown, html.shutdown body{ overflow:hidden; background:#111214; }
+  @media (max-height:520px){ #goneBox{ aspect-ratio:auto; height:min(92vh,360px); } }
+
   :root{ --yellow:#c9b24a; --amber:#e7cf6a; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ margin:0; height:100%; overflow:hidden; background:#0c0b04;
@@ -1529,6 +1549,27 @@
 </style>
 </head>
 <body>
+<!-- ================================================================
+     THE GAME IS SHUT DOWN.
+     This gate goes up before anything else and stops the game booting at
+     all. To open the doors again: delete this block and the <script> right
+     under it, and flip GAME_OPEN back to true near the top of the main
+     script. Nothing else was removed.
+     ================================================================ -->
+<div id="gone">
+  <div id="goneBox">
+    <b>Couldnt find the game your looking for!</b>
+    <span>try again later</span>
+    <p>the lobby was here a minute ago. i checked twice.<br>the lights are off and the doors dont open from this side.<br><em>— Saya</em></p>
+    <i>404 Not Found</i>
+  </div>
+</div>
+<script>
+  /* belt and braces: if anything below still tried to run, this keeps the
+     canvas from ever being seen */
+  document.documentElement.classList.add('shutdown');
+</script>
+
 <div id="grain"></div>
 <div id="vig"></div>
 <div id="dread"></div>
@@ -2138,6 +2179,14 @@
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
 <script type="module">
+/* ---- THE GAME IS SHUT DOWN ----
+   Flip this to true to open it again; everything below is untouched and will
+   run exactly as it did. While it's false the module body stops here — no
+   renderer, no canvas, no world, and nothing reads or writes your save.
+   (The imports still resolve, since ES modules hoist those.) */
+const GAME_OPEN = false;
+if(!GAME_OPEN) throw new Error('The Backrooms is closed.');
+
 import * as THREE from 'three';
 import { mergeGeometries } from './vendor/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
