@@ -644,6 +644,29 @@
     letter-spacing:1px; color:#ffe9a6; text-shadow:0 1px 3px #000; }
   body.playing #hudAlm{ display:block; }
   body.cutscene #hudAlm{ display:none !important; }
+
+  /* ------------------------------------------------- KITTY'S HOUSE ---- */
+  /* the whole screen goes out for three seconds, then she looks at you for
+     seven, then everything comes back and you're somewhere else */
+  #kittyVeil{ position:fixed; inset:0; z-index:80; display:none; background:#000; }
+  #kittyVeil.show{ display:block; }
+  #kittyFace{ position:fixed; inset:0; z-index:81; display:none;
+    align-items:center; justify-content:center; background:#000; }
+  #kittyFace.show{ display:flex; }
+  #kittyFace img{ width:min(96vw,900px); max-height:86vh; object-fit:contain;
+    image-rendering:auto; filter:drop-shadow(0 0 60px rgba(80,180,255,.45)); }
+  @media (prefers-reduced-motion: no-preference){
+    #kittyFace.show img{ animation:kittyBreathe 3.4s ease-in-out infinite; }
+    @keyframes kittyBreathe{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.035) } }
+  }
+  #kittyExit{ position:fixed; z-index:32; display:none;
+    top:calc(env(safe-area-inset-top) + 14px); left:calc(env(safe-area-inset-left) + 14px);
+    padding:9px 16px; border-radius:9px; cursor:pointer; pointer-events:auto; font-family:inherit;
+    border:1px solid rgba(255,170,225,.55); background:rgba(30,8,26,.8); color:#ffc6ec;
+    font-size:11px; font-weight:800; letter-spacing:1px; }
+  #kittyExit.show{ display:block; }
+  #kittyExit:active{ background:rgba(255,170,225,.22); }
+  body.cutscene #kittyExit{ display:none !important; }
   #lwSay{ max-width:760px; margin:10px auto 0; display:flex; gap:8px; }
   #lwInput{ flex:1; min-width:0; background:#1e1e25; color:#e9e9ee; border:1px solid #3d3d4a;
     border-radius:9px; padding:10px 12px; font:inherit; font-size:13.5px; }
@@ -1708,6 +1731,11 @@
 <div id="adminFeed"></div>
 <div id="hudAlm">🥜 <span id="hudAlmN">0</span></div>
 
+<!-- the secret door's arrival sequence -->
+<div id="kittyVeil"></div>
+<div id="kittyFace"><img src="./kittys-house.png" alt=""></div>
+<button id="kittyExit" type="button">&#8592; LEAVE KITTY'S HOUSE</button>
+
 <!-- SHOP: packs, paid for in almonds -->
 <button id="shopBtn" type="button">🛒 SHOP</button>
 <div id="shopScreen">
@@ -2002,6 +2030,7 @@
       <button class="crBtn danger" id="crWatcher">&#128064; I SEE YOU</button>
       <button class="crBtn danger" id="crNwo">&#128680; ENTITY INFLUENCER</button>
       <button class="crBtn danger" id="crInteg">&#129503; INTEGRITY</button>
+      <button class="crBtn" id="crKitty">&#128049; KITTY DOOR</button>
     </div>
   </div>
 </div>
@@ -2304,6 +2333,8 @@ function makeMiniPickup(idx){
   return s;
 }
 function hasExit(i,j){ if(Math.abs(i)<5 && Math.abs(j)<5) return false; return rand(i,j,66) < Math.min(0.05, 0.003*luckNow()); }
+/* the secret door. one cell in ten thousand, and luck doesn't help you here */
+function hasKittyDoor(i,j){ if(inSafe(i,j)) return false; return rand(i,j,111) < 0.0001; }
 
 /* ---------------------------------------------------------------- textures */
 function makeCanvas(s){ const c=document.createElement('canvas'); c.width=c.height=s; return c; }
@@ -2491,6 +2522,11 @@ function buildChunk(cx,cz){
       e.rotation.y = rand(i,j,77)*Math.PI*2;
       group.add(e); pickups.push({mesh:e,key,kind:'exit'});
     }
+    if(hasKittyDoor(i,j)){
+      const k=makeKittyDoor(); k.position.set(i*CELL+CELL/2, 0, j*CELL+CELL/2);
+      k.rotation.y = rand(i,j,112)*Math.PI*2;
+      group.add(k); pickups.push({mesh:k,key:'k'+key,kind:'kitty'});
+    }
   }
 
   scene.add(group);
@@ -2505,6 +2541,43 @@ function makeAlmondWater(){
   cap.position.y=0.31; m.add(cap);
   m.userData.geo=geo; m.userData.spin=true;
   return m;
+}
+/* ---------------------------------------------------------- KITTY'S HOUSE
+   A pink door that shouldn't be here. One cell in ten thousand carries it, and
+   walking into it takes you somewhere that isn't in the level list. */
+function makeKittyDoor(){
+  const grp=new THREE.Group();
+  const frameMat=new THREE.MeshLambertMaterial({color:0xff9ad4, emissive:0x50123a, emissiveIntensity:0.7});
+  const jamb=new THREE.BoxGeometry(0.26,2.6,0.32);
+  const l=new THREE.Mesh(jamb,frameMat); l.position.set(-0.92,1.3,0); grp.add(l);
+  const r=new THREE.Mesh(jamb,frameMat); r.position.set(0.92,1.3,0); grp.add(r);
+  const top=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.3,0.32),frameMat); top.position.set(0,2.55,0); grp.add(top);
+  /* the leaf itself, with a cat face scratched into it */
+  const c=makeCanvas(256), x=c.getContext('2d');
+  x.fillStyle='#f7b6dd'; x.fillRect(0,0,256,256);
+  x.fillStyle='#e089c2'; for(let i=0;i<256;i+=32) x.fillRect(0,i,256,2);
+  x.strokeStyle='#3a0a2a'; x.lineWidth=7; x.lineCap='round';
+  x.beginPath(); x.arc(128,140,52,0,Math.PI*2); x.stroke();            // head
+  x.beginPath(); x.moveTo(86,104); x.lineTo(72,58); x.lineTo(114,84); x.stroke();   // ears
+  x.beginPath(); x.moveTo(170,104); x.lineTo(184,58); x.lineTo(142,84); x.stroke();
+  x.fillStyle='#3a0a2a';
+  x.beginPath(); x.arc(110,134,9,0,Math.PI*2); x.fill();
+  x.beginPath(); x.arc(146,134,9,0,Math.PI*2); x.fill();
+  x.beginPath(); x.moveTo(128,152); x.lineTo(120,162); x.lineTo(136,162); x.closePath(); x.fill();
+  x.beginPath(); x.moveTo(60,132); x.lineTo(96,140); x.moveTo(60,152); x.lineTo(96,148);
+  x.moveTo(196,132); x.lineTo(160,140); x.moveTo(196,152); x.lineTo(160,148);
+  x.lineWidth=5; x.stroke();
+  const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace;
+  const leaf=new THREE.Mesh(new THREE.PlaneGeometry(1.68,2.5),
+    new THREE.MeshBasicMaterial({map:tex}));
+  leaf.position.set(0,1.3,0.03); grp.add(leaf);
+  /* the same face on the back, so it reads as a door from whichever side you find it */
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(1.68,2.5), new THREE.MeshBasicMaterial({map:tex}));
+  back.position.set(0,1.3,-0.03); back.rotation.y=Math.PI; grp.add(back);
+  grp.userData.light=new THREE.PointLight(0xff8fd0, 2.4, 7, 2);
+  grp.userData.light.position.set(0,2.1,0.5); grp.add(grp.userData.light);
+  grp.userData.tex=tex;
+  return grp;
 }
 function makeExit(){
   const grp=new THREE.Group();
@@ -2645,7 +2718,7 @@ function loadLevel1(){
 function curRaycastModel(){ return level===1 ? l1Model : level===2 ? l2Group : null; }
 let l2LastFloorY=1.3;   // level 2's floor height varies across the map, unlike level 1's flat room
 function floorAt(x,z){
-  if(level===0 || level===3) return 0;   // level 3 "Endless Road" is a flat strip, same as level 0's floor
+  if(level===0 || level===3 || level===KITTY_LV) return 0;   // flat-floored levels
   if(level===1) return l1FloorY;
   // level 2: live downward raycast (uneven multi-structure map); fall back to last-known on a miss
   raycaster.set(_ro.set(x,l2LastFloorY+20,z), _rd.set(0,-1,0)); raycaster.far=40;
@@ -2659,6 +2732,7 @@ function collideLevel(x,z,r){
      the maze walls of a level that isn't being rendered */
   if(creatorMode) return [Math.max(-CREATOR_BOUND,Math.min(CREATOR_BOUND,x)), Math.max(-CREATOR_BOUND,Math.min(CREATOR_BOUND,z))];
   if(level===0) return collide(x,z,r);
+  if(level===KITTY_LV) return collideKitty(x,z,r);
   if(level===3) return [Math.max(-L3_WIDTH/2+r, Math.min(L3_WIDTH/2-r, x)), z];   // just clamp to the road's width
   const m=curRaycastModel(); if(!m) return [x,z];
   const y=floorAt(x,z)+1.1;
@@ -2820,6 +2894,187 @@ function enterLevel3(){
   document.getElementById('touch').classList.remove('show');
   document.getElementById('levelcard').classList.remove('hide');
 }
+/* ================================================== KITTY'S HOUSE (secret)
+   Level index 4 — one past the end of LEVELS, so it can never appear in the
+   level select no matter what gets marked complete. */
+const KITTY_LV=4, KITTY_HALF=17;
+let kittyGroup=null, kittyWalls=[], kittyBusy=false, kittyReturn=null;
+function kittyOn(){ return level===KITTY_LV; }
+/* three seconds of nothing, seven seconds of her, then you're inside */
+function startKitty(){
+  if(kittyBusy || kittyOn()) return;
+  kittyBusy=true;
+  kittyReturn = creatorMode ? 'creator' : 'menu';
+  if(locked) document.exitPointerLock();
+  running=false;
+  audio.setGrowl(0); audio.setChase(false,1);
+  document.body.classList.add('cutscene');          // every button in the game hides on this class
+  document.getElementById('kittyVeil').classList.add('show');
+  setTimeout(()=>{
+    document.getElementById('kittyFace').classList.add('show');
+    setTimeout(()=>{
+      document.getElementById('kittyFace').classList.remove('show');
+      document.getElementById('kittyVeil').classList.remove('show');
+      document.body.classList.remove('cutscene');
+      enterKittyHouse();
+      kittyBusy=false;
+    }, 7000);
+  }, 3000);
+}
+function kittyTex(kind){
+  const c=makeCanvas(128), x=c.getContext('2d');
+  if(kind==='floor'){
+    for(let i=0;i<8;i++) for(let j=0;j<8;j++){
+      x.fillStyle=((i+j)&1)?'#4a2038':'#5c2a45'; x.fillRect(i*16,j*16,16,16);
+    }
+  } else if(kind==='wall'){
+    x.fillStyle='#7d3763'; x.fillRect(0,0,128,128);
+    x.strokeStyle='rgba(255,190,230,.22)'; x.lineWidth=3;
+    for(let i=8;i<128;i+=16){ x.beginPath(); x.moveTo(i,0); x.lineTo(i,128); x.stroke(); }
+  } else {
+    x.fillStyle='#3a1a2e'; x.fillRect(0,0,128,128);
+  }
+  const t=new THREE.CanvasTexture(c);
+  t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  return t;
+}
+function buildKittyHouse(){
+  const g=new THREE.Group();
+  kittyWalls=[];
+  const H=3.2, T=0.3, S=KITTY_HALF;
+  const floorTex=kittyTex('floor'); floorTex.repeat.set(S/1.6,S/1.6);
+  const wallTex=kittyTex('wall');  wallTex.repeat.set(6,1.4);
+  const floorMatK=new THREE.MeshLambertMaterial({map:floorTex});
+  const wallMatK=new THREE.MeshLambertMaterial({map:wallTex});
+  const ceilMatK=new THREE.MeshLambertMaterial({color:0x2a1120});
+
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(S*2,S*2), floorMatK);
+  fl.rotation.x=-Math.PI/2; g.add(fl);
+  const ce=new THREE.Mesh(new THREE.PlaneGeometry(S*2,S*2), ceilMatK);
+  ce.rotation.x=Math.PI/2; ce.position.y=H; g.add(ce);
+
+  /* one helper builds the mesh and registers the box that stops you walking through it */
+  const wall=(x0,z0,x1,z1)=>{
+    const cx=(x0+x1)/2, cz=(z0+z1)/2;
+    const w=Math.max(T,Math.abs(x1-x0)), d=Math.max(T,Math.abs(z1-z0));
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,H,d), wallMatK);
+    m.position.set(cx,H/2,cz); g.add(m);
+    kittyWalls.push([cx-w/2,cx+w/2,cz-d/2,cz+d/2]);
+  };
+  // outer shell
+  wall(-S,-S, S,-S); wall(-S,S, S,S); wall(-S,-S,-S,S); wall(S,-S,S,S);
+  // a hallway down the middle and rooms off it
+  wall(-6,-S+1,-6,-3);  wall(-6,3,-6,S-1);
+  wall(6,-S+1,6,-3);    wall(6,3,6,S-1);
+  wall(-S+1,-8,-6,-8);  wall(6,-8,S-1,-8);
+  wall(-S+1,8,-6,8);    wall(6,8,S-1,8);
+
+  const furn=(x,z,w,h,d,col)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshLambertMaterial({color:col}));
+    m.position.set(x,h/2,z); g.add(m);
+    kittyWalls.push([x-w/2,x+w/2,z-d/2,z+d/2]);
+  };
+  furn(-11,-12, 5,0.8,2.2, 0x8d4a6e);   // couch
+  furn(-11,-5,  2.4,0.6,1.4, 0x6b3350);  // table
+  furn(11,-12,  3,1.9,2.2, 0x5a2a44);    // bed
+  furn(11,5,    2.2,2.4,0.8, 0x46203a);  // cabinet
+  furn(-11,11,  2.6,1.1,2.6, 0x7a3a5e);  // whatever that is
+  furn(0,-13,   1.4,0.5,1.4, 0x9c5a7c);  // a bowl on the floor
+
+  /* she's on every wall */
+  const faceTex=new THREE.TextureLoader().load('./kittys-house.png');
+  faceTex.colorSpace=THREE.SRGBColorSpace;
+  const faceMat=new THREE.MeshBasicMaterial({map:faceTex, transparent:true, opacity:0.92});
+  const poster=(x,z,ry,w)=>{
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,w*0.58), faceMat);
+    m.position.set(x,1.9,z); m.rotation.y=ry; g.add(m);
+  };
+  poster(-11,-S+0.4,0,4);  poster(11,-S+0.4,0,4);
+  poster(-11,S-0.4,Math.PI,4); poster(11,S-0.4,Math.PI,4);
+  poster(-S+0.4,-11,Math.PI/2,3.4); poster(S-0.4,11,-Math.PI/2,3.4);
+  poster(-5.9,-11,-Math.PI/2,2.6); poster(5.9,11,Math.PI/2,2.6);
+
+  for(const [lx,lz] of [[0,0],[0,-9],[0,9],[-11,-11],[11,-11],[-11,11],[11,11],[-11,0],[11,0]]){
+    const L=new THREE.PointLight(0xffb0dc, 11, 30, 2);
+    L.position.set(lx,H-0.4,lz); g.add(L);
+  }
+  /* a little glow off the floor as well, so the far end of the hall isn't a hole */
+  const amb=new THREE.HemisphereLight(0xffc2e6, 0x40183a, 0.75); g.add(amb);
+  return g;
+}
+function collideKitty(x,z,r){
+  for(let pass=0; pass<2; pass++)
+    for(const b of kittyWalls) [x,z]=pushOut(x,z,r,b);
+  const lim=KITTY_HALF-0.5;
+  return [Math.max(-lim,Math.min(lim,x)), Math.max(-lim,Math.min(lim,z))];
+}
+function enterKittyHouse(){
+  transitioning=false;
+  for(const key of [...chunks.keys()]) unloadChunk(key);
+  buildQueue.length=0; pickups.length=0;
+  if(entity){ scene.remove(entity.obj); entity=null; pendingEntity=false; }
+  clearChasers(); clearBots(); clearSurvivor(); clearTv(); clearStomper();
+  stopEvilHunt(); stopWatcher(); stopNwo(); integStop();
+  if(creatorMode) exitCreatorToKitty();
+  if(l3Group && l3Group.parent) scene.remove(l3Group);
+  if(flashlight) flashlight.visible=false;
+  level=KITTY_LV;
+  if(!kittyGroup) kittyGroup=buildKittyHouse();
+  if(!kittyGroup.parent) scene.add(kittyGroup);
+  applyAtmosphere(KITTY_LV);
+  player.x=0; player.z=KITTY_HALF-3; player.yaw=0; player.pitch=0;   // yaw 0 looks down -z, into the house
+  player.vx=0; player.vz=0; player.floorY=0;
+  spawnOrigin={x:0,z:0};
+  sanity=100; stamina=100;
+  running=true; caught=false;
+  document.getElementById('hud').classList.add('show');
+  document.getElementById('cross').classList.add('show');
+  if(isTouch) document.getElementById('touch').classList.add('show');
+  document.getElementById('kittyExit').classList.add('show');
+  document.getElementById('obj').innerHTML="<b style=\"color:#ffa6dc\">KITTY'S HOUSE</b> — nothing hunts you here. leave whenever you like.";
+  toast("🐱 KITTY'S HOUSE");
+  adminLine("you found her house. i didn't put that there.", true);
+}
+/* the sandbox has its own state to tear down before we can stand in a level */
+function exitCreatorToKitty(){
+  creatorMode=false; creatorPlaying=false; document.body.classList.remove('creating');
+  creatorKittyDoors.forEach(d=>{ if(d.parent) scene.remove(d); });
+  creatorKittyDoors=[];
+  document.getElementById('creatorUI').classList.remove('show');
+  if(creatorBaseplate && creatorBaseplate.parent) scene.remove(creatorBaseplate);
+  creatorClouds.forEach(c=>{ if(c.parent) scene.remove(c); });
+  if(creatorSun) creatorSun.visible=false;
+  creatorObjects.forEach(o=>{ if(o.obj.parent) scene.remove(o.obj); });
+  creatorObjects=[];
+  if(creatorOutline){ scene.remove(creatorOutline); creatorOutline=null; }
+}
+function leaveKittyHouse(){
+  if(!kittyOn()) return;
+  if(kittyGroup && kittyGroup.parent) scene.remove(kittyGroup);
+  document.getElementById('kittyExit').classList.remove('show');
+  level=0;
+  showStart();
+}
+document.getElementById('kittyExit').addEventListener('click', leaveKittyHouse);
+/* a kitty door you spawned yourself, in the sandbox */
+function spawnCreatorKittyDoor(){
+  const d=makeKittyDoor();
+  const fx=-Math.sin(player.yaw), fz=-Math.cos(player.yaw);
+  d.position.set(player.x+fx*4, 0, player.z+fz*4);
+  d.rotation.y=player.yaw;          // face it back at whoever spawned it
+  scene.add(d);
+  creatorKittyDoors.push(d);
+  toast('🐱 kitty door — walk into it');
+}
+let creatorKittyDoors=[];
+function updateCreatorKittyDoors(){
+  if(!creatorMode || kittyBusy) return;
+  for(const d of creatorKittyDoors){
+    if(d.userData.light) d.userData.light.intensity=1.6+Math.sin(elapsed*3)*0.8;
+    if(Math.hypot(d.position.x-player.x, d.position.z-player.z)<1.7){ startKitty(); return; }
+  }
+}
+
 function updateLevel3(dt){
   localLight=0.35;   // dim but not pitch-black — flashlight does the actual seeing
   l3T+=dt;
@@ -3101,6 +3356,8 @@ function enterCreator(){
 }
 function exitCreator(){
   integStop();
+  creatorKittyDoors.forEach(d=>{ if(d.parent) scene.remove(d); });
+  creatorKittyDoors=[];
   creatorMode=false; creatorPlaying=false; document.body.classList.remove('creating');
   document.getElementById('creatorUI').classList.remove('show');
   document.getElementById('cross').classList.remove('show');
@@ -3209,7 +3466,7 @@ function gatherWalls(){ // {x,y,z, nx,nz, tx,tz, d} for nearby wall faces, neare
   return out;
 }
 function updateGuide(){
-  if(level===3){ for(const a of arrowPool) a.visible=false; return; }   // no maze/exit to point toward on the road
+  if(level===3 || level===KITTY_LV){ for(const a of arrowPool) a.visible=false; return; }   // no maze/exit to point toward
   if(elapsed-guideRefresh<0.1) return;       // ~10 Hz is plenty for static wall decals
   guideRefresh=elapsed;
   if(elapsed-guideT>0.4){ guideT=elapsed;
@@ -4290,6 +4547,10 @@ function newGame(){
     creatorObjects=[];
     if(creatorOutline){ scene.remove(creatorOutline); creatorOutline=null; }
   }
+  if(kittyGroup && kittyGroup.parent) scene.remove(kittyGroup);
+  document.getElementById('kittyExit').classList.remove('show');
+  creatorKittyDoors.forEach(d=>{ if(d.parent) scene.remove(d); });
+  creatorKittyDoors=[];
   seed=(Math.floor(Math.random()*2e9))>>>0;
   // clear world
   for(const key of [...chunks.keys()]) unloadChunk(key);
@@ -4450,6 +4711,13 @@ function applyAtmosphere(lv){
     ambient.color.setHex(0x3a1f18); ambient.intensity=0.75;
     hemi.color.setHex(0xd98a6a); hemi.groundColor.setHex(0x1a0f0c); hemi.intensity=0.7;
     fillLight.color.setHex(0xe0a888);
+  } else if(lv===KITTY_LV){
+    // her house — black outside the lamps, everything they touch is pink
+    scene.background.setHex(0x1a0714); scene.fog.color.setHex(0x1a0714); scene.fog.near=8.0; fogFarBase=60;
+    ambient.color.setHex(0x6a2856); ambient.intensity=1.15;
+    hemi.color.setHex(0xff9ad4); hemi.groundColor.setHex(0x2a0a20); hemi.intensity=0.55;
+    fillLight.color.setHex(0xffb8e0);
+    for(const L of lightPool) L.intensity=0;
   } else {
     // level 3 "Endless Road" — near-black, almost no ambient; the flashlight does the work
     scene.background.setHex(0x000000); scene.fog.color.setHex(0x000000); scene.fog.near=2.0; fogFarBase=22;
@@ -4568,6 +4836,12 @@ function showStart(){
   megActive=false; clearMeg();
   document.getElementById('megOxy').classList.remove('show');
   document.getElementById('visor').classList.remove('show');
+  /* her house doesn't survive a trip to the menu */
+  if(kittyGroup && kittyGroup.parent) scene.remove(kittyGroup);
+  document.getElementById('kittyExit').classList.remove('show');
+  document.getElementById('kittyVeil').classList.remove('show');
+  document.getElementById('kittyFace').classList.remove('show');
+  kittyBusy=false;
   const _cd=document.getElementById('countdown'); if(_cd) _cd.style.display='';
   if(tvPlaying) endTvRec();
   botChatOpen=false;
@@ -5520,7 +5794,7 @@ function tick(){
   else if(cineActive){ updateCine(dt); }
   else if(escActive){ updateEscape(); }
   else if(megActive){ updateMeg(dt); }
-  else if(creatorMode){ updateCreator(dt); }
+  else if(creatorMode){ updateCreator(dt); updateCreatorKittyDoors(); }
   else if(running && !settingsOpen && !shutdownActive && !botChatOpen){ update(dt); inGame=true; }
   updateEvilHunt(dt); updateWatcher(dt); updateNwo(dt); updateIntegrity(dt); updateHide();
   // entity chase loop: on while something is actively hunting you, fades out the moment it stops
@@ -5608,6 +5882,7 @@ function update(dt){
   if(level===0){ updateChunks(); processQueue(3); updateLightPool(); updateEntity(dt); updateStomper(dt); if(botServerActive) updateBots(dt); updateNpc(dt); updateTvScreen(); }
   else if(level===1){ updateLightPoolL1(); updateEntity(dt); }
   else if(level===2){ updateLightPoolL2(); updateChasers(dt); }
+  else if(level===KITTY_LV){ localLight=0.8; }   // her lamps do the lighting; nothing hunts you in here
   else { updateLevel3(dt); }
   updatePickups(dt);
   updatePet(dt); updateStalker(dt); updateStalker3(dt);
@@ -5682,6 +5957,10 @@ function updatePickups(dt){
       const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
       if(p.mesh.userData.light) p.mesh.userData.light.intensity = d<14 ? Math.max(0, 3-(d/14)*3) : 0;
       if(d<1.6){ if(level===0) enterLevel1(); else if(level===1) enterLevel2(); else winGame(); return; }
+    } else if(p.kind==='kitty'){
+      const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
+      if(p.mesh.userData.light) p.mesh.userData.light.intensity = 1.6+Math.sin(elapsed*3)*0.8;
+      if(d<1.7){ startKitty(); return; }
     } else if(p.kind==='portal'){
       const d=Math.hypot(p.mesh.position.x-player.x, p.mesh.position.z-player.z);
       if(p.mesh.userData.light) p.mesh.userData.light.intensity = d<14 ? Math.max(0, 3-(d/14)*3) : 0;
@@ -8360,6 +8639,7 @@ function updateIntegrity(dt){
   updateChasers(dt);
   if(performance.now()>=integEnd) integStop();
 }
+document.getElementById('crKitty').addEventListener('click', spawnCreatorKittyDoor);
 document.getElementById('crInteg').addEventListener('click', ()=>{
   if(integState==='hunt'){ integStop(); return; }
   if(huntActive || watchActive || nwoActive){ toast('Something else is already out here.'); return; }
