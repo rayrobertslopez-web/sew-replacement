@@ -572,6 +572,78 @@
     border-radius:0 7px 7px 0; color:#ffe1de; font-weight:700; }
   .lmsg.admin b{ color:#ffd53b; }
   .lmsg.admin b::before{ content:'[ADMIN] '; color:#ff3b30; }
+
+  /* ---------------------------------------------------- SHOP & PACKS ---- */
+  #shopBtn{ position:fixed; z-index:31; left:0; top:calc(50% + 88px);
+    display:flex; align-items:center; gap:7px; padding:12px 16px 12px 12px;
+    border:2px solid #fff; border-left:none; border-radius:0 12px 12px 0;
+    background:rgba(64,48,12,.94); color:#ffe9a6; cursor:pointer; pointer-events:auto;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
+  #shopBtn:active{ background:rgba(104,80,20,.96); }
+  body.creating #shopBtn, body.cutscene #shopBtn, body.cutscene #shopScreen{ display:none !important; }
+  body.atmenu #shopBtn{ display:none; }        /* the menu has a SHOP link of its own */
+  #almTag{ display:inline-flex; align-items:center; gap:5px; }
+  #shopScreen{ position:fixed; inset:0; z-index:60; display:none; overflow-y:auto;
+    background:#151109; color:#f6ecd0;
+    font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    padding:24px 5vw calc(env(safe-area-inset-bottom) + 40px); }
+  #shopScreen.show{ display:block; }
+  #shopHead{ display:flex; align-items:baseline; gap:18px; flex-wrap:wrap; }
+  #shopTitle{ margin:0; font-size:clamp(34px,8vw,58px); font-weight:900; letter-spacing:3px; color:#ffd95e;
+    text-shadow:0 0 26px rgba(255,217,94,.3); }
+  #shopBal{ font-family:"Courier New",ui-monospace,monospace; font-size:clamp(16px,4vw,24px);
+    font-weight:800; color:#ffe9a6; }
+  #shopSub{ margin:6px 0 20px; font-size:13.5px; color:#a2957a; }
+  #packGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; }
+  .pack{ border:2px solid #4c3f18; border-radius:16px; background:#1e1809; padding:16px 16px 14px;
+    display:flex; flex-direction:column; gap:8px; }
+  .pack .pk-art{ height:104px; border-radius:11px; position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    font-size:44px; text-shadow:0 4px 14px rgba(0,0,0,.6); }
+  .pack .pk-art::after{ content:''; position:absolute; inset:0;
+    background:linear-gradient(120deg,rgba(255,255,255,.22),rgba(255,255,255,0) 46%); }
+  .pack b{ font-size:15px; font-weight:900; letter-spacing:1.4px; }
+  .pack i{ font-style:normal; font-size:12px; line-height:1.5; color:#a2957a; min-height:36px; }
+  .pack .pk-odds{ font-size:10.5px; letter-spacing:.4px; color:#7d7358; }
+  .pack button{ margin-top:4px; padding:11px; border-radius:11px; cursor:pointer; font-family:inherit;
+    border:2px solid #b7913f; background:rgba(255,217,94,.15); color:#ffe9a6;
+    font-size:13px; font-weight:900; letter-spacing:1px; }
+  .pack button:active{ transform:translateY(1px); background:rgba(255,217,94,.3); }
+  .pack button:disabled{ opacity:.4; cursor:not-allowed; border-color:#5a4d28; }
+  /* the opening */
+  #packOpen{ position:fixed; inset:0; z-index:64; display:none; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px; padding:24px;
+    background:rgba(8,6,2,.94); font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  #packOpen.show{ display:flex; }
+  #poTitle{ font-size:clamp(20px,5vw,34px); font-weight:900; letter-spacing:3px; color:#ffd95e; text-align:center; }
+  #poCards{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:760px; }
+  .pcard{ width:104px; aspect-ratio:3/4; border-radius:10px; border:3px solid #fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:6px;
+    background:#2a2a2a; opacity:0; transform:rotateY(90deg) scale(.85); transition:opacity .18s, transform .32s cubic-bezier(.2,1.4,.4,1); }
+  .pcard.in{ opacity:1; transform:none; }
+  .pcard canvas{ width:64%; image-rendering:pixelated; }
+  .pcard .pn{ font-size:10.5px; text-align:center; line-height:1.15; color:#f2ecd8; overflow-wrap:anywhere; }
+  .pcard .pr{ font-size:9px; font-weight:900; letter-spacing:.6px; }
+  .pcard .pdup{ font-size:8.5px; font-weight:800; letter-spacing:.5px; color:#b8ac8a; }
+  .pcard.new{ box-shadow:0 0 0 3px #ffd95e inset, 0 0 22px rgba(255,217,94,.5); }
+  #poFoot{ font-size:13px; color:#a2957a; text-align:center; min-height:20px; }
+  #poClose{ padding:12px 34px; border-radius:12px; cursor:pointer; font-family:inherit;
+    border:2px solid #b7913f; background:rgba(255,217,94,.16); color:#ffe9a6;
+    font-size:14px; font-weight:900; letter-spacing:2px; }
+  #shopClose{ position:fixed; z-index:61; display:none; top:calc(env(safe-area-inset-top) + 16px);
+    right:calc(env(safe-area-inset-right) + 16px); padding:10px 16px; border-radius:11px; cursor:pointer;
+    border:2px solid #b7913f; background:rgba(255,217,94,.14); color:#ffe9a6; font-family:inherit;
+    font-size:12px; font-weight:900; letter-spacing:1.5px; }
+  #shopClose.show{ display:block; }
+  /* the balance, on the poster menu and on the HUD */
+  #stAlm{ margin-top:14px; font-family:"Courier New",ui-monospace,monospace;
+    font-size:14px; font-weight:800; letter-spacing:.5px; color:#4a4234; }
+  #hudAlm{ position:fixed; z-index:9; display:none; pointer-events:none;
+    top:calc(env(safe-area-inset-top) + 46px); left:50%; transform:translateX(-50%);
+    font-family:"Courier New",ui-monospace,monospace; font-size:12px; font-weight:800;
+    letter-spacing:1px; color:#ffe9a6; text-shadow:0 1px 3px #000; }
+  body.playing #hudAlm{ display:block; }
+  body.cutscene #hudAlm{ display:none !important; }
   #lwSay{ max-width:760px; margin:10px auto 0; display:flex; gap:8px; }
   #lwInput{ flex:1; min-width:0; background:#1e1e25; color:#e9e9ee; border:1px solid #3d3d4a;
     border-radius:9px; padding:10px 12px; font:inherit; font-size:13.5px; }
@@ -1634,6 +1706,22 @@
 </div>
 <div id="luckTag"></div>
 <div id="adminFeed"></div>
+<div id="hudAlm">🥜 <span id="hudAlmN">0</span></div>
+
+<!-- SHOP: packs, paid for in almonds -->
+<button id="shopBtn" type="button">🛒 SHOP</button>
+<div id="shopScreen">
+  <div id="shopHead"><h1 id="shopTitle">SHOP</h1><span id="shopBal">🥜 0</span></div>
+  <div id="shopSub">packs are the fast way to fill the MiNiS book. rarer packs, rarer pulls.</div>
+  <div id="packGrid"></div>
+</div>
+<button id="shopClose" type="button">CLOSE &#10005;</button>
+<div id="packOpen">
+  <div id="poTitle">OPENING…</div>
+  <div id="poCards"></div>
+  <div id="poFoot"></div>
+  <button id="poClose" type="button">NICE</button>
+</div>
 
 <!-- HUD (camcorder viewfinder) -->
 <div id="hud">
@@ -1692,6 +1780,7 @@
     <button class="pLink" id="continueBtn">CONTINUE GAME</button>
 
     <div id="stLinks">
+      <button class="sLink" id="menuShopBtn">🛒 SHOP</button>
       <button class="sLink" id="onlineBtn">ONLINE</button>
       <button class="sLink" id="levelsBtn">LEVELS</button>
       <button class="sLink" id="threatBtn">THREAT INDEX</button>
@@ -1713,6 +1802,7 @@
     <div class="ctrls" id="ctrlsDesk">
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp;·&nbsp; <kbd>Shift</kbd> run &nbsp;·&nbsp; <kbd>Mouse</kbd> look &nbsp;·&nbsp; click to grab the mouse
     </div>
+    <div id="stAlm">🥜 <span id="stAlmN">0</span> ALMONDS</div>
   </div>
   <div id="stFoot"><span id="stTag">theres nothing to be afraid of:</span><span id="stVer">V 1.10.10</span></div>
   <div id="stCurl"></div>
@@ -2000,6 +2090,31 @@ function luckNow(){ return Date.now() < luckUntil ? luckMult : 1; }
 /* and the other thing she hands out: a temporary boot speed */
 let adminSpeed = 1, adminSpeedUntil = 0;
 function speedNow(){ return Date.now() < adminSpeedUntil ? adminSpeed : 1; }
+
+/* ---- ALMONDS ----
+   The game's currency, named after the only thing anyone down here drinks.
+   Everyone starts on a hundred million; you earn more by playing. */
+const ALM_KEY='backrooms_almonds', ALM_SEED_KEY='backrooms_almonds_seeded_v1';
+const ALM_START=100000000;
+let almonds=ALM_START;
+(function loadAlmonds(){
+  try{
+    if(localStorage.getItem(ALM_SEED_KEY)!=='1'){
+      almonds=ALM_START;
+      localStorage.setItem(ALM_SEED_KEY,'1');
+      localStorage.setItem(ALM_KEY,String(almonds));
+      return;
+    }
+    const n=parseInt(localStorage.getItem(ALM_KEY),10);
+    almonds=Number.isFinite(n)&&n>=0 ? n : ALM_START;
+  }catch(e){ almonds=ALM_START; }
+})();
+function saveAlmonds(){ try{ localStorage.setItem(ALM_KEY,String(almonds)); }catch(e){} }
+function fmtAlm(n){ return Math.round(n).toLocaleString(); }
+function addAlmonds(n){
+  almonds=Math.max(0, almonds+n);
+  saveAlmonds(); paintAlmonds();
+}
 
 // ---- game state ----
 let seed = 1234567;
@@ -4297,6 +4412,7 @@ function gameOver(){
 function winGame(){
   if(!running) return; running=false;
   markComplete(0); markComplete(1); markComplete(2);   // reaching the final exit clears every level before it
+  addAlmonds(50000);
   audio.setGrowl(0); audio.pickup();
   document.getElementById('cross').classList.remove('show');
   document.getElementById('touch').classList.remove('show');
@@ -4348,6 +4464,7 @@ function enterLevel1(){
   if(transitioning) return;
   if(!l1Ready){ pendingLevel1=true; toast('The floor gives way…'); return; }
   markComplete(0); markDiscovered(1);   // escaping the Lobby completes Level 0 and reveals Level 1
+  addAlmonds(5000);                     // getting out is the big payday
   transitioning=true; running=false; audio.setGrowl(0);
   if(locked) document.exitPointerLock();
   for(const key of [...chunks.keys()]) unloadChunk(key);
@@ -4375,6 +4492,7 @@ function enterLevel1(){
 function enterLevel2(){
   if(transitioning) return;
   markComplete(1); markDiscovered(2);
+  addAlmonds(12000);
   if(!l2Ready){
     pendingLevel2=true; loadLevel2();
     transitioning=true; running=false; audio.setGrowl(0);
@@ -5547,7 +5665,8 @@ function updatePickups(dt){
         const gain=Math.round(26*(1+perkPct('THIRST')));
         waters++; sanity=Math.min(100, sanity+gain); collected.add(p.key);
         p.mesh.parent && p.mesh.parent.remove(p.mesh);
-        pickups.splice(i,1); audio.pickup(); toast("🧃 Almond Water — +"+gain+" sanity");
+        pickups.splice(i,1); audio.pickup(); addAlmonds(25);
+        toast("🧃 Almond Water — +"+gain+" sanity · 🥜25");
         liveEvent('water');
       }
     } else if(p.kind==='mini'){
@@ -6178,6 +6297,139 @@ document.getElementById('sayaIn').addEventListener('keydown', e=>{
 });
 document.getElementById('sayaIn').addEventListener('focus', ()=>{ botChatOpen=true; if(locked) document.exitPointerLock(); });
 
+/* ================================================================ SHOP
+   Packs, paid for in almonds. A pack rolls a rarity per pull — biased upward
+   by the pack's boost and never below its floor — then picks a Mini from that
+   tier, preferring ones you haven't got. Duplicates pay a little back. */
+const PACKS=[
+  {k:'starter', name:'STARTER PACK', icon:'📦', cost:1000,     pulls:3,  floor:0, boost:0,   guar:null,
+   art:'linear-gradient(135deg,#6b6b6b,#3a3a3a)', blurb:'three Minis. whatever falls out, falls out.'},
+  {k:'lobby',   name:'LOBBY PACK',   icon:'🟨', cost:10000,    pulls:5,  floor:1, boost:0.6, guar:null,
+   art:'linear-gradient(135deg,#c9b24a,#6b5c17)', blurb:'five Minis, and none of them are Common.'},
+  {k:'entity',  name:'ENTITY PACK',  icon:'👁', cost:100000,   pulls:5,  floor:2, boost:1.4, guar:3,
+   art:'linear-gradient(135deg,#7d4bbf,#2a1240)', blurb:'five Minis. one Epic or better, guaranteed.'},
+  {k:'eternal', name:'ETERNAL PACK', icon:'🔥', cost:1000000,  pulls:7,  floor:3, boost:2.6, guar:4,
+   art:'linear-gradient(135deg,#e0533d,#5a1310)', blurb:'seven Minis. one Legendary or better, and a real shot at an ETERNAL.'},
+  {k:'admin',   name:'ADMIN PACK',   icon:'⭐', cost:10000000, pulls:10, floor:4, boost:4.2, guar:5, luck:50,
+   art:'linear-gradient(135deg,#ffd95e,#7a5b06)', blurb:'ten Minis, a Mythic guaranteed, and Saya throws ×50 luck on top.'},
+];
+function rollTier(floor,boost){
+  const CH=[0.50,0.30,0.12,0.05,0.02,0.005,0.012];
+  let r=Math.random();
+  if(boost>0) r=1-Math.pow(1-r, 1+boost);      // drag the roll toward the rare tail
+  const TOT=CH.reduce((a,b)=>a+b,0);
+  let acc=0, tier=0;
+  for(let t=0;t<CH.length;t++){ acc+=CH[t]; if(r*TOT<acc){ tier=t; break; } }
+  return Math.max(floor,tier);
+}
+function pullMini(tier){
+  let list=minisOfRarity(tier);
+  if(!list || !list.length) list=minisOfRarity(0);
+  const owned=new Set(minisOwned());
+  const fresh=list.filter(i=>!owned.has(i));
+  const pool=fresh.length?fresh:list;          // all of that tier owned? then it's a dupe
+  return pool[(Math.random()*pool.length)|0];
+}
+/* quiet version of catchMini: no toast, no stream event, tells you if it was new */
+function grantMini(i){
+  const owned=minisOwned();
+  if(owned.indexOf(i)>=0) return false;
+  owned.push(i);
+  try{ localStorage.setItem('backrooms_minis', JSON.stringify(owned)); }catch(e){}
+  if(owned.length>=MINIS_TOTAL) unlockAchievement('allminis');
+  unlockAchievement('firstmini');
+  if(equippedMini()==null) equipMini(i);
+  return true;
+}
+function paintAlmonds(){
+  const s=fmtAlm(almonds);
+  const a=document.getElementById('stAlmN'); if(a) a.textContent=s;
+  const b=document.getElementById('shopBal'); if(b) b.textContent='🥜 '+s;
+  const c=document.getElementById('hudAlmN'); if(c) c.textContent=s;
+  document.querySelectorAll('#packGrid button[data-pack]').forEach(btn=>{
+    const P=PACKS.find(p=>p.k===btn.dataset.pack);
+    btn.disabled = !P || almonds<P.cost;
+  });
+}
+function renderShop(){
+  const grid=document.getElementById('packGrid');
+  grid.innerHTML='';
+  for(const P of PACKS){
+    const el=document.createElement('div'); el.className='pack';
+    const art=document.createElement('div'); art.className='pk-art';
+    art.style.background=P.art; art.textContent=P.icon;
+    const nm=document.createElement('b'); nm.textContent=P.name;
+    const bl=document.createElement('i'); bl.textContent=P.blurb;
+    const od=document.createElement('div'); od.className='pk-odds';
+    od.textContent=P.pulls+' pulls · floor '+RARITIES[P.floor].key+(P.guar!=null?' · guaranteed '+RARITIES[P.guar].key:'');
+    const bt=document.createElement('button'); bt.dataset.pack=P.k;
+    bt.textContent='🥜 '+fmtAlm(P.cost);
+    bt.addEventListener('click',()=>buyPack(P.k));
+    el.append(art,nm,bl,od,bt); grid.appendChild(el);
+  }
+  paintAlmonds();
+}
+function openShop(){
+  if(document.pointerLockElement) document.exitPointerLock();
+  document.getElementById('shopScreen').classList.add('show');
+  document.getElementById('shopClose').classList.add('show');
+  renderShop();
+}
+function closeShop(){
+  document.getElementById('shopScreen').classList.remove('show');
+  document.getElementById('shopClose').classList.remove('show');
+}
+function buyPack(key){
+  const P=PACKS.find(p=>p.k===key); if(!P) return;
+  if(almonds<P.cost){ toast('not enough almonds'); return; }
+  addAlmonds(-P.cost);
+  const tiers=[];
+  for(let n=0;n<P.pulls;n++) tiers.push(rollTier(P.floor,P.boost));
+  /* make the promise on the box true */
+  if(P.guar!=null && !tiers.some(t=>t>=P.guar)) tiers[(Math.random()*tiers.length)|0]=P.guar;
+  const pulls=tiers.map(t=>{ const i=pullMini(t); return {i, tier:miniRarity(i), fresh:grantMini(i)}; });
+  const dupes=pulls.filter(p=>!p.fresh).length;
+  const refund=Math.round(P.cost*0.10)*dupes;
+  if(refund) addAlmonds(refund);
+  if(P.luck){ setLuck(P.luck,300); adminLine('×'+P.luck+' LUCK — ADMIN PACK', true); }
+  showPack(P,pulls,dupes,refund);
+  if(pulls.some(p=>p.tier>=5)) liveEvent('mini');
+  renderShop();
+}
+function showPack(P,pulls,dupes,refund){
+  const box=document.getElementById('packOpen'), cards=document.getElementById('poCards');
+  document.getElementById('poTitle').textContent=P.name;
+  document.getElementById('poFoot').textContent='';
+  cards.innerHTML='';
+  box.classList.add('show');
+  pulls.forEach((p,n)=>{
+    const R=RARITIES[p.tier];
+    const c=document.createElement('div'); c.className='pcard'+(p.fresh?' new':'');
+    c.style.borderColor=R.col;
+    const cv=drawMiniSprite(p.i);
+    const img=document.createElement('canvas'); img.width=cv.width; img.height=cv.height;
+    img.getContext('2d').drawImage(cv,0,0);
+    const nm=document.createElement('div'); nm.className='pn'; nm.textContent=miniName(p.i);
+    const rr=document.createElement('div'); rr.className='pr'; rr.textContent=R.key; rr.style.color=R.col;
+    const du=document.createElement('div'); du.className='pdup'; du.textContent=p.fresh?'NEW':'dupe';
+    c.append(img,nm,rr,du); cards.appendChild(c);
+    setTimeout(()=>c.classList.add('in'), 220+n*260);
+  });
+  setTimeout(()=>{
+    const best=pulls.reduce((a,b)=>b.tier>a.tier?b:a);
+    document.getElementById('poFoot').textContent =
+      'best pull: '+RARITIES[best.tier].key+' · '+pulls.filter(p=>p.fresh).length+' new'+
+      (dupes?(' · '+dupes+' dupe'+(dupes>1?'s':'')+' refunded 🥜'+fmtAlm(refund)):'');
+  }, 260+pulls.length*260);
+}
+document.getElementById('shopBtn').addEventListener('click', openShop);
+document.getElementById('menuShopBtn').addEventListener('click', openShop);
+document.getElementById('shopClose').addEventListener('click', closeShop);
+document.getElementById('poClose').addEventListener('click', ()=>{
+  document.getElementById('packOpen').classList.remove('show');
+});
+paintAlmonds();
+
 /* ---------------------------------------------------------------- minis collection */
 const MINIS_TOTAL = 73;
 /* the twelve ETERNAL rappers occupy their own block of indices, so the
@@ -6197,6 +6449,8 @@ function catchMini(i){
   owned.push(i);
   try{ localStorage.setItem('backrooms_minis', JSON.stringify(owned)); }catch(e){}
   const R=RARITIES[miniRarity(i)], P=miniPerk(i);
+  /* rarer catches are worth more — this is most of what pays for packs */
+  addAlmonds([250,500,1200,3000,8000,25000,60000][miniRarity(i)]||250);
   toast('★ Caught '+miniName(i)+' — '+R.key+' · '+P.kind.t);
   liveEvent('mini');
   unlockAchievement('firstmini');
