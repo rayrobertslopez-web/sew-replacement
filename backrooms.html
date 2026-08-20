@@ -179,6 +179,24 @@
     text-shadow:0 0 12px rgba(242,196,15,.5); pointer-events:none; white-space:nowrap; }
   #luckTag.show{ display:block; }
   .mlMsg.dev{ color:#8ff0c8; font-weight:700; }
+  /* ---- admin abuse: Saya types into the world, not just into her panel ----
+     Everything she says lands across the top of the screen the way an admin
+     announcement does, tagged so you can tell it apart from your own SAY. */
+  #adminFeed{ position:fixed; z-index:36; left:50%; transform:translateX(-50%);
+    top:calc(env(safe-area-inset-top) + 130px); width:min(780px,94vw);
+    display:flex; flex-direction:column; align-items:center; gap:7px; pointer-events:none; }
+  body.cutscene #adminFeed{ display:none; }
+  .afLine{ max-width:100%; text-align:center; word-wrap:break-word; overflow-wrap:anywhere;
+    font-family:'Arial Black','Helvetica Neue',Arial,sans-serif; font-weight:900;
+    font-size:clamp(15px,3.1vw,25px); line-height:1.25; letter-spacing:.4px; color:#fff;
+    text-shadow:0 2px 0 #000, 0 0 12px rgba(0,0,0,.95), 0 0 28px rgba(255,60,60,.45);
+    opacity:0; transform:translateY(-10px); transition:opacity .22s ease, transform .22s ease; }
+  .afLine.in{ opacity:1; transform:none; }
+  .afLine .tag{ color:#ff3b30; text-shadow:0 2px 0 #2a0000, 0 0 16px rgba(255,59,48,.9); }
+  .afLine .who{ color:#ffd53b; text-shadow:0 2px 0 #2a1f00, 0 0 16px rgba(255,213,59,.75); }
+  .afLine.big{ font-size:clamp(21px,5.2vw,42px); }
+  .afLine.big .tag{ animation:afPulse .72s infinite; }
+  @keyframes afPulse{ 0%,60%{opacity:1} 61%,100%{opacity:.4} }
 
   /* ---- mobile controls ---- */
   #touch{ position:fixed; inset:0; z-index:7; display:none; }
@@ -1610,6 +1628,7 @@
   </div>
 </div>
 <div id="luckTag"></div>
+<div id="adminFeed"></div>
 
 <!-- HUD (camcorder viewfinder) -->
 <div id="hud">
@@ -5871,21 +5890,73 @@ function sayaMsg(txt,cls){
   while(log.childElementCount>60) log.removeChild(log.firstChild);
   log.scrollTop=log.scrollHeight;
 }
+/* ---- admin abuse ----
+   Saya doesn't only talk in her own window. Every line she says gets typed
+   into the game itself, across the top of the screen, tagged [ADMIN] — same
+   idea as an admin turning up in a server and talking to everyone at once. */
+const ADMIN_SEEN_KEY='backrooms_saya_met';
+function adminLine(txt,big){
+  const feed=document.getElementById('adminFeed');
+  if(!feed) return;
+  const d=document.createElement('div');
+  d.className='afLine'+(big?' big':'');
+  d.innerHTML='<span class="tag">[ADMIN]</span> <span class="who">Saya</span>: '+esc(txt);
+  feed.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('in'));
+  while(feed.childElementCount>4) feed.removeChild(feed.firstChild);
+  setTimeout(()=>{ d.classList.remove('in'); setTimeout(()=>{ if(d.parentNode) d.remove(); },320); }, big?5400:4300);
+}
 /* she types like a person: a beat of thinking, then the line */
 function sayaSay(txt,delay){
   setTimeout(()=>{
     sayaMsg(txt);
+    adminLine(txt);
     if(myLive) mlLine(txt,'dev','Saya');
   }, delay===undefined ? 420+Math.random()*520 : delay);
 }
+
+/* she keeps talking while you play, the way an admin who's bored does — and
+   now and then she actually hands something out instead of just saying so */
+const SAYA_IDLE=['im in your server','dont mind me, just watching',
+  'ill patch that wall later','i can see your coordinates',
+  'this hallway is my fault','nice run so far','careful up here',
+  'im not gonna spawn anything. probably.','say the word and i turn the luck up',
+  'who wants luck','admin abuse incoming','yeah i built that corner wrong',
+  'youre doing better than most','dont look behind you. joking. maybe.'];
+let sayaIdleT=null;
+function sayaMet(){ try{ return localStorage.getItem(ADMIN_SEEN_KEY)==='1'; }catch(e){ return false; } }
+function sayaIdleTick(){
+  clearTimeout(sayaIdleT);
+  sayaIdleT=setTimeout(()=>{
+    sayaIdleTick();
+    if(!sayaMet() || !running || hideOn() || cineActive || escActive || document.body.classList.contains('cutscene')) return;
+    if(Math.random()<0.22 && luckNow()===1){
+      /* the abuse part: she just gives you something */
+      const m=[2,4,10][(Math.random()*3)|0];
+      setLuck(m,90);
+      adminLine('here, have ×'+m+' luck', true);
+      sayaMsg('gave you ×'+m+' luck','sys');
+      if(myLive) mlLine('Saya gave ×'+m+' luck','dev');
+    } else {
+      const t=SAYA_IDLE[(Math.random()*SAYA_IDLE.length)|0];
+      adminLine(t);
+      sayaMsg(t);
+      if(myLive) mlLine(t,'dev','Saya');
+    }
+  }, 42000+Math.random()*48000);
+}
+sayaIdleTick();
 function openSaya(){
   document.getElementById('saya').classList.add('show');
   botChatOpen=true;
   if(locked) document.exitPointerLock();
   if(!sayaGreeted){
     sayaGreeted=true;
+    try{ localStorage.setItem(ADMIN_SEEN_KEY,'1'); }catch(e){}
     sayaMsg('Saya joined the game','sys');
+    adminLine('joined the server', true);
     sayaSay("hey — im Saya, i made this thing. say “saya run my event” whenever you want the luck ladder.",700);
+    sayaIdleTick();
   }
   setTimeout(()=>document.getElementById('sayaIn').focus(),0);
 }
@@ -5934,7 +6005,7 @@ function sayaRunEvent(){
     const m=SAYA_LADDER[i++];
     setLuck(m,LUCK_SECS);
     sayaMsg('activating ×'+m+' luck','sys');
-    bigSay('×'+m+' LUCK');
+    adminLine('×'+m+' LUCK ACTIVATED', true);
     toast('Saya activated ×'+m+' luck');
     if(myLive){ mlLine('Saya activated ×'+m+' luck','dev'); mlViewers+=6; mlCount(); }
     sayaEventT=setTimeout(step,2400);
@@ -5946,14 +6017,6 @@ function sayaStopEvent(quiet){
   clearLuck();
   if(!quiet) sayaSay('stopped. luck is back to normal.');
 }
-/* reuse the SAY overlay so the multiplier lands big across the screen */
-function bigSay(txt){
-  const m=document.getElementById('sayMsg');
-  m.textContent=txt; m.classList.add('show');
-  clearTimeout(sayFade);
-  sayFade=setTimeout(()=>m.classList.remove('show'), 2200);
-}
-
 /* ---- she's in every stream you start ---- */
 const SAYA_STREAM=['dev is watching 👀','that corner is new, i moved it last patch',
   'chat be nice to them','ill patch that light, i see it flickering wrong',
@@ -6011,7 +6074,7 @@ function sayaHear(raw){
     const v=Math.max(1,Math.min(1000, parseInt(n[1]||n[2],10)));
     setLuck(v,LUCK_SECS);
     sayaSay('okay — ×'+v+' luck for five minutes.',260);
-    bigSay('×'+v+' LUCK');
+    adminLine('×'+v+' LUCK ACTIVATED', true);
     if(myLive){ mlLine('Saya activated ×'+v+' luck','dev'); mlViewers+=6; mlCount(); }
     return;
   }
@@ -8681,7 +8744,11 @@ function hms(ms){
     t.textContent = on ? 'VARIANTS ARE LIVE' : 'SEASON 2 IN '+hms(S2_AT-Date.now());
     box.classList.toggle('s2', on);
     /* caught the moment it turned over while someone was sitting here */
-    if(wasOn===false && on){ toast('SEASON 2 — variants are live'); if(myLive) mlLine('SEASON 2 IS LIVE','dev'); }
+    if(wasOn===false && on){
+      toast('SEASON 2 — variants are live');
+      adminLine('SEASON 2 IS LIVE — VARIANTS ARE ROLLING', true);
+      if(myLive) mlLine('SEASON 2 IS LIVE','dev');
+    }
     wasOn=on;
     paintLuck();
   }
