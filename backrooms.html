@@ -567,6 +567,11 @@
   .lmsg b{ font-weight:700; }
   .lmsg.me b{ color:#b0a4ff; }
   .lmsg.tip{ background:#2a2413; border-left:3px solid #ffd95e; padding:5px 8px; border-radius:0 7px 7px 0; }
+  /* the dev turning up in someone else's chat */
+  .lmsg.admin{ background:#2b1414; border-left:3px solid #ff3b30; padding:5px 8px;
+    border-radius:0 7px 7px 0; color:#ffe1de; font-weight:700; }
+  .lmsg.admin b{ color:#ffd53b; }
+  .lmsg.admin b::before{ content:'[ADMIN] '; color:#ff3b30; }
   #lwSay{ max-width:760px; margin:10px auto 0; display:flex; gap:8px; }
   #lwInput{ flex:1; min-width:0; background:#1e1e25; color:#e9e9ee; border:1px solid #3d3d4a;
     border-radius:9px; padding:10px 12px; font:inherit; font-size:13.5px; }
@@ -1992,6 +1997,9 @@ function s2On(){ return Date.now() >= S2_AT; }
    almond water, Minis, exits. Saya switches it on; it runs out on its own. */
 let luckMult = 1, luckUntil = 0;
 function luckNow(){ return Date.now() < luckUntil ? luckMult : 1; }
+/* and the other thing she hands out: a temporary boot speed */
+let adminSpeed = 1, adminSpeedUntil = 0;
+function speedNow(){ return Date.now() < adminSpeedUntil ? adminSpeed : 1; }
 
 // ---- game state ----
 let seed = 1234567;
@@ -5383,6 +5391,7 @@ function tick(){
   xrOn = renderer.xr.isPresenting;
   /* the poster menu re-dresses the fixed furniture, so it needs to know when it's up */
   document.body.classList.toggle('atmenu', !document.getElementById('start').classList.contains('hide'));
+  updateStreams(dt);
   /* one flag for "you are actually in a game right now" — the SAY button hangs off it */
   document.body.classList.toggle('playing', !!(running||creatorMode||megActive)
     && !tvPlaying && !cineActive && !escActive && !settingsOpen && !shutdownActive);
@@ -5422,7 +5431,7 @@ function update(dt){
   const moving=mag>0.08;
 
   const wantSprint = (input.sprint||gpSprint) && (stamina>2 || level===3) && moving;
-  const speed = (wantSprint ? 4.8 : 2.7) * (1+perkPct('SWIFT'));
+  const speed = (wantSprint ? 4.8 : 2.7) * (1+perkPct('SWIFT')) * speedNow();
   /* bodies have mass. Getting up to speed takes a moment, stopping takes
      longer, and turning while moving carries you a little wide. */
   const ACCEL = wantSprint ? 9.0 : 11.0, FRICTION = 7.5;
@@ -5895,23 +5904,51 @@ function sayaMsg(txt,cls){
    into the game itself, across the top of the screen, tagged [ADMIN] — same
    idea as an admin turning up in a server and talking to everyone at once. */
 const ADMIN_SEEN_KEY='backrooms_saya_met';
-function adminLine(txt,big){
+/* what a room does when an admin starts typing in it */
+const CROWD_AT_ADMIN=['ADMIN?? in MY stream','yoooo saya','SAYA W','give me luck too',
+  'admin abuse 😭','hi saya!!','no way the dev is here','SAYAAAA','can i get x200',
+  'mods','saya notice me','LMAO admin','hes actually here','do the thing'];
+/* every admin line goes everywhere at once: the screen, your stream, whatever
+   stream you're watching, and the server chat if it's open */
+function adminLine(txt,big,isReply){
   const feed=document.getElementById('adminFeed');
-  if(!feed) return;
-  const d=document.createElement('div');
-  d.className='afLine'+(big?' big':'');
-  d.innerHTML='<span class="tag">[ADMIN]</span> <span class="who">Saya</span>: '+esc(txt);
-  feed.appendChild(d);
-  requestAnimationFrame(()=>d.classList.add('in'));
-  while(feed.childElementCount>4) feed.removeChild(feed.firstChild);
-  setTimeout(()=>{ d.classList.remove('in'); setTimeout(()=>{ if(d.parentNode) d.remove(); },320); }, big?5400:4300);
+  if(feed){
+    const d=document.createElement('div');
+    d.className='afLine'+(big?' big':'');
+    d.innerHTML='<span class="tag">[ADMIN]</span> <span class="who">Saya</span>: '+esc(txt);
+    feed.appendChild(d);
+    requestAnimationFrame(()=>d.classList.add('in'));
+    while(feed.childElementCount>4) feed.removeChild(feed.firstChild);
+    setTimeout(()=>{ d.classList.remove('in'); setTimeout(()=>{ if(d.parentNode) d.remove(); },320); }, big?5400:4300);
+  }
+  if(myLive){
+    mlLine(txt,'dev','Saya');
+    chatBurstML(CROWD_AT_ADMIN,3);
+    mlViewers+=8; mlPeak=Math.max(mlPeak,mlViewers); mlCount();
+  }
+  if(liveCur){
+    chatLine('Saya', txt, 'admin');
+    liveAlert('[ADMIN] Saya: '+txt);
+    chatBurst(CROWD_AT_ADMIN[(Math.random()*CROWD_AT_ADMIN.length)|0], 4);
+    liveCur.viewers+=12; updateWatchCount();
+  }
+  const bc=document.getElementById('botChat');
+  if(bc && !bc.classList.contains('hide')) appendBotMsg('Saya', txt);
+  /* and she answers the room back, once — a reply never triggers another reply */
+  if(!isReply && (myLive||liveCur) && Math.random()<0.7) sayaAnswerCrowd();
+}
+function sayaAnswerCrowd(){
+  const who=chatName();
+  const lines=['yeah '+who+', im here','ok '+who+' calm down','@'+who+' fine, one sec',
+    'hi '+who+' 👋','no '+who+', im not spawning that','@'+who+' good question. no.',
+    'hey '+who,'@'+who+' youre next','i see you '+who];
+  setTimeout(()=>adminLine(lines[(Math.random()*lines.length)|0], false, true), 1700+Math.random()*1900);
 }
 /* she types like a person: a beat of thinking, then the line */
 function sayaSay(txt,delay){
   setTimeout(()=>{
     sayaMsg(txt);
-    adminLine(txt);
-    if(myLive) mlLine(txt,'dev','Saya');
+    adminLine(txt);            // adminLine is the broadcast — it reaches the streams itself
   }, delay===undefined ? 420+Math.random()*520 : delay);
 }
 
@@ -5925,25 +5962,52 @@ const SAYA_IDLE=['im in your server','dont mind me, just watching',
   'youre doing better than most','dont look behind you. joking. maybe.'];
 let sayaIdleT=null;
 function sayaMet(){ try{ return localStorage.getItem(ADMIN_SEEN_KEY)==='1'; }catch(e){ return false; } }
+
+/* ---- the abuse itself ----
+   Things she reaches in and does, unasked. Each one announces itself, so you
+   always know it was her and not the game. */
+const ADMIN_ACTS=[
+  {k:'luck', go(){ const m=[2,4,10,20,50][(Math.random()*5)|0];
+    setLuck(m,120); return '×'+m+' LUCK, ON THE HOUSE'; }},
+  {k:'speed', go(){ adminSpeed=1.75; adminSpeedUntil=Date.now()+45000;
+    return 'GAVE YOU LEGS FOR 45 SECONDS'; }},
+  {k:'sanity', go(){ sanity=100; return 'SANITY RESET TO 100'; }},
+  {k:'stam', go(){ stamina=100; return 'STAMINA REFILLED'; }},
+  {k:'water', go(){ waters+=3; return 'HERE, THREE ALMOND WATERS'; }},
+  {k:'move', go(){ if(entity) placeEntityFar(); return 'I MOVED IT. YOURE WELCOME'; }},
+  {k:'variant', go(){
+    if(!s2On()) return null;
+    if(entity){ scene.remove(entity.obj); entity=null; }
+    spawnEntity();
+    return 'ROLLED YOU A '+((entity&&entity.variant)?entity.variant.n:'NEW')+' ONE'; }},
+  {k:'scare', go(){ flashJumpscare(); return 'sorry. finger slipped.'; }},
+];
+/* she does something, at random, and tells the room she did it */
+function sayaAct(force){
+  if(!running && !force) return false;
+  const pool=ADMIN_ACTS.slice().sort(()=>Math.random()-0.5);
+  for(const a of pool){
+    let line=null;
+    try{ line=a.go(); }catch(e){ line=null; }
+    if(!line) continue;
+    adminLine(line, true);
+    sayaMsg(line.toLowerCase(),'sys');
+    toast('Saya: '+line.toLowerCase());
+    return true;
+  }
+  return false;
+}
 function sayaIdleTick(){
   clearTimeout(sayaIdleT);
   sayaIdleT=setTimeout(()=>{
     sayaIdleTick();
     if(!sayaMet() || !running || hideOn() || cineActive || escActive || document.body.classList.contains('cutscene')) return;
-    if(Math.random()<0.22 && luckNow()===1){
-      /* the abuse part: she just gives you something */
-      const m=[2,4,10][(Math.random()*3)|0];
-      setLuck(m,90);
-      adminLine('here, have ×'+m+' luck', true);
-      sayaMsg('gave you ×'+m+' luck','sys');
-      if(myLive) mlLine('Saya gave ×'+m+' luck','dev');
-    } else {
-      const t=SAYA_IDLE[(Math.random()*SAYA_IDLE.length)|0];
-      adminLine(t);
-      sayaMsg(t);
-      if(myLive) mlLine(t,'dev','Saya');
-    }
-  }, 42000+Math.random()*48000);
+    /* about a third of the time she stops talking and just does something */
+    if(Math.random()<0.34 && sayaAct()) return;
+    const t=SAYA_IDLE[(Math.random()*SAYA_IDLE.length)|0];
+    adminLine(t);
+    sayaMsg(t);
+  }, 38000+Math.random()*44000);
 }
 sayaIdleTick();
 function openSaya(){
@@ -6007,7 +6071,6 @@ function sayaRunEvent(){
     sayaMsg('activating ×'+m+' luck','sys');
     adminLine('×'+m+' LUCK ACTIVATED', true);
     toast('Saya activated ×'+m+' luck');
-    if(myLive){ mlLine('Saya activated ×'+m+' luck','dev'); mlViewers+=6; mlCount(); }
     sayaEventT=setTimeout(step,2400);
   };
   sayaEventT=setTimeout(step,1200);
@@ -6075,7 +6138,10 @@ function sayaHear(raw){
     setLuck(v,LUCK_SECS);
     sayaSay('okay — ×'+v+' luck for five minutes.',260);
     adminLine('×'+v+' LUCK ACTIVATED', true);
-    if(myLive){ mlLine('Saya activated ×'+v+' luck','dev'); mlViewers+=6; mlCount(); }
+    return;
+  }
+  if(/\b(do|activate|abuse|surprise|random)\b.*\b(something|anything|stuff|me|it)\b|\badmin abuse\b/.test(m)){
+    if(!sayaAct(true)) sayaSay("nothing i can pull right now — start a run first.",260);
     return;
   }
   if(/\bjoin\b.*\b(stream|live)\b/.test(m)){
@@ -7576,6 +7642,97 @@ function paintLive(cv, L, t){
 const _liveSprites={};
 function liveSprite(i){ return _liveSprites[i] || (_liveSprites[i]=drawMiniSprite(i)); }
 
+/* ================================================ real live footage
+   The streams aren't a drawing any more. A second camera is walked through
+   the same maze the player is standing in, rendered into a small target and
+   read back onto each card — so what you're watching is the actual game,
+   entities and all. One readback per frame, round-robin over the cards. */
+const STREAM_W=320, STREAM_H=180;
+let streamRT=null, streamCam=null, streamPix=null, streamImg=null, streamCtx=null, streamLight=null, streamFill=null;
+let livesOpen=false, streamTurn=0, streamClock=0, watchClock=0;
+function ensureStreamGear(){
+  if(streamRT) return;
+  streamRT=new THREE.WebGLRenderTarget(STREAM_W,STREAM_H);
+  streamCam=new THREE.PerspectiveCamera(74, STREAM_W/STREAM_H, 0.1, 60);
+  /* the ceiling lights the player stands under only follow the player, so a
+     camera thirty metres away films a black corridor. Every streamer gets the
+     same pool of light the player has, switched on only for their own frame. */
+  streamLight=new THREE.PointLight(0xfff0bf, 12, 34, 2);
+  streamLight.visible=false; scene.add(streamLight);
+  streamFill=new THREE.PointLight(0xffe6ae, 6.5, 17, 2);
+  streamFill.visible=false; scene.add(streamFill);
+  streamPix=new Uint8Array(STREAM_W*STREAM_H*4);
+  const c=document.createElement('canvas'); c.width=STREAM_W; c.height=STREAM_H;
+  streamCtx=c.getContext('2d'); streamImg=streamCtx.createImageData(STREAM_W,STREAM_H);
+}
+/* opening LIVES from the menu means there's no world loaded yet — build the
+   Lobby around the origin so the cameras have somewhere to be */
+function ensureStreamWorld(){
+  if(chunks.size || running || level!==0) return;
+  updateChunks(); processQueue(60);
+}
+/* each stream walks its own camera down the real corridors */
+function streamStep(L,dt,ax,az){
+  if(L.sx===undefined){
+    /* start it in open floor — a camera born inside a wall films black */
+    let x=ax, z=az;
+    for(let t=0;t<24;t++){
+      const a=Math.random()*Math.PI*2, d=7+Math.random()*17;
+      x=ax+Math.cos(a)*d; z=az+Math.sin(a)*d;
+      if(level!==0 || !pointSolid(x,z)) break;
+    }
+    L.sx=x; L.sz=z;
+    L.syaw=Math.random()*Math.PI*2; L.sturn=0; L.sbob=Math.random()*10;
+  }
+  L.sbob+=dt; L.sturn-=dt;
+  if(L.sturn<=0){ L.syaw+=(Math.random()-0.5)*1.7; L.sturn=1.1+Math.random()*2.3; }
+  /* leashed to the loaded chunks — walk out of them and there's nothing to film */
+  const dx=ax-L.sx, dz=az-L.sz;
+  if(Math.hypot(dx,dz)>26) L.syaw=Math.atan2(-dx,-dz)+(Math.random()-0.5)*0.4;
+  const sp=2.5;
+  let nx=L.sx-Math.sin(L.syaw)*sp*dt, nz=L.sz-Math.cos(L.syaw)*sp*dt;
+  [nx,nz]=collideLevel(nx,nz,0.34);
+  if(Math.hypot(nx-L.sx,nz-L.sz)<sp*dt*0.45){ L.syaw+=2.3; L.sturn=0.35; }   // walked into a wall
+  L.sx=nx; L.sz=nz;
+}
+function grabStream(L,cv){
+  /* nothing loaded to film (a level with no chunks, or the gpu said no) —
+     fall back to the drawn hallway rather than showing a black card */
+  if(!chunks.size || !renderer){ paintLive(cv,L,performance.now()/1000); return; }
+  ensureStreamGear();
+  streamCam.position.set(L.sx, floorAt(L.sx,L.sz)+EYE+Math.sin(L.sbob*6.2)*0.045, L.sz);
+  streamCam.rotation.set(Math.sin(L.sbob*3.1)*0.022, L.syaw, Math.sin(L.sbob*3.1)*0.012, 'YXZ');
+  streamLight.position.set(L.sx, floorAt(L.sx,L.sz)+WALL_H-0.35, L.sz);
+  streamFill.position.copy(streamCam.position);
+  streamLight.visible=streamFill.visible=true;
+  const amb0=ambient?ambient.intensity:0;
+  if(ambient) ambient.intensity=amb0+0.85;   // lift the whole shot, not just one bulb
+  const prev=renderer.getRenderTarget();
+  renderer.setRenderTarget(streamRT);
+  renderer.render(scene, streamCam);
+  renderer.readRenderTargetPixels(streamRT,0,0,STREAM_W,STREAM_H,streamPix);
+  renderer.setRenderTarget(prev);
+  streamLight.visible=streamFill.visible=false;   // never leaks into the player's own view
+  if(ambient) ambient.intensity=amb0;
+  /* gl hands pixels back bottom-up */
+  const d=streamImg.data, row=STREAM_W*4;
+  for(let y=0;y<STREAM_H;y++) d.set(streamPix.subarray((STREAM_H-1-y)*row,(STREAM_H-y)*row), y*row);
+  streamCtx.putImageData(streamImg,0,0);
+  const g=cv.getContext('2d');
+  /* the corridors away from the player only get ambient light, so the raw grab
+     comes back almost black — lift it the way a phone camera would */
+  g.filter='brightness(1.25) contrast(1.06) saturate(1.12)';
+  g.drawImage(streamCtx.canvas,0,0,cv.width,cv.height);
+  g.filter='none';
+  /* a grade per stream, so twelve cameras in one maze don't read as one shot */
+  g.globalCompositeOperation='overlay';
+  g.fillStyle='hsla('+Math.round(L.hue*360)+',65%,50%,.15)';
+  g.fillRect(0,0,cv.width,cv.height);
+  g.globalCompositeOperation='source-over';
+  g.fillStyle='rgba(0,0,0,.07)';
+  for(let y=0;y<cv.height;y+=3) g.fillRect(0,y,cv.width,1);
+}
+
 function renderLives(){
   makeLives();
   const grid=document.getElementById('livesGrid'); grid.innerHTML='';
@@ -7597,13 +7754,37 @@ function renderLives(){
     card.addEventListener('click',()=>openWatch(L));
     grid.appendChild(card); cvs.push([cv,L]);
   }
-  cancelAnimationFrame(liveThumbRaf);
-  const loop=()=>{
-    const t=performance.now()/1000;
-    for(const [cv,L] of cvs) paintLive(cv,L,t+L.id);
-    liveThumbRaf=requestAnimationFrame(loop);
-  };
-  loop();
+  liveThumbs=cvs;
+  streamTurn=0;
+}
+/* the cards are driven from the render loop, not their own rAF, so the
+   footage grab lands inside the frame that's already talking to the gpu */
+let liveThumbs=[];
+function updateStreams(dt){
+  if(!livesOpen && !liveCur) return;
+  ensureStreamWorld();
+  const ax=running?player.x:0, az=running?player.z:0;
+  if(liveCur){
+    streamStep(liveCur,dt,ax,az);
+    watchClock+=dt;
+    if(watchClock>=1/24){
+      watchClock=0;
+      const cv=document.querySelector('#lwStage canvas');
+      if(cv) grabStream(liveCur,cv);
+    }
+    return;
+  }
+  if(!liveThumbs.length) return;
+  for(const [,L] of liveThumbs) streamStep(L,dt,ax,az);
+  streamClock+=dt;
+  if(streamClock>=1/40){                       // two cards per tick, round-robin
+    streamClock=0;
+    for(let k=0;k<2;k++){
+      const [cv,L]=liveThumbs[streamTurn%liveThumbs.length];
+      streamTurn++;
+      grabStream(L,cv);
+    }
+  }
 }
 
 /* bots say your name out loud, so "you" as a fallback reads badly — give
@@ -7637,8 +7818,7 @@ function openWatch(L){
   let cv=stage.querySelector('canvas');
   if(!cv){ cv=document.createElement('canvas'); cv.width=760; cv.height=428; stage.prepend(cv); }
   cancelAnimationFrame(liveRaf);
-  const loop=()=>{ paintLive(cv,L,performance.now()/1000); liveRaf=requestAnimationFrame(loop); };
-  loop();
+  watchClock=1;                                  // paint the first frame immediately
   for(let i=0;i<8;i++) botChatLine();
   clearInterval(liveChatT);
   liveChatT=setInterval(()=>{ botChatLine(); if(Math.random()<0.5) botChatLine(); }, 900);
@@ -7825,10 +8005,12 @@ function openLives(){
   if(document.pointerLockElement) document.exitPointerLock();
   document.getElementById('livesScreen').classList.add('show');
   document.getElementById('livesClose').classList.add('show');
+  livesOpen=true;
   renderLives();
 }
 function closeLives(){
   cancelAnimationFrame(liveThumbRaf);
+  livesOpen=false; liveThumbs=[];
   document.getElementById('livesScreen').classList.remove('show');
   document.getElementById('livesClose').classList.remove('show');
 }
@@ -8749,7 +8931,6 @@ function hms(ms){
     if(wasOn===false && on){
       toast('SEASON 2 — variants are live');
       adminLine('SEASON 2 IS LIVE — VARIANTS ARE ROLLING', true);
-      if(myLive) mlLine('SEASON 2 IS LIVE','dev');
     }
     wasOn=on;
     paintLuck();
