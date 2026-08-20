@@ -131,6 +131,55 @@
   body.minting #saySend{ border-color:#3fbfa2; color:#d7fff4; background:rgba(95,227,192,.16); }
   body.minting #sayMsg{ color:#8ff0d8; text-shadow:0 0 24px rgba(95,227,192,.55), 0 2px 12px #000; }
 
+  /* ---- SAYA: the developer, sitting in the game with you ---- */
+  #sayaBtn{ position:fixed; z-index:31; left:0; top:calc(50% - 68px);
+    display:flex; align-items:center; gap:7px; padding:12px 16px 12px 12px;
+    border:2px solid #fff; border-left:none; border-radius:0 12px 12px 0;
+    background:rgba(24,44,38,.94); color:#eafff6; cursor:pointer; pointer-events:auto;
+    font-family:'Segoe Print','Comic Sans MS',cursive; font-weight:700; font-size:13px; letter-spacing:1px; }
+  #sayaBtn:active{ background:rgba(40,80,68,.96); }
+  #sayaBtn .dot{ width:9px; height:9px; border-radius:50%; background:#3ddc97; box-shadow:0 0 8px #3ddc97; }
+  body.creating #sayaBtn, body.cutscene #sayaBtn, body.cutscene #saya{ display:none !important; }
+  body.atmenu #sayaBtn{ left:auto; right:0; top:auto; transform:none;
+    bottom:calc(env(safe-area-inset-bottom) + 318px);
+    border-left:2px solid #fff; border-right:none; border-radius:12px 0 0 12px; padding:12px 12px 12px 16px; }
+  #saya{ position:fixed; z-index:34; display:none; flex-direction:column;
+    right:calc(env(safe-area-inset-right) + 14px); bottom:calc(env(safe-area-inset-bottom) + 14px);
+    width:min(360px,calc(100vw - 28px)); max-height:min(62vh,470px);
+    background:#0f1315; border:2px solid #2f6f5a; border-radius:15px; overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.62);
+    font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  #saya.show{ display:flex; }
+  #sayaHead{ display:flex; align-items:center; gap:8px; padding:10px 12px;
+    background:#15211d; border-bottom:1px solid #24463c; }
+  #sayaHead .dot{ width:9px; height:9px; border-radius:50%; background:#3ddc97; box-shadow:0 0 8px #3ddc97; }
+  #sayaHead b{ font-size:13px; letter-spacing:.06em; color:#e8fff7; }
+  #sayaHead i{ font-style:normal; font-size:9.5px; font-weight:800; letter-spacing:.16em; color:#5fbf9d; }
+  #sayaClose{ margin-left:auto; border:0; background:none; color:#6d8f84; font-size:16px;
+    cursor:pointer; padding:0 2px; font-family:inherit; }
+  #sayaLog{ flex:1; min-height:70px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .syMsg{ max-width:86%; padding:8px 11px; border-radius:12px; font-size:13px; line-height:1.5;
+    background:#1a2925; color:#dff3ea; align-self:flex-start; word-wrap:break-word; overflow-wrap:anywhere; }
+  .syMsg.me{ align-self:flex-end; background:#22394a; color:#dce9f5; }
+  .syMsg.sys{ align-self:center; max-width:100%; background:none; padding:2px;
+    color:#6d8f84; font-size:10.5px; font-weight:800; letter-spacing:.12em; text-align:center; }
+  #sayaBar{ display:flex; gap:7px; padding:10px; border-top:1px solid #24463c; background:#0b0f10; }
+  #sayaIn{ flex:1; min-width:0; background:#161c1e; border:1px solid #2f4a42; border-radius:9px;
+    color:#e8fff7; padding:9px 11px; font-size:13px; font-family:inherit; outline:none; }
+  #sayaIn:focus{ border-color:#3ddc97; }
+  #sayaSend{ padding:9px 14px; border-radius:9px; border:1px solid #3ddc97; cursor:pointer;
+    background:rgba(61,220,151,.16); color:#c9ffe9; font-family:inherit;
+    font-size:11.5px; font-weight:900; letter-spacing:.12em; }
+  /* the luck badge, while a multiplier is running */
+  #luckTag{ position:fixed; z-index:33; display:none; left:50%; transform:translateX(-50%);
+    top:calc(env(safe-area-inset-top) + 96px); padding:7px 17px; border-radius:999px;
+    border:2px solid #f2c40f; background:rgba(22,17,2,.82); color:#ffe98a;
+    font-family:"Courier New",ui-monospace,monospace; font-weight:900; font-size:14px; letter-spacing:.12em;
+    text-shadow:0 0 12px rgba(242,196,15,.5); pointer-events:none; white-space:nowrap; }
+  #luckTag.show{ display:block; }
+  .mlMsg.dev{ color:#8ff0c8; font-weight:700; }
+
   /* ---- mobile controls ---- */
   #touch{ position:fixed; inset:0; z-index:7; display:none; }
   #touch.show{ display:block; }
@@ -1204,6 +1253,11 @@
     font-family:'Arial Black','Helvetica Neue',Arial,sans-serif; font-weight:900; }
   #stSeason b{ font-size:clamp(22px,6vw,44px); color:#8e8e95; }
   #stSeason i{ margin-top:5px; font-size:clamp(13px,3.4vw,25px); color:#fff; }
+  #stSeason u{ display:block; margin-top:6px; text-decoration:none; font-size:10.5px; font-weight:800;
+    letter-spacing:.14em; color:#8b8272; font-family:"Courier New",ui-monospace,monospace; }
+  #start.s2 #stSeasonN{ color:#131009; }
+  #start.s2 #stSeasonS{ color:#c8342a; text-shadow:0 0 14px rgba(200,52,42,.35); }
+  #start.s2 #stSeason u{ color:#c8342a; }
   /* tagline and version along the bottom edge */
   /* in the flow, pushed to the floor by the auto margin — so it still lands at the
      bottom on a tall screen but never lies over the poster on a short one.
@@ -1217,8 +1271,8 @@
   /* the fixed furniture has to make room for the poster */
   body.atmenu #countdown, body.atmenu #threeAm{ z-index:22; left:auto; align-items:flex-end;
     right:calc(env(safe-area-inset-right) + 26px); background:none; border:0; padding:0; }
-  body.atmenu #countdown{ top:calc(env(safe-area-inset-top) + 104px); }
-  body.atmenu #threeAm{ top:calc(env(safe-area-inset-top) + 146px); }
+  body.atmenu #countdown{ top:calc(env(safe-area-inset-top) + 134px); }
+  body.atmenu #threeAm{ top:calc(env(safe-area-inset-top) + 176px); }
   body.atmenu #cdLabel, body.atmenu #taLabel{ color:#8b8272; }
   body.atmenu #cdTime{ color:#2b2721; text-shadow:none; }
   body.atmenu #taTime{ color:#4b3d60; text-shadow:none; }
@@ -1228,7 +1282,7 @@
     padding:12px 12px 12px 16px; }
   body.atmenu #minisBtn{ bottom:calc(env(safe-area-inset-bottom) + 218px); font-size:13px; }
   body.atmenu #musicBtn{ bottom:calc(env(safe-area-inset-bottom) + 268px); }
-  body.atmenu #settingsBtn{ top:auto; bottom:calc(env(safe-area-inset-bottom) + 322px);
+  body.atmenu #settingsBtn{ top:auto; bottom:calc(env(safe-area-inset-bottom) + 376px);
     right:calc(env(safe-area-inset-right) + 8px); background:#232327; border-color:#232327; color:#f3c515; }
   body.atmenu #huntTab{ display:none; }   /* its dark sliver reads as a smudge on the yellow */
   /* on a narrow screen the title runs under the clocks, so they drop to the left margin */
@@ -1237,7 +1291,8 @@
       left:calc(env(safe-area-inset-left) + 30px); }
     body.atmenu #countdown{ bottom:calc(env(safe-area-inset-bottom) + 112px); }
     body.atmenu #threeAm{ bottom:calc(env(safe-area-inset-bottom) + 154px); }
-    #stFoot{ padding-right:0; }
+    /* no room for tagline and version side by side next to the rail — stack them */
+    #stFoot{ padding-right:0; flex-direction:column; align-items:flex-start; gap:4px; }
   }
 
   /* compact layout for landscape phones (short viewport height) so nothing clips off-screen */
@@ -1297,6 +1352,9 @@
     body.atmenu #settingsBtn{ top:calc(env(safe-area-inset-top) + 46px); bottom:auto;
       right:calc(env(safe-area-inset-right) + 14px); }
     body.atmenu #countdown, body.atmenu #threeAm{ display:none; }   /* still there in-game */
+    body.atmenu #sayaBtn{ left:0; right:auto; top:calc(50% - 68px); bottom:auto;
+      border-left:none; border-right:2px solid #fff; border-radius:0 12px 12px 0; padding:12px 16px 12px 12px; }
+    body.atmenu #settingsBtn{ bottom:auto; }
     #stMain, #stFoot{ padding-left:98px; }
     #stLinks{ padding-right:130px; }
     #stSeason{ top:calc(env(safe-area-inset-top) + 14px); right:calc(env(safe-area-inset-right) + 62px); }
@@ -1541,6 +1599,18 @@
 </div>
 <div id="sayMsg"></div>
 
+<!-- SAYA — the developer, reachable from inside the game -->
+<button id="sayaBtn" type="button"><span class="dot"></span>SAYA</button>
+<div id="saya">
+  <div id="sayaHead"><span class="dot"></span><b>Saya</b><i>DEVELOPER · ONLINE</i><button id="sayaClose" type="button">&#10005;</button></div>
+  <div id="sayaLog"></div>
+  <div id="sayaBar">
+    <input id="sayaIn" maxlength="200" placeholder="talk to Saya…" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="sayaSend" type="button">SEND</button>
+  </div>
+</div>
+<div id="luckTag"></div>
+
 <!-- HUD (camcorder viewfinder) -->
 <div id="hud">
   <div class="ccBracket br-tl"></div>
@@ -1587,7 +1657,7 @@
 
 <!-- Start screen -->
 <div id="start" class="screen hide">
-  <div id="stSeason"><b>SEASON 1</b><i>UPDATE SOON</i></div>
+  <div id="stSeason"><b id="stSeasonN">SEASON 1</b><i id="stSeasonS">UPDATE SOON</i><u id="stSeasonT"></u></div>
   <img src="./backrooms-logo.png" alt="The Backrooms logo" id="logoImg">
   <div id="stMain">
     <h1>THE<br>BACKROOMS</h1>
@@ -1890,6 +1960,20 @@ const FOG_NEAR = 3.0, FOG_FAR = 30.0;
 const EYE = 1.62, PLAYER_R = 0.34;
 const WALL_DENSITY = 0.205, PILLAR_DENSITY = 0.15;
 
+/* ---- SEASON 2 ----
+   It lands at 10:00 PM on the 20th of August, in whatever timezone the player
+   is sitting in. Everything the season brings — the entity variants, the flash
+   on the menu — hangs off this one moment, so there's a single thing to move
+   if the date ever changes. */
+const S2_AT = new Date(2026, 7, 20, 22, 0, 0).getTime();
+function s2On(){ return Date.now() >= S2_AT; }
+
+/* ---- luck ----
+   A multiplier on every roll the world makes when it decides what's in a cell:
+   almond water, Minis, exits. Saya switches it on; it runs out on its own. */
+let luckMult = 1, luckUntil = 0;
+function luckNow(){ return Date.now() < luckUntil ? luckMult : 1; }
+
 // ---- game state ----
 let seed = 1234567;
 let running = false;
@@ -2038,14 +2122,19 @@ function hasPillar(i,j){ if(Math.abs(i)<=1 && Math.abs(j)<=1) return false; retu
 function hasLight(i,j){ if(inSafe(i,j)) return true; return rand(i,j,44) < 0.60; }
 function lightDead(i,j){ return rand(i,j,45) < 0.13; }
 function lightFlickers(i,j){ return rand(i,j,46) < 0.34; }
-function hasItem(i,j){ if(inSafe(i,j)) return false; return rand(i,j,55) < 0.02; }
+function hasItem(i,j){ if(inSafe(i,j)) return false; return rand(i,j,55) < Math.min(0.45, 0.02*luckNow()); }
 /* wild Minis. Rarer than water, and a cell only offers one you don't already
    own, so hunting the last few actually converges instead of drowning you in
    duplicates. The tier roll uses the spawn chances printed on the cards. */
 function miniAt(i,j){
   if(inSafe(i,j)) return -1;
-  if(rand(i,j,77) >= 0.007) return -1;
-  const roll=rand(i,j,78), CH=[0.50,0.30,0.12,0.05,0.02,0.005,0.012];
+  const L=luckNow();
+  if(rand(i,j,77) >= Math.min(0.30, 0.007*L)) return -1;
+  /* luck doesn't just make Minis common, it drags the rarity roll upward —
+     1-(1-r)^k pushes the roll toward the rare tail as k grows */
+  let roll=rand(i,j,78);
+  if(L>1) roll = 1-Math.pow(1-roll, 1+Math.log2(L)/2);
+  const CH=[0.50,0.30,0.12,0.05,0.02,0.005,0.012];
   const TOT=CH.reduce((a,b)=>a+b,0);          // normalise off the real sum, not a constant
   let acc=0, tier=0;
   for(let t=0;t<CH.length;t++){ acc+=CH[t]; if(roll*TOT<acc){ tier=t; break; } }
@@ -2072,7 +2161,7 @@ function makeMiniPickup(idx){
   s.userData.tex=tex; s.userData.mat=mat;
   return s;
 }
-function hasExit(i,j){ if(Math.abs(i)<5 && Math.abs(j)<5) return false; return rand(i,j,66) < 0.003; }
+function hasExit(i,j){ if(Math.abs(i)<5 && Math.abs(j)<5) return false; return rand(i,j,66) < Math.min(0.05, 0.003*luckNow()); }
 
 /* ---------------------------------------------------------------- textures */
 function makeCanvas(s){ const c=document.createElement('canvas'); c.width=c.height=s; return c; }
@@ -3001,11 +3090,48 @@ function updateGuide(){
 }
 
 /* ---------------------------------------------------------------- entity */
+/* ---- SEASON 2: entity variants ----
+   The same creature, rolled a different way each time it spawns: a colour, a
+   size and a speed. Before Season 2 opens there are no variants at all and the
+   Entity is exactly what it always was. */
+const VARIANTS=[
+  {k:'pale',   n:'PALE',      tint:0xf1eee2, scale:1.00, speed:1.18, w:22},
+  {k:'rusted', n:'RUSTED',    tint:0x8d4a20, scale:1.06, speed:1.00, w:20},
+  {k:'ashen',  n:'ASHEN',     tint:0x2b2b31, scale:1.14, speed:1.06, w:17},
+  {k:'runt',   n:'RUNT',      tint:0xc7b96e, scale:0.58, speed:1.62, w:14},
+  {k:'long',   n:'LONGLIMB',  tint:0x6b6b74, scale:1.55, speed:0.92, w:12},
+  {k:'drowned',n:'DROWNED',   tint:0x2f6a72, scale:1.02, speed:1.10, w:10},
+  {k:'gilded', n:'GILDED',    tint:0xe3bd35, scale:1.10, speed:1.28, w:5},
+];
+function rollVariant(){
+  const tot=VARIANTS.reduce((a,v)=>a+v.w,0);
+  let r=Math.random()*tot;
+  for(const v of VARIANTS){ r-=v.w; if(r<=0) return v; }
+  return VARIANTS[0];
+}
+let entityBaseScale=null;
+function applyVariant(obj, v){
+  if(entityBaseScale===null) entityBaseScale=obj.scale.x;
+  obj.scale.setScalar(entityBaseScale*(v?v.scale:1));
+  obj.traverse(o=>{
+    if(!o.material) return;
+    for(const m of (Array.isArray(o.material)?o.material:[o.material])){
+      if(!m.color) continue;
+      /* remember what it looked like before any variant touched it, so the
+         next roll tints the original and not the last tint */
+      if(m.userData.baseColor===undefined) m.userData.baseColor=m.color.getHex();
+      m.color.setHex(v ? v.tint : m.userData.baseColor);
+    }
+  });
+}
 function spawnEntity(){
   if(hideOn()) return;                              // nothing hunts you while the clock runs
   if(!entityProto){ pendingEntity=true; return; }   // model still loading
   scene.add(entityProto);
-  entity={obj:entityProto, x:0, z:0, dir:Math.random()*7, state:'wander', lastSeen:-99, speed:3.0, turn:0, faceYaw:0};
+  const v = s2On() ? rollVariant() : null;
+  applyVariant(entityProto, v);
+  entity={obj:entityProto, x:0, z:0, dir:Math.random()*7, state:'wander', lastSeen:-99, speed:3.0, turn:0, faceYaw:0, variant:v};
+  if(v) toast('variant: '+v.n);
   placeEntityFar();
 }
 function placeEntityFar(){
@@ -3028,7 +3154,7 @@ function updateEntity(dt){
 
   // speed scales with dread (low sanity => faster)
   const dread=(100-sanity)/100;
-  e.speed = (e.state==='chase') ? (2.9 + dread*1.7) : 1.5;
+  e.speed = ((e.state==='chase') ? (2.9 + dread*1.7) : 1.5) * (e.variant ? e.variant.speed : 1);
 
   let hx, hz;
   if(e.state==='chase'){ hx=dx/(dist||1); hz=dz/(dist||1); }
@@ -5729,6 +5855,200 @@ document.getElementById('sayIn').addEventListener('keydown', e=>{
   else if(e.key==='Escape'){ e.preventDefault(); closeSay(); }
 });
 
+/* ================================================================ SAYA
+   The developer, sitting in the game. You can talk to her, she runs your
+   events, and she turns up in every stream you start. */
+const SAYA_LADDER=[2,4,20,30,50,100,200];   // the luck event, rung by rung
+const LUCK_SECS=300;                        // each rung holds five minutes
+let sayaEventT=null, sayaEventOn=false, sayaStreamT=null, sayaGreeted=false;
+
+function sayaMsg(txt,cls){
+  const log=document.getElementById('sayaLog');
+  const d=document.createElement('div');
+  d.className='syMsg'+(cls?' '+cls:'');
+  d.textContent=txt;
+  log.appendChild(d);
+  while(log.childElementCount>60) log.removeChild(log.firstChild);
+  log.scrollTop=log.scrollHeight;
+}
+/* she types like a person: a beat of thinking, then the line */
+function sayaSay(txt,delay){
+  setTimeout(()=>{
+    sayaMsg(txt);
+    if(myLive) mlLine(txt,'dev','Saya');
+  }, delay===undefined ? 420+Math.random()*520 : delay);
+}
+function openSaya(){
+  document.getElementById('saya').classList.add('show');
+  botChatOpen=true;
+  if(locked) document.exitPointerLock();
+  if(!sayaGreeted){
+    sayaGreeted=true;
+    sayaMsg('Saya joined the game','sys');
+    sayaSay("hey — im Saya, i made this thing. say “saya run my event” whenever you want the luck ladder.",700);
+  }
+  setTimeout(()=>document.getElementById('sayaIn').focus(),0);
+}
+function closeSaya(){
+  document.getElementById('saya').classList.remove('show');
+  document.getElementById('sayaIn').blur();
+  botChatOpen=false;
+}
+
+/* ---- luck ---- */
+function setLuck(mult,secs){
+  luckMult=mult; luckUntil=Date.now()+secs*1000;
+  paintLuck();
+  refreshWorld();
+}
+function clearLuck(){ luckMult=1; luckUntil=0; paintLuck(); refreshWorld(); }
+function paintLuck(){
+  const el=document.getElementById('luckTag');
+  const left=luckUntil-Date.now();
+  if(left<=0 || luckMult<=1){ el.classList.remove('show'); return; }
+  const s=Math.ceil(left/1000);
+  el.textContent='×'+luckMult+' LUCK  '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  el.classList.add('show');
+}
+/* luck changes what the generator puts in a cell, so the chunks already on
+   screen have to be thrown away and rebuilt or you'd see nothing until you walked */
+function refreshWorld(){
+  if(!running || level!==0) return;
+  for(const key of [...chunks.keys()]) unloadChunk(key);
+  updateChunks();
+  processQueue(40);
+}
+
+/* ---- the event ---- */
+function sayaRunEvent(){
+  if(sayaEventOn){ sayaSay("its already running — im on ×"+luckMult+" right now."); return; }
+  sayaEventOn=true;
+  sayaSay('okay',300);
+  let i=0;
+  const step=()=>{
+    if(i>=SAYA_LADDER.length){
+      sayaEventOn=false; sayaEventT=null;
+      sayaSay("thats the whole ladder. ×200 luck is live for five minutes — go clear the floor.");
+      return;
+    }
+    const m=SAYA_LADDER[i++];
+    setLuck(m,LUCK_SECS);
+    sayaMsg('activating ×'+m+' luck','sys');
+    bigSay('×'+m+' LUCK');
+    toast('Saya activated ×'+m+' luck');
+    if(myLive){ mlLine('Saya activated ×'+m+' luck','dev'); mlViewers+=6; mlCount(); }
+    sayaEventT=setTimeout(step,2400);
+  };
+  sayaEventT=setTimeout(step,1200);
+}
+function sayaStopEvent(quiet){
+  clearTimeout(sayaEventT); sayaEventT=null; sayaEventOn=false;
+  clearLuck();
+  if(!quiet) sayaSay('stopped. luck is back to normal.');
+}
+/* reuse the SAY overlay so the multiplier lands big across the screen */
+function bigSay(txt){
+  const m=document.getElementById('sayMsg');
+  m.textContent=txt; m.classList.add('show');
+  clearTimeout(sayFade);
+  sayFade=setTimeout(()=>m.classList.remove('show'), 2200);
+}
+
+/* ---- she's in every stream you start ---- */
+const SAYA_STREAM=['dev is watching 👀','that corner is new, i moved it last patch',
+  'chat be nice to them','ill patch that light, i see it flickering wrong',
+  'go left. trust me, im the one who built left.','nice run so far',
+  'variants are rolling tonight','if it gets bad ill turn the luck up',
+  'im logging this run for the update','that spawn was my fault, sorry'];
+function sayaJoinStream(){
+  clearInterval(sayaStreamT);
+  setTimeout(()=>{
+    if(!myLive) return;
+    mlLine('Saya (dev) joined','dev');
+    mlViewers+=14; mlPeak=Math.max(mlPeak,mlViewers); mlCount();
+    mlLine('hey, im here for this one','dev','Saya');
+  }, 1400);
+  sayaStreamT=setInterval(()=>{
+    if(!myLive){ clearInterval(sayaStreamT); return; }
+    mlLine(SAYA_STREAM[(Math.random()*SAYA_STREAM.length)|0],'dev','Saya');
+  }, 14000);
+}
+function sayaLeaveStream(){ clearInterval(sayaStreamT); sayaStreamT=null; }
+
+/* ---- talking ---- */
+/* topics first, then the greeting — "hey saya what are variants" is a question
+   about variants, not a hello, and whichever rule is listed first wins */
+const SAYA_TALK=[
+  {re:/\b(who|what)('?s| is| are| r)?\s*(you|u|ur|your name)\b|\bname\b/, r:["im Saya. i make this game. you say it, i push the button."]},
+  {re:/\bluck\b/, r:["luck bumps almond water, Minis and exits, and it drags Mini rarity upward too.","say “run my event” and i take it all the way to ×200.","you can also just say “50x luck” and ill set that one."]},
+  {re:/\bvariant/, r:["variants are the season 2 thing — pale, rusted, ashen, runt, longlimb, drowned, gilded. each one is a different size and speed.","the entity rolls a variant every spawn once season 2 opens."]},
+  {re:/\bseason|update\b/, r:["season 2 opens at 10 PM. the menu flips itself and variants start rolling.","season 2 brings the variants. the clock in the corner is real."]},
+  {re:/\b(stream|live|streaming)\b/, r:["im in every stream you start — check the chat, ill be in there.","hit GO LIVE and ill turn up."]},
+  {re:/\b(bug|broken|glitch|lag|stuck|fix)\b/, r:["tell me what happened right before it and ill go look at that bit of code.","noted. ill patch it."]},
+  {re:/\b(entity|monster|chas|scar|behind|run)\w*\b/, r:["dont look back, just keep moving and turn a corner.","it loses you after about four seconds out of sight."]},
+  {re:/\b(mini|minis)\b/, r:["73 Minis. one equipped at a time, and the rarer it is the stronger the perk.","turn the luck up and theyll be everywhere."]},
+  {re:/\b(thanks|thank you|ty|tysm)\b/, r:["anytime.","np :)","course."]},
+  {re:/\b(bye|cya|gn|goodnight|later)\b/, r:["later. ill leave the luck running.","gn. ill be here."]},
+  {re:/\b(love|goat|best|amazing|cool|fire)\b/, r:["🙏 thats the whole reason i keep building it.","glad you like it."]},
+  {re:/\b(hi|hey|hello|yo|sup|hiya)\b/, r:["hey! im here.","yo. whats the plan?","hi :) im watching."]},
+];
+const SAYA_FALL=["im listening.","go on.","noted — ill put that in the next update.",
+  "yeah? tell me more.","ok. want me to run your event?","im right here."];
+function sayaReply(m){
+  for(const t of SAYA_TALK) if(t.re.test(m)) return t.r[(Math.random()*t.r.length)|0];
+  return SAYA_FALL[(Math.random()*SAYA_FALL.length)|0];
+}
+function sayaHear(raw){
+  const txt=raw.trim(); if(!txt) return;
+  const m=txt.toLowerCase();
+  sayaMsg(txt,'me');
+  if(myLive) mlLine(txt,'','you');
+
+  if(/\b(run|start|do|begin)\b.*\bevent\b/.test(m) || /\bevent\b.*\b(run|start|go|now)\b/.test(m)){ sayaRunEvent(); return; }
+  if(/\b(stop|end|cancel|off)\b.*\b(event|luck)\b|\b(event|luck)\b.*\b(stop|end|off)\b/.test(m)){ sayaStopEvent(); return; }
+  const n=m.match(/(\d{1,4})\s*(?:x|times)?\s*luck|luck\s*(?:x|of|to)?\s*(\d{1,4})/);
+  if(n){
+    const v=Math.max(1,Math.min(1000, parseInt(n[1]||n[2],10)));
+    setLuck(v,LUCK_SECS);
+    sayaSay('okay — ×'+v+' luck for five minutes.',260);
+    bigSay('×'+v+' LUCK');
+    if(myLive){ mlLine('Saya activated ×'+v+' luck','dev'); mlViewers+=6; mlCount(); }
+    return;
+  }
+  if(/\bjoin\b.*\b(stream|live)\b/.test(m)){
+    if(myLive){ sayaSay("im already in there — look at chat.",260); sayaJoinStream(); }
+    else sayaSay("hit GO LIVE and ill be in the chat before your first viewer.",260);
+    return;
+  }
+  if(/\bspawn\b.*\bvariant\b|\bvariant\b.*\bspawn\b/.test(m)){
+    if(!s2On()){ sayaSay("variants dont open until 10 PM. clock's in the corner of the menu.",260); return; }
+    if(!running){ sayaSay("start a run first and ill roll one for you.",260); return; }
+    if(entity){ scene.remove(entity.obj); entity=null; }
+    spawnEntity();
+    sayaSay('rolled you a fresh one'+(entity&&entity.variant?' — '+entity.variant.n:'')+'.',260);
+    return;
+  }
+  if(/\bseason\b.*\b(when|how long|time)\b|\bwhen\b.*\bseason\b/.test(m)){
+    sayaSay(s2On()? 'season 2 is already open. variants are rolling.'
+      : 'season 2 opens at 10 PM — '+hms(S2_AT-Date.now())+' from now.', 260);
+    return;
+  }
+  sayaSay(sayaReply(m));
+}
+
+document.getElementById('sayaBtn').addEventListener('click', e=>{ e.preventDefault(); openSaya(); });
+document.getElementById('sayaClose').addEventListener('click', e=>{ e.preventDefault(); closeSaya(); });
+document.getElementById('sayaSend').addEventListener('click', e=>{
+  e.preventDefault();
+  const i=document.getElementById('sayaIn'); const v=i.value; i.value=''; sayaHear(v); i.focus();
+});
+document.getElementById('sayaIn').addEventListener('keydown', e=>{
+  e.stopPropagation();
+  if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value; e.target.value=''; sayaHear(v); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeSaya(); }
+});
+document.getElementById('sayaIn').addEventListener('focus', ()=>{ botChatOpen=true; if(locked) document.exitPointerLock(); });
+
 /* ---------------------------------------------------------------- minis collection */
 const MINIS_TOTAL = 73;
 /* the twelve ETERNAL rappers occupy their own block of indices, so the
@@ -7404,6 +7724,7 @@ function startMyLive(){
   document.getElementById('goLive').classList.add('on');
   mlCount();
   mlLine('you are live','sub');
+  sayaJoinStream();            // the dev turns up to every one of them
   clearInterval(mlTimer);
   mlTimer=setInterval(()=>{
     if(!myLive) return;
@@ -7423,7 +7744,7 @@ function startMyLive(){
 }
 function endMyLive(){
   if(!myLive) return;
-  myLive=false; clearInterval(mlTimer);
+  myLive=false; clearInterval(mlTimer); sayaLeaveStream();
   document.getElementById('myLive').classList.remove('show');
   document.getElementById('mlEnd').classList.remove('show');
   document.getElementById('goLive').textContent='🔴 GO LIVE';
@@ -8340,6 +8661,32 @@ function nextThreeAm(now){
   }
   tick3am();
   setInterval(tick3am,1000);
+})();
+
+/* ---------------------------------------------------- SEASON 2 clock
+   The flash in the top right of the poster counts itself down and then flips.
+   The same tick keeps the luck badge honest, so there's one timer for both. */
+function hms(ms){
+  const s=Math.max(0,Math.floor(ms/1000)), p2=n=>('0'+n).slice(-2);
+  return p2(Math.floor(s/3600))+':'+p2(Math.floor((s%3600)/60))+':'+p2(s%60);
+}
+(function(){
+  const n=document.getElementById('stSeasonN'), sub=document.getElementById('stSeasonS'),
+        t=document.getElementById('stSeasonT'), box=document.getElementById('start');
+  let wasOn=null;
+  function tickSeason(){
+    const on=s2On();
+    n.textContent = on ? 'SEASON 2' : 'SEASON 1';
+    sub.textContent = on ? 'OUT NOW' : 'UPDATE SOON';
+    t.textContent = on ? 'VARIANTS ARE LIVE' : 'SEASON 2 IN '+hms(S2_AT-Date.now());
+    box.classList.toggle('s2', on);
+    /* caught the moment it turned over while someone was sitting here */
+    if(wasOn===false && on){ toast('SEASON 2 — variants are live'); if(myLive) mlLine('SEASON 2 IS LIVE','dev'); }
+    wasOn=on;
+    paintLuck();
+  }
+  tickSeason();
+  setInterval(tickSeason,1000);
 })();
 
 /* ======================================================= MINT EDITION
