@@ -1786,7 +1786,7 @@
 
 <!-- the secret door's arrival sequence -->
 <div id="kittyVeil"></div>
-<div id="kittyFace"><img src="./kittys-house.png" alt=""></div>
+<div id="kittyFace"><img src="./kitty-face-real.png" alt=""></div>
 <button id="kittyExit" type="button">&#8592; LEAVE KITTY'S HOUSE</button>
 
 <!-- ENTITY ESCAPE [LTM] -->
@@ -3052,7 +3052,7 @@ function buildKittyHouse(){
   furn(0,-13,   1.4,0.5,1.4, 0x9c5a7c);  // a bowl on the floor
 
   /* she's on every wall */
-  const faceTex=new THREE.TextureLoader().load('./kittys-house.png');
+  const faceTex=new THREE.TextureLoader().load('./kitty-face-real.png');
   faceTex.colorSpace=THREE.SRGBColorSpace;
   const faceMat=new THREE.MeshBasicMaterial({map:faceTex, transparent:true, opacity:0.92});
   const poster=(x,z,ry,w)=>{
