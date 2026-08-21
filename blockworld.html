@@ -42,6 +42,14 @@
   #meat canvas{ image-rendering:pixelated; height:22px; display:block; }
   #hurt{ position:fixed; inset:0; z-index:7; pointer-events:none; background:#a01414; opacity:0;
     transition:opacity .35s ease; }
+  /* the broken script mod: for a moment the screen stops behaving */
+  #glitch{ position:fixed; inset:0; z-index:12; pointer-events:none; display:none; mix-blend-mode:screen; }
+  #glitch.on{ display:block; }
+  #glitch i{ position:absolute; left:0; right:0; display:block; }
+  #err{ position:fixed; left:0; right:0; top:37%; z-index:13; text-align:center; pointer-events:none;
+    font-family:'Courier New',monospace; font-size:clamp(12px,3.6vw,17px); color:#ff5555; display:none;
+    text-shadow:2px 0 #00e5ff, -2px 0 #ff00a8; padding:0 12px; }
+  #err.on{ display:block; }
   #dead{ position:fixed; inset:0; z-index:22; display:none; flex-direction:column; align-items:center;
     justify-content:center; background:rgba(90,10,10,.72); color:#fff; text-align:center; padding:24px; }
   #dead.show{ display:flex; }
@@ -79,8 +87,9 @@
   .btn.grey{ background:#5b6068; font-size:15px; padding:11px; }
   #pause{ background:rgba(8,10,14,.82); }
   #pause h1{ font-size:clamp(26px,7vw,48px); }
-  /* the two servers you can join */
-  #servers{ margin-top:20px; width:min(430px,92vw); display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  /* the servers you can join */
+  #servers{ margin-top:20px; width:min(430px,92vw); display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
   .srv{ font:inherit; cursor:pointer; text-align:left; padding:11px 12px; border-radius:9px;
     border:3px solid #2a2016; background:rgba(20,16,10,.62); color:#f2ead8;
     display:flex; flex-direction:column; gap:3px; }
@@ -88,6 +97,7 @@
   .srv i{ font-style:normal; font-size:10.5px; line-height:1.4; color:#b6ab8c; }
   .srv.on i{ color:#eef5df; }
   .srv.on{ background:#6c8f3e; box-shadow:0 4px 0 #2a2016; }
+  .srv.dark.on{ background:#33373f; }        /* the scary one doesn't light up green */
   #seedRow{ margin-top:12px; width:min(430px,92vw); display:flex; gap:8px; }
   #seedRow input{ flex:1; min-width:0; font:inherit; font-size:14px; padding:11px; border-radius:8px;
     border:3px solid #2a2016; background:#efe6d2; color:#2a2016; font-weight:700; }
@@ -120,6 +130,8 @@
 
 <div id="cross"><i></i><i></i></div>
 <div id="hurt"></div>
+<div id="glitch"></div>
+<div id="err"></div>
 <div id="info" class="show"></div>
 <div id="hint"></div>
 <div id="stats"><canvas id="hpBar"></canvas><canvas id="hgBar"></canvas></div>
@@ -152,6 +164,7 @@
   <div id="servers">
     <button class="srv on" data-world="normal"><b>OVERWORLD</b><i>hills, oceans, caves, ore</i></button>
     <button class="srv" data-world="flat"><b>GRAVEL FLATS</b><i>dead flat, pure gravel, villages everywhere</i></button>
+    <button class="srv dark" data-world="stalker"><b>THE STALKER</b><i>stalker mod + broken script mod. night that never ends</i></button>
   </div>
   <div id="seedRow"><input id="seedIn" placeholder="world seed (leave blank for random)" inputmode="numeric"></div>
   <button class="btn" id="playBtn">PLAY</button>
@@ -318,14 +331,24 @@ function noise3(x,y,z){
   return l(l(l(c000,c100,xf),l(c010,c110,xf),yf), l(l(c001,c101,xf),l(c011,c111,xf),yf), zf);
 }
 const WORLD_H=72, SEA=30;
-/* Two servers. NORMAL is the hilly world with oceans and caves; FLAT is a
+/* Three servers. NORMAL is the hilly world with oceans and caves; FLAT is a
    dead-level slab of gravel and nothing else — no bedrock, no dirt, no stone,
-   no water — with trees and villages standing on top of it. */
+   no water — with trees and villages standing on top of it; STALKER runs both
+   mods at once: it is always night, nobody lives there, one thing follows you
+   the whole time, and the game itself keeps breaking. */
 let worldType='normal';
 const FLAT_TOP=40;                       // well above SEA, so no water is ever placed
 const isFlat=()=>worldType==='flat';
+const isStalk=()=>worldType==='stalker';
+const worldName=()=>isFlat()?'GRAVEL FLATS':isStalk()?'THE STALKER':'OVERWORLD';
 function heightAt(x,z){
   if(isFlat()) return FLAT_TOP;
+  if(isStalk()){
+    /* low rolling ground held above sea level: no oceans to break up the
+       forest, and nowhere to swim away to */
+    const h = 36 + noise2(x*0.017+300, z*0.017-300)*8 + noise2(x*0.085, z*0.085)*2.2;
+    return Math.max(SEA+4, Math.min(WORLD_H-10, Math.round(h)));
+  }
   /* centred a little above sea level, so coastlines and lakes actually happen
      instead of the whole map sitting high and dry */
   let h = 18
@@ -348,6 +371,7 @@ function rngFrom(a,b){                  // deterministic per-village stream
   return ()=>{ s=(Math.imul(s,1664525)+1013904223)>>>0; return s/4294967296; };
 }
 function villageAt(gx,gz){
+  if(isStalk()) return null;                                          // nobody lives out there
   if(hash2(gx*911+7, gz*733-13) < (isFlat()?0.42:0.80)) return null;   // far more of them on the flat server
   const R=rngFrom(gx*31+5, gz*17-9);
   const ox=(gx*VSPACING)*CX + Math.floor(R()*VSPACING*CX);
@@ -475,7 +499,7 @@ function genChunk(cx,cz){
     if(h<=SEA+1 || h>WORLD_H-12) continue;
     const ground=data[idx(x,h,z)];
     if(ground!==(isFlat()?ID.GRAVEL:ID.GRASS)) continue;
-    if(hash2(wx*7+31, wz*7-17) < 0.982) continue;   // ~1.8% of columns
+    if(hash2(wx*7+31, wz*7-17) < (isStalk()?0.958:0.982)) continue;   // a thicker forest on the stalker server
     const th=4+((hash2(wx,wz)*3)|0);
     for(let i=1;i<=th;i++) data[idx(x,h+i,z)]=ID.LOG;
     for(let dy=th-2;dy<=th+1;dy++){
@@ -539,7 +563,11 @@ function applyEdits(ch){
   }
 }
 /* one slot per server: joining the flats can't overwrite the overworld */
-function saveKey(){ return worldType==='flat' ? 'blockworld_flat_v1' : 'blockworld_v1'; }
+function saveKey(){
+  return isFlat()  ? 'blockworld_flat_v1'
+       : isStalk() ? 'blockworld_stalker_v1'
+       : 'blockworld_v1';
+}
 let saveT=0;
 function saveSoon(){ clearTimeout(saveT); saveT=setTimeout(saveWorld, 900); }
 function saveWorld(){
@@ -707,6 +735,7 @@ function die(why){
 }
 function reviveAndRespawn(){
   dead=false; hp=HP_MAX; hunger=HG_MAX; exhaust=0; airT=0; fallFrom=null;
+  removeStalker(); stalkT=6; screamed=false; clearGlitch();
   document.getElementById('dead').classList.remove('show');
   respawn();
   drawStats();
@@ -845,7 +874,7 @@ function movePlayer(dt){
 
   if(player.y<-24) respawn();
   camera.position.set(player.x, player.y+EYE-(input.sneak?0.22:0), player.z);
-  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  camera.rotation.set(player.pitch, player.yaw, camRoll, 'YXZ');
 }
 function respawn(){
   /* spiral out from the origin for dry land — spawning chest-deep in the ocean
@@ -991,8 +1020,8 @@ function updateAnimals(dt){
   animalT-=dt;
   if(animalT<=0){
     animalT=2.5;
-    if(animals.length<MAX_ANIMALS && Math.random()<0.7) spawnAnimal();
-    populateVillage();
+    if(animals.length<(isStalk()?4:MAX_ANIMALS) && Math.random()<(isStalk()?0.25:0.7)) spawnAnimal();
+    if(!isStalk()) populateVillage();
   }
   for(let i=animals.length-1;i>=0;i--){
     const a=animals[i], K=KINDS[a.kind];
@@ -1096,7 +1125,154 @@ function punch(){
   }
   return true;
 }
-function clearAnimals(){ for(const a of animals) scene.remove(a.obj); animals.length=0; peopledVillages.clear(); }
+function clearAnimals(){ for(const a of animals) scene.remove(a.obj); animals.length=0; peopledVillages.clear(); removeStalker(); }
+
+/* ------------------------------------------------------------- the stalker
+   The stalker mod, running on its own server. One of them, always somewhere
+   behind you. It freezes solid every time you look straight at it and closes
+   the gap the moment you look away, so the only way to keep it off you is to
+   walk backwards watching it — which is exactly how it gets you. */
+let stalker=null, stalkT=4, screamed=false, screamAudio=null;
+function makeStalker(){
+  const g=new THREE.Group();
+  /* unlit black boxes, so it stays a flat silhouette however the light falls */
+  const box=(w,h,d,col,x,y,z)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshBasicMaterial({color:col}));
+    m.position.set(x,y,z); g.add(m); return m;
+  };
+  const K=0x06060a;
+  box(0.70,1.30,0.42,K, 0,1.85,0);            // torso
+  box(0.50,0.50,0.44,K, 0,2.75,0);            // head
+  box(0.22,1.20,0.22,K,-0.19,0.60,0);         // legs
+  box(0.22,1.20,0.22,K, 0.19,0.60,0);
+  box(0.17,1.55,0.17,K,-0.44,1.72,0);         // arms, too long by a bit
+  box(0.17,1.55,0.17,K, 0.44,1.72,0);
+  const eyes=[ box(0.09,0.11,0.02,0xffffff,-0.12,2.80,0.23),
+               box(0.09,0.11,0.02,0xffffff, 0.12,2.80,0.23) ];
+  g.userData={eyes};
+  return g;
+}
+function removeStalker(){ if(stalker){ scene.remove(stalker.obj); stalker=null; } }
+function spawnStalker(){
+  for(let t=0;t<30;t++){
+    const a=Math.random()*Math.PI*2, d=28+Math.random()*12;
+    const x=Math.round(player.x+Math.cos(a)*d), z=Math.round(player.z+Math.sin(a)*d);
+    const h=heightAt(x,z);
+    if(getBlock(x,h,z)===AIR) continue;                 // that chunk isn't there yet
+    if(getBlock(x,h+1,z)!==AIR) continue;
+    const obj=makeStalker(); obj.position.set(x+0.5,h+1,z+0.5);
+    scene.add(obj);
+    stalker={obj, x:x+0.5, y:h+1, z:z+0.5, vy:0, hitT:0};
+    return;
+  }
+}
+function scream(){
+  try{
+    if(!screamAudio){ screamAudio=new Audio('stalker-scream.mp3'); screamAudio.volume=0.45; }
+    screamAudio.currentTime=0; screamAudio.play().catch(()=>{});
+  }catch(e){}
+}
+/* is it in the middle of your view, and not behind a wall? The wall test is
+   the cheap one: walk the straight line and see if anything solid is in it. */
+function watchingIt(){
+  const dir=new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);
+  const to=new THREE.Vector3(stalker.x-camera.position.x,
+                             (stalker.y+1.9)-camera.position.y,
+                             stalker.z-camera.position.z);
+  const d=to.length(); to.divideScalar(d||1);
+  if(dir.dot(to)<0.70) return false;
+  for(let t=1.5;t<d-1;t+=1.2){
+    if(solidAt(getBlock(Math.floor(camera.position.x+to.x*t),
+                        Math.floor(camera.position.y+to.y*t),
+                        Math.floor(camera.position.z+to.z*t)))) return false;
+  }
+  return true;
+}
+function updateStalker(dt){
+  if(!isStalk()){ removeStalker(); return; }
+  if(!stalker){
+    stalkT-=dt;
+    if(stalkT<=0){ stalkT=3; spawnStalker(); }
+    return;
+  }
+  const dx=player.x-stalker.x, dz=player.z-stalker.z;
+  const d=Math.hypot(dx,dz)||0.001;
+  if(d>110){ removeStalker(); stalkT=2; return; }       // lost it — it comes back closer
+  const seen=watchingIt();
+  if(!seen && d>1.1){
+    const sp = d>30 ? 10 : d>12 ? 5.5 : 3.4;            // it never lets you get away
+    const nx=stalker.x+dx/d*sp*dt, nz=stalker.z+dz/d*sp*dt;
+    if(!animalBlocked(nx,stalker.y,nz,0.4)){ stalker.x=nx; stalker.z=nz; }
+    else stalker.y+=1;                                   // it climbs rather than goes around
+  }
+  stalker.vy-=22*dt;
+  let ny=stalker.y+stalker.vy*dt;
+  if(animalBlocked(stalker.x,ny,stalker.z,0.4)){
+    if(stalker.vy<0){ ny=Math.ceil(ny); stalker.vy=0; } else { ny=stalker.y; stalker.vy=0; }
+  }
+  stalker.y=ny;
+  if(stalker.y<-10){ removeStalker(); stalkT=3; return; }
+  stalker.obj.position.set(stalker.x, stalker.y, stalker.z);
+  stalker.obj.rotation.y=Math.atan2(dx,dz);              // always turned towards you
+  for(const e of stalker.obj.userData.eyes) e.visible = seen || Math.sin(performance.now()*0.004)>-0.7;
+  if(d<9 && !screamed){ screamed=true; scream(); }
+  if(d>14) screamed=false;
+  stalker.hitT-=dt;
+  if(d<1.9 && stalker.hitT<=0){ stalker.hitT=1.6; hurt(3,'It caught up with you.'); }
+}
+
+/* ---------------------------------------------------------- broken script
+   The other mod. Every so often the game itself falls over: the screen tears,
+   an error nobody wrote scrolls past, the camera leans. It happens more often
+   the closer the stalker is, which is the only warning you get. */
+const ERRORS=[
+  'TypeError: chunk is not a function',
+  'entity_stalker.js:42 — undefined is not a block',
+  'ReferenceError: sun is not defined',
+  'world.tick() failed — retrying',
+  'Uncaught: cannot read property "safe" of null',
+  'script halted: too many entities (1)',
+  'render pass 3 skipped',
+  'BLOCKWORLD.exe stopped responding',
+  'it is still there',
+];
+let glitchT=5, glitchFlash=0, camRoll=0;
+function glitchNow(){
+  const gl=document.getElementById('glitch'), er=document.getElementById('err');
+  gl.innerHTML='';
+  const bars=3+((Math.random()*6)|0);
+  for(let i=0;i<bars;i++){
+    const b=document.createElement('i');
+    b.style.top=(Math.random()*100)+'%';
+    b.style.height=(2+Math.random()*16)+'px';
+    b.style.background=Math.random()<0.5 ? 'rgba(255,60,190,.5)' : 'rgba(60,255,225,.45)';
+    b.style.transform='translateX('+(Math.random()*26-13)+'px)';
+    gl.appendChild(b);
+  }
+  gl.classList.add('on');
+  er.textContent=ERRORS[(Math.random()*ERRORS.length)|0];
+  er.classList.add('on');
+  glitchFlash=0.12;
+  camRoll=(Math.random()<0.5?-1:1)*(0.02+Math.random()*0.05);
+  setTimeout(()=>{ gl.classList.remove('on'); er.classList.remove('on'); camRoll=0; },
+             110+Math.random()*260);
+}
+function clearGlitch(){
+  document.getElementById('glitch').classList.remove('on');
+  document.getElementById('err').classList.remove('on');
+  glitchFlash=0; camRoll=0;
+}
+function updateGlitch(dt){
+  if(!isStalk()) return;
+  if(glitchFlash>0) glitchFlash-=dt;
+  glitchT-=dt;
+  if(glitchT<=0){
+    const d = stalker ? Math.hypot(player.x-stalker.x, player.z-stalker.z) : 60;
+    glitchT = Math.max(1.4, Math.min(12, d*0.4)) * (0.6+Math.random()*0.9);
+    glitchNow();
+  }
+}
+
 
 /* ------------------------------------------------------------- raycasting
    Amanatides & Woo voxel walk: steps block to block instead of sampling,
@@ -1130,7 +1306,11 @@ function breakBlock(){
 function placeBlock(){
   const p=rayPick(); if(!p) return;
   const [x,y,z]=p.prev;
-  const id=HOTBAR[selSlot];
+  let id=HOTBAR[selSlot];
+  if(isStalk() && Math.random()<0.12){            // broken script: wrong block, every so often
+    id=HOTBAR[(Math.random()*HOTBAR.length)|0];
+    hint('script error — placed '+BLOCKS[id].name+' instead');
+  }
   // never brick yourself in
   const b=BLOCKS[id];
   if(b.solid){
@@ -1211,6 +1391,14 @@ function processQueue(budget){
 /* ------------------------------------------------------------ day & night */
 function updateSky(dt){
   dayT=(dayT+dt/240)%1;                        // a four minute day
+  if(isStalk()){
+    /* the sun never comes up on this server. Just enough light to walk by. */
+    sun.position.set(40,90,-60);
+    sun.intensity=0.16; hemi.intensity=0.30;
+    const c=new THREE.Color(glitchFlash>0 ? 0x2a0810 : 0x0a0d12);
+    scene.background.copy(c); scene.fog.color.copy(c);
+    return;
+  }
   const a=dayT*Math.PI*2;
   sun.position.set(Math.cos(a)*120, Math.sin(a)*120, 40);
   const up=Math.max(0, Math.sin(a));
@@ -1341,6 +1529,10 @@ function startGame(){
   exhaust=0; airT=0; fallFrom=null; dead=false;
   document.getElementById('dead').classList.remove('show');
   clearAnimals(); peopledVillages.clear();
+  /* the stalker server can't see far, which is most of the point of it */
+  scene.fog.near = isStalk() ? 16 : 85;
+  scene.fog.far  = isStalk() ? 88 : 195;
+  stalkT=6; screamed=false; glitchT=5; clearGlitch();
   drawStats();
   player.vx=player.vy=player.vz=0; player.fly=false;
 
@@ -1371,7 +1563,7 @@ function pause(){
   document.getElementById('touch').classList.remove('show');
   document.getElementById('menuBtn').classList.remove('show');
   document.getElementById('pauseStats').innerHTML =
-    `<b>${worldType==='flat'?'GRAVEL FLATS':'OVERWORLD'}</b> &middot; seed <b>${SEED}</b> &middot; ` +
+    `<b>${worldName()}</b> &middot; seed <b>${SEED}</b> &middot; ` +
     `${edits.size} block${edits.size===1?'':'s'} changed &middot; ` +
     `standing at <b>${Math.floor(player.x)}, ${Math.floor(player.y)}, ${Math.floor(player.z)}</b>`;
   saveWorld();
@@ -1387,6 +1579,7 @@ function resume(){
 function quitToTitle(){
   saveWorld();
   running=false;
+  clearGlitch();
   document.getElementById('pause').classList.add('hide');
   document.getElementById('hotbar').classList.remove('show');
   document.getElementById('stats').classList.remove('show');
@@ -1425,6 +1618,8 @@ function tick(){
     movePlayer(dt);
     updateSurvival(dt);
     updateAnimals(dt);
+    updateStalker(dt);
+    updateGlitch(dt);
     updateSky(dt);
     updateChunks();
     processQueue(2);
@@ -1437,9 +1632,10 @@ function tick(){
     document.getElementById('info').innerHTML =
       `BLOCKWORLD &nbsp; ${fps} fps<br>` +
       `xyz ${Math.floor(player.x)} ${Math.floor(player.y)} ${Math.floor(player.z)}<br>` +
-      `chunks ${chunks.size} &nbsp; seed ${SEED} &nbsp; ${worldType==='flat'?'GRAVEL FLATS':'OVERWORLD'}<br>` +
-      `${String(hh).padStart(2,'0')}:00 &nbsp; ${player.fly?'flying':(player.inWater?'swimming':'walking')}` +
-      `<br>animals ${animals.length} &nbsp; meat ${meat} (E to eat)`;
+      `chunks ${chunks.size} &nbsp; seed ${SEED} &nbsp; ${worldName()}<br>` +
+      `${isStalk()?'--:--':String(hh).padStart(2,'0')+':00'} &nbsp; ${player.fly?'flying':(player.inWater?'swimming':'walking')}` +
+      `<br>animals ${animals.length} &nbsp; meat ${meat} (E to eat)` +
+      (isStalk() ? `<br>distance ${stalker?Math.round(Math.hypot(player.x-stalker.x, player.z-stalker.z)):'--'}` : '');
   }
   renderer.render(scene,camera);
 }
