@@ -1549,26 +1549,6 @@
 </style>
 </head>
 <body>
-<!-- ================================================================
-     THE GAME IS SHUT DOWN.
-     This gate goes up before anything else and stops the game booting at
-     all. To open the doors again: delete this block and the <script> right
-     under it, and flip GAME_OPEN back to true near the top of the main
-     script. Nothing else was removed.
-     ================================================================ -->
-<div id="gone">
-  <div id="goneBox">
-    <b>Couldnt find the game your looking for!</b>
-    <span>try again later</span>
-    <p>the lobby was here a minute ago. i checked twice.<br>the lights are off and the doors dont open from this side.<br><em>— Saya</em></p>
-    <i>404 Not Found</i>
-  </div>
-</div>
-<script>
-  /* belt and braces: if anything below still tried to run, this keeps the
-     canvas from ever being seen */
-  document.documentElement.classList.add('shutdown');
-</script>
 
 <div id="grain"></div>
 <div id="vig"></div>
@@ -2184,7 +2164,7 @@
    run exactly as it did. While it's false the module body stops here — no
    renderer, no canvas, no world, and nothing reads or writes your save.
    (The imports still resolve, since ES modules hoist those.) */
-const GAME_OPEN = false;
+const GAME_OPEN = true;
 if(!GAME_OPEN) throw new Error('The Backrooms is closed.');
 
 import * as THREE from 'three';
