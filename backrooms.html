@@ -732,6 +732,8 @@
     font-size:11px; font-weight:800; letter-spacing:1px; }
   #ltmExit.show{ display:block; }
   body.cutscene #ltmExit, body.cutscene #ltm{ display:none !important; }
+  /* locust: the jumpscare goes third person, so the reticle and the thumbstick go too */
+  body.ltm.cutscene #cross, body.ltm.cutscene #touch{ display:none !important; }
   /* the LTM owns the screen, so the game's own furniture stands down */
   body.ltm #hud, body.ltm #minisBtn, body.ltm #musicBtn, body.ltm #postsBtn, body.ltm #modsBtn,
   body.ltm #chatsBtn, body.ltm #livesBtn, body.ltm #shopBtn, body.ltm #countdown,
@@ -3333,7 +3335,7 @@ function updateLtmEnts(dt){
     e.yaw += (Math.atan2(hx,hz)-e.yaw)*Math.min(1,dt*6);
     e.obj.position.set(e.x, Math.abs(Math.sin(elapsed*(e.state==='chase'?9:4)))*0.09, e.z);
     e.obj.rotation.y=e.yaw;
-    if(dist<1.3 && !ltmDead) ltmHurt(34*dt*3);
+    if(dist<1.3 && !ltmDead && !locustCine) ltmHurt(34*dt*3);   // locust: hunters wait their turn
   }
 }
 function ltmHurt(n){
@@ -3372,6 +3374,7 @@ function enterLTM(){
   document.getElementById('kittyExit').classList.remove('show');
 
   ltmOn=true; ltmDeaths=0; ltmHp=100; stamina=100; sanity=100; ltmDead=false;
+  locustLoad();                                    // locust: lazy one-time GLB fetch
   document.body.classList.add('ltm');
   document.getElementById('ltm').classList.add('show');
   document.getElementById('ltmExit').classList.add('show');
@@ -3383,6 +3386,7 @@ function enterLTM(){
 function ltmToLobby(fresh){
   if(ltmForestG && ltmForestG.parent) scene.remove(ltmForestG);
   clearLtmEnts();
+  locustReset();                                   // locust
   if(!ltmLobbyG) ltmLobbyG=buildLtmLobby();
   if(!ltmLobbyG.parent) scene.add(ltmLobbyG);
   ltmWalls=ltmLobbyG.userData.walls;
@@ -3407,6 +3411,7 @@ function ltmStartMatch(){
   ltmCardAt=LTM_MATCH-5;                // the map card lands five seconds in
   ltmSetPhase('match');
   spawnLtmEnts();
+  locustMatchStart();                              // locust: first showing 20-50s in
   toast('THE GAME HAS STARTED');
 }
 function ltmPlaceSafe(){
@@ -3423,6 +3428,7 @@ function ltmPlaceSafe(){
 function ltmDie(){
   if(ltmDead) return;
   ltmDead=true;
+  locustOnDeath();                                 // locust: end any cutscene cleanly, let go
   ltmDeaths++;
   audio.zap && audio.zap();
   flashJumpscare();
@@ -3458,12 +3464,13 @@ function updateLTM(dt){
     if(left<=0) ltmStartMatch();
   } else {
     updateLtmEnts(dt);
+    updateLocust(dt);                              // locust
     if(ltmCardAt>=0 && left<=ltmCardAt){
       ltmCardAt=-1;
       const card=document.getElementById('ltmCard');
       document.getElementById('ltmCardT').textContent='MAP: FOREST';
       document.getElementById('ltmCardS').innerHTML='ENTITIES THIS ROUND<br>'+
-        LTM_ROSTER.map(k=>k.n).join(' &nbsp;·&nbsp; ');
+        LTM_ROSTER.map(k=>k.n).join(' &nbsp;·&nbsp; ')+' &nbsp;·&nbsp; THE LOCUST';   // locust
       card.classList.add('show');
       setTimeout(()=>card.classList.remove('show'), 6000);
     }
@@ -3478,6 +3485,7 @@ function updateLTM(dt){
 }
 function ltmTeardown(){
   ltmOn=false; ltmPhase='';
+  locustReset();                                   // locust
   clearLtmEnts();
   if(ltmLobbyG && ltmLobbyG.parent) scene.remove(ltmLobbyG);
   if(ltmForestG && ltmForestG.parent) scene.remove(ltmForestG);
@@ -3495,6 +3503,504 @@ function leaveLTM(){
 }
 document.getElementById('ltmBtn').addEventListener('click', enterLTM);
 document.getElementById('ltmExit').addEventListener('click', leaveLTM);
+
+/* ==================== THE LOCUST [LTM] ==================================
+   Kevin's entity. It only exists inside the forest match — never the lobby.
+   It shows up on a random clock, walks in from behind you, breaks into a run
+   once it's close, and if it touches you the game cuts to third person and
+   watches it stab you in the head. Then it's gone again for a while.
+
+   All of it hangs off ltmOn; nothing here runs anywhere else in the game. */
+
+/* the model came out of a Source-engine FBX, so its native facing needed
+   pinning down. Measured it: with the wrapper at 0 the head/mouth bone sits on
+   -X through every clip, and the @Jumpscare lunge travels -X too. Our parent
+   group uses the hunters' convention (yaw=atan2(hx,hz), so local +Z is
+   "forward"), and a quarter turn puts the mouth on +Z in walk, run, idle and
+   the lunge alike. If the Locust ever moonwalks at you, this one number is the
+   fix: try 0, Math.PI, -Math.PI/2. */
+const LOCUST_FACE_FIX = Math.PI/2;
+const LOCUST_H       = 2.3;    // stands taller than you on purpose
+const LOCUST_SEE     = 12;     // closer than this and it stops walking, starts running
+const LOCUST_SEE_OUT = 13.5;   // ...and this far back out before it drops to a walk again
+const LOCUST_WALK    = 2.2, LOCUST_RUN = 4.4;
+const LOCUST_GRAB    = 1.6;    // this close = cutscene
+const LOCUST_STAB_T  = 0.55;   // seconds into the @Jumpscare clip that the needle lands
+const LOCUST_CLIP_T  = 1.75;   // the clip's own length
+const LOCUST_BEAT    = 0.40;   // a breath after it finishes before the damage lands
+const LOCUST_FADE    = 0.35;   // how long it takes to shrink away afterwards
+const LOCUST_BITE    = 60;     // exactly 60% health, per the spec
+
+let locustGltf=null, locustLoading=false, locustFailed=false;
+let locustG=null, locustFix=null, locustMixer=null, locustClips={}, locustActs={}, locustCur=null;
+let locustMats=[];
+let locustOn=false, locustX=0, locustZ=0, locustYaw=0, locustHold=0, locustSlide=1, locustRunning=false;
+let locustNextAt=0;                    // wall-clock deadline, same trick the LTM clock uses
+let locustCine=false, locustCineT=0, locustStabbed=false, locustVanishing=false, locustVanishT=0;
+let locustAvatar=null, locustCamOff={x:0,z:0}, locustLookAt=null;
+let locustBlood=null, locustBloodV=null, locustBloodN=0, locustBloodT=0, locustDecals=[];
+let locustScream=null, locustCue=null;
+
+/* ---- the model ---- */
+/* loaded once, lazily, the first time anyone enters the LTM. Only one Locust
+   is ever standing, so the loaded scene is reused as-is — no cloning, which
+   would share the skeleton anyway. */
+function locustLoad(){
+  if(locustGltf || locustLoading || locustFailed) return;
+  locustLoading=true;
+  new GLTFLoader().load('./locust.glb', (gltf)=>{
+    locustLoading=false; locustGltf=gltf;
+    const root=gltf.scene;
+    /* bind-pose height -> our target height.
+       A SkinnedMesh's box comes from the live bone matrices, and this rig lists
+       its meshes BEFORE the skeleton in the scene's children — so measuring cold
+       reads stale bones and comes back less than half the real size. Push the
+       world matrices through first, and throw away any box cached from that. */
+    root.updateMatrixWorld(true);
+    root.traverse(o=>{ if(o.isSkinnedMesh) o.boundingBox=null; });
+    const box=new THREE.Box3().setFromObject(root);
+    const h=Math.max(0.01, box.max.y-box.min.y);
+    const s=LOCUST_H/h;
+    const seen=new Set();
+    root.traverse(o=>{
+      if(!o.isMesh) return;
+      o.frustumCulled=false;            // skinned + animated: the bind-pose box lies
+      o.castShadow=false; o.receiveShadow=false;
+      for(const m of (Array.isArray(o.material)?o.material:[o.material])){
+        if(!m || seen.has(m.uuid)) continue;
+        seen.add(m.uuid);
+        m.transparent=true; m.opacity=1;   // set once so the vanish never recompiles a shader
+        locustMats.push(m);
+      }
+    });
+    locustFix=new THREE.Group();
+    locustFix.rotation.y=LOCUST_FACE_FIX;
+    locustFix.scale.setScalar(s);
+    locustFix.position.y=-box.min.y*s;   // feet on the ground
+    locustFix.add(root);
+    locustG=new THREE.Group();
+    locustG.add(locustFix);
+    locustMixer=new THREE.AnimationMixer(root);
+    for(const clip of gltf.animations){
+      for(const tag of ['@walk','@run','@Idle','@Jumpscare']){
+        if(clip.name.includes(tag) && !locustClips[tag]){
+          locustClips[tag]=clip;
+          locustActs[tag]=locustMixer.clipAction(clip);
+        }
+      }
+    }
+  }, undefined, (err)=>{
+    locustLoading=false; locustFailed=true;
+    console.warn('locust model failed to load', err);
+  });
+}
+function locustReady(){ return !!(locustG && locustMixer); }
+function locustPlay(tag, once){
+  const a=locustActs[tag];
+  if(!a) return null;
+  if(locustCur===a && !once) return a;
+  a.reset();
+  a.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat, once?1:Infinity);
+  a.clampWhenFinished=!!once;
+  a.setEffectiveTimeScale(1); a.setEffectiveWeight(1);
+  a.play();
+  if(locustCur && locustCur!==a) locustCur.crossFadeTo(a, once?0.10:0.26, false);
+  locustCur=a;
+  return a;
+}
+function locustFade(k){ for(const m of locustMats) m.opacity=k; }
+
+/* ---- the clock ---- */
+function locustScheduleNext(minS,maxS){
+  locustNextAt=performance.now()+(minS+Math.random()*(maxS-minS))*1000;
+}
+function locustNextIn(){ return locustNextAt ? Math.max(0,(locustNextAt-performance.now())/1000) : -1; }
+/* called when the forest match begins — first appearance is 20-50s in */
+function locustMatchStart(){
+  locustReset();
+  locustLoad();
+  locustScheduleNext(20,50);
+}
+
+/* ---- showing up ---- */
+function locustSpawn(){
+  if(!ltmOn || ltmPhase!=='match' || locustOn || locustCine) return false;
+  if(locustFailed){ locustNextAt=0; return false; }
+  if(!locustReady()){ locustLoad(); locustNextAt=performance.now()+2000; return false; }   // still downloading — try again shortly
+  /* behind you if we can manage it: your forward is (-sin yaw,-cos yaw), so
+     "behind" is the yaw angle itself in the (sin,cos) heading convention */
+  const back=player.yaw;
+  let bx=null,bz=null;
+  for(let t=0;t<26;t++){
+    const a = back + (t<18 ? (Math.random()-0.5)*1.9 : Math.random()*Math.PI*2);
+    const d = 18+Math.random()*12;
+    const x = player.x+Math.sin(a)*d, z = player.z+Math.cos(a)*d;
+    if(Math.hypot(x,z)>LTM_HALF-3) continue;
+    const [cx,cz]=collideLtm(x,z,0.5);
+    if(Math.hypot(cx-x,cz-z)>0.35) continue;        // that spot is inside a tree or a cabin
+    bx=cx; bz=cz; break;
+  }
+  if(bx===null){
+    bx=player.x+Math.sin(back)*20; bz=player.z+Math.cos(back)*20;
+    [bx,bz]=collideLtm(bx,bz,0.5);
+  }
+  locustX=bx; locustZ=bz;
+  locustYaw=Math.atan2(player.x-locustX, player.z-locustZ);
+  locustG.position.set(locustX,0,locustZ);
+  locustG.rotation.y=locustYaw;
+  locustG.scale.setScalar(1);
+  locustFade(1);
+  scene.add(locustG);
+  locustOn=true; locustHold=0.8; locustSlide=1; locustRunning=false;
+  locustCur=null;
+  locustPlay('@Idle', false);
+  locustNextAt=0;
+  locustCueSound();
+  return true;
+}
+/* the tell: a short, quiet bite of the chase track. Just enough to look up. */
+function locustCueSound(){
+  try{
+    if(locustCue){ locustCue.pause(); locustCue=null; }
+    locustCue=new Audio('./entity-chase.mp3');
+    locustCue.volume=0.22;
+    const p=locustCue.play(); if(p&&p.catch) p.catch(()=>{});
+    setTimeout(()=>{ try{ if(locustCue){ locustCue.pause(); locustCue=null; } }catch(e){} }, 1600);
+  }catch(e){}
+  try{ audio.ensure(); audio.zap(); }catch(e){}
+}
+function locustDespawn(){
+  if(locustG){
+    if(locustG.parent) scene.remove(locustG);
+    locustG.scale.setScalar(1);
+  }
+  locustFade(1);
+  if(locustMixer) locustMixer.stopAllAction();
+  locustCur=null;
+  locustOn=false; locustVanishing=false; locustVanishT=0; locustHold=0;
+}
+
+/* ---- the stalk ---- */
+function updateLocust(dt){
+  if(!ltmOn) return;
+  if(locustCine){ locustCineUpdate(dt); return; }
+  locustBloodUpdate(dt);
+  if(ltmPhase!=='match'){ return; }
+  if(!locustOn){
+    if(locustNextAt && performance.now()>=locustNextAt) locustSpawn();
+    return;
+  }
+  const dx=player.x-locustX, dz=player.z-locustZ, dist=Math.hypot(dx,dz)||0.0001;
+  const hx=dx/dist, hz=dz/dist;
+  const want=Math.atan2(hx,hz);
+  /* it always turns to face you, shortest way round */
+  locustYaw += (((want-locustYaw+Math.PI*3)%(Math.PI*2))-Math.PI)*Math.min(1,dt*5);
+
+  if(locustHold>0){
+    /* a beat where it just stands there and looks at you before it starts */
+    locustHold-=dt;
+    locustPlay('@Idle', false);
+  } else {
+    /* hysteresis on the gap so it can't flicker between the two gaits */
+    if(locustRunning ? dist>LOCUST_SEE_OUT : dist<LOCUST_SEE) locustRunning=!locustRunning;
+    const near=locustRunning;
+    const sp=near?LOCUST_RUN:LOCUST_WALK;
+    locustPlay(near?'@run':'@walk', false);
+    let nx=locustX+hx*sp*dt, nz=locustZ+hz*sp*dt;
+    [nx,nz]=collideLtm(nx,nz,0.5);
+    /* jammed on a trunk? slide along it instead of grinding in place */
+    if(Math.hypot(nx-locustX,nz-locustZ) < sp*dt*0.35){
+      let sx=locustX+(-hz)*locustSlide*sp*dt, sz=locustZ+hx*locustSlide*sp*dt;
+      [sx,sz]=collideLtm(sx,sz,0.5);
+      if(Math.hypot(sx-locustX,sz-locustZ) > sp*dt*0.35){ nx=sx; nz=sz; }
+      else locustSlide=-locustSlide;
+    }
+    locustX=nx; locustZ=nz;
+  }
+  locustG.position.set(locustX, 0, locustZ);
+  locustG.rotation.y=locustYaw;
+  if(locustMixer) locustMixer.update(dt);
+  if(dist<LOCUST_GRAB && !ltmDead) locustCineStart();
+}
+
+/* ---- the jumpscare cutscene ---- */
+function locustCineStart(){
+  if(locustCine || !locustOn || !locustReady()) return;
+  locustCine=true; locustCineT=0; locustStabbed=false; locustVanishing=false; locustVanishT=0;
+  document.body.classList.add('cutscene');          // every bit of HUD hides on this class
+  /* freeze the body: no held keys, no stick, no momentum */
+  input.f=input.b=input.l=input.r=0; input.joyX=0; input.joyZ=0; input.sprint=false;
+  gpSprint=false;
+  player.vx=0; player.vz=0; player.bob=0; player.sway=0;
+
+  /* the heading from you to it, in the hunters' (sin,cos) convention */
+  const a=Math.atan2(locustX-player.x, locustZ-player.z);
+  player.yaw=a+Math.PI;                             // so first person comes back looking at it
+  player.pitch=0; player.roll=0;
+
+  locustAvatar=locustMakeAvatar();
+  locustAvatar.position.set(player.x, 0, player.z);
+  locustAvatar.rotation.y=a;                        // the avatar looks up at it
+  scene.add(locustAvatar);
+
+  /* snap it to arm's reach, facing the avatar */
+  let lx=player.x+Math.sin(a)*1.1, lz=player.z+Math.cos(a)*1.1;
+  [lx,lz]=collideLtm(lx,lz,0.35);
+  locustX=lx; locustZ=lz; locustYaw=a+Math.PI;
+  locustG.position.set(locustX,0,locustZ);
+  locustG.rotation.y=locustYaw;
+  locustG.scale.setScalar(1);
+  locustFade(1);
+
+  /* camera: off to one side and a little behind the avatar's shoulder.
+     (-1.0 back, ±3.0 across) is 3.16 units out — the "~3.2" the design asked for.
+     Cabin walls and trunks love to sit exactly there, so walk the line of sight
+     first: try both shoulders, then pull the shot in until nothing's in the way. */
+  const shot=(side,pull)=>({ x:(-Math.sin(a)*1.0 + Math.cos(a)*3.0*side)*pull,
+                             z:(-Math.cos(a)*1.0 - Math.sin(a)*3.0*side)*pull });
+  const clearShot=(o)=>{
+    for(const t of [0.45,0.75,1.0]){
+      const cx=player.x+o.x*t, cz=player.z+o.z*t;
+      const [px,pz]=collideLtm(cx,cz,0.3);
+      if(Math.hypot(px-cx,pz-cz)>0.2) return false;
+    }
+    return true;
+  };
+  const first=Math.random()<0.5?1:-1;
+  locustCamOff=null;
+  for(const pull of [1,0.7,0.5]){
+    for(const side of [first,-first]){
+      const o=shot(side,pull);
+      if(clearShot(o)){ locustCamOff=o; break; }
+    }
+    if(locustCamOff) break;
+  }
+  if(!locustCamOff) locustCamOff=shot(first,0.5);
+  /* halfway between your head and its chest */
+  locustLookAt=new THREE.Vector3((player.x+locustX)*0.5, (1.80+1.45)*0.5, (player.z+locustZ)*0.5);
+
+  if(locustMixer) locustMixer.stopAllAction();       // no crossfade — cut straight into the strike
+  locustCur=null;
+  locustPlay('@Jumpscare', true);
+  if(locustMixer) locustMixer.update(0);
+  try{
+    if(locustCue){ locustCue.pause(); locustCue=null; }
+    locustScream=new Audio('./stalker-scream.mp3');
+    locustScream.volume=0.9;
+    const p=locustScream.play(); if(p&&p.catch) p.catch(()=>{});
+  }catch(e){}
+}
+function locustCineUpdate(dt){
+  locustCineT+=dt;
+  if(locustMixer) locustMixer.update(dt);
+  locustBloodUpdate(dt);
+
+  if(!locustStabbed && locustCineT>=LOCUST_STAB_T){
+    locustStabbed=true;
+    locustBloodBurst(player.x, 1.72, player.z);     // out of the avatar's head
+    locustDecalDrop(player.x, player.z);
+    ltmHurtT=1.0;                                    // the red vignette the LTM already owns
+    flashJumpscare();
+    try{ audio.stab && audio.stab(); }catch(e){}
+  }
+  if(!locustVanishing && locustCineT>=LOCUST_CLIP_T+LOCUST_BEAT){
+    locustVanishing=true; locustVanishT=0;
+  }
+  if(locustVanishing){
+    locustVanishT+=dt;
+    const k=Math.max(0.02, 1-locustVanishT/LOCUST_FADE);
+    if(locustG) locustG.scale.setScalar(k);
+    locustFade(k);
+    if(locustVanishT>=LOCUST_FADE){ locustCineEnd(true); return; }
+  }
+  if(xrOn) return;                                   // VR drives its own camera; leave it alone
+  /* slow push-in plus a bit of handheld */
+  const dolly=1-Math.min(0.14, locustCineT*0.065);
+  const kick=locustStabbed ? Math.max(0, 0.10-(locustCineT-LOCUST_STAB_T)*0.16) : 0;
+  const sh=0.016+kick;
+  camera.position.set(
+    player.x+locustCamOff.x*dolly + (Math.random()-0.5)*sh,
+    1.70 + Math.sin(locustCineT*7.3)*0.012 + (Math.random()-0.5)*sh,
+    player.z+locustCamOff.z*dolly + (Math.random()-0.5)*sh);
+  camera.lookAt(locustLookAt);
+}
+function locustCineEnd(applyDamage){
+  if(!locustCine) return;
+  locustCine=false;
+  document.body.classList.remove('cutscene');
+  if(locustAvatar){ scene.remove(locustAvatar); locustDispose(locustAvatar); locustAvatar=null; }
+  locustDecalsClear();
+  locustBloodClear();
+  if(locustScream){ try{ locustScream.pause(); }catch(e){} locustScream=null; }
+  locustDespawn();
+  locustScheduleNext(25,70);
+  if(applyDamage && ltmOn && ltmPhase==='match' && !ltmDead){
+    const fatal = ltmHp-LOCUST_BITE <= 0;
+    ltmHurt(LOCUST_BITE);
+    toast(fatal ? 'THE LOCUST GOT YOU — YOU DIED' : 'THE LOCUST GOT YOU — -60 HP');
+  }
+}
+
+/* ---- the third-person stand-in ---- */
+/* built in code rather than modelled: pale blue, obviously "you", nothing like
+   the hunters. ~1.8 tall, head top lands exactly there. */
+function locustMakeAvatar(){
+  const g=new THREE.Group();
+  const cloth=new THREE.MeshLambertMaterial({color:0x4d7fbe, emissive:0x0a1626});
+  const jeans=new THREE.MeshLambertMaterial({color:0x28374f, emissive:0x060a10});
+  const skin =new THREE.MeshLambertMaterial({color:0xe2ecf8, emissive:0x14202e});
+  const torso=new THREE.Mesh(new THREE.CapsuleGeometry(0.28,0.60,4,10), cloth);
+  torso.position.y=0.86; g.add(torso);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.22,14,12), skin);
+  head.position.y=1.58; g.add(head);                       // 1.58 + 0.22 = 1.80 tall
+  for(const sx of [-0.34,0.34]){
+    const arm=new THREE.Mesh(new THREE.CapsuleGeometry(0.09,0.50,3,8), cloth);
+    arm.position.set(sx,1.05,0); arm.rotation.z=(sx>0?-0.14:0.14); g.add(arm);
+  }
+  for(const sx of [-0.13,0.13]){
+    const leg=new THREE.Mesh(new THREE.CapsuleGeometry(0.11,0.42,3,8), jeans);
+    leg.position.set(sx,0.32,0); g.add(leg);
+  }
+  const eyeMat=new THREE.MeshBasicMaterial({color:0x0b1119});
+  for(const ex of [-0.085,0.085]){
+    const e=new THREE.Mesh(new THREE.SphereGeometry(0.034,8,6), eyeMat);
+    e.position.set(ex,1.62,0.20); g.add(e);                // eyes on local +Z, the way it faces
+  }
+  return g;
+}
+function locustDispose(obj){
+  obj.traverse(o=>{
+    if(o.geometry) o.geometry.dispose();
+    if(o.material) for(const m of (Array.isArray(o.material)?o.material:[o.material])) m.dispose();
+  });
+}
+
+/* ---- blood ---- */
+function locustBloodBurst(x,y,z){
+  locustBloodClear();
+  locustBloodN=60+Math.floor(Math.random()*31);            // 60-90 specks
+  const pos=new Float32Array(locustBloodN*3);
+  locustBloodV=new Float32Array(locustBloodN*3);
+  for(let i=0;i<locustBloodN;i++){
+    pos[i*3  ]=x+(Math.random()-0.5)*0.12;
+    pos[i*3+1]=y+(Math.random()-0.5)*0.12;
+    pos[i*3+2]=z+(Math.random()-0.5)*0.12;
+    const a=Math.random()*Math.PI*2, out=1.1+Math.random()*3.0, up=1.3+Math.random()*2.9;
+    locustBloodV[i*3  ]=Math.cos(a)*out;
+    locustBloodV[i*3+1]=up;
+    locustBloodV[i*3+2]=Math.sin(a)*out;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  locustBlood=new THREE.Points(geo, new THREE.PointsMaterial({
+    color:0xaa0a10, size:0.085, sizeAttenuation:true, transparent:true, opacity:1, depthWrite:false }));
+  locustBlood.frustumCulled=false;
+  scene.add(locustBlood);
+  locustBloodT=0;
+}
+function locustBloodUpdate(dt){
+  if(!locustBlood) return;
+  locustBloodT+=dt;
+  const attr=locustBlood.geometry.attributes.position, p=attr.array;
+  for(let i=0;i<locustBloodN;i++){
+    locustBloodV[i*3+1]-=9.4*dt;                            // gravity
+    p[i*3  ]+=locustBloodV[i*3  ]*dt;
+    p[i*3+1]+=locustBloodV[i*3+1]*dt;
+    p[i*3+2]+=locustBloodV[i*3+2]*dt;
+    if(p[i*3+1]<0.03){                                      // splat, stop
+      p[i*3+1]=0.03;
+      locustBloodV[i*3]*=0.35; locustBloodV[i*3+1]=0; locustBloodV[i*3+2]*=0.35;
+    }
+  }
+  attr.needsUpdate=true;
+  locustBlood.material.opacity=Math.max(0, 1-locustBloodT/1.2);
+  if(locustBloodT>=1.2) locustBloodClear();
+}
+function locustBloodClear(){
+  if(!locustBlood) return;
+  if(locustBlood.parent) scene.remove(locustBlood);
+  locustDispose(locustBlood);
+  locustBlood=null; locustBloodV=null; locustBloodN=0; locustBloodT=0;
+}
+function locustDecalDrop(x,z){
+  for(let i=0;i<3;i++){
+    const d=new THREE.Mesh(new THREE.CircleGeometry(0.26+Math.random()*0.42, 14),
+      new THREE.MeshBasicMaterial({color:0x460208, transparent:true, opacity:0.85, depthWrite:false}));
+    d.rotation.x=-Math.PI/2;
+    d.position.set(x+(Math.random()-0.5)*1.3, 0.02+i*0.003, z+(Math.random()-0.5)*1.3);
+    scene.add(d); locustDecals.push(d);
+  }
+}
+function locustDecalsClear(){
+  for(const d of locustDecals){ if(d.parent) scene.remove(d); locustDispose(d); }
+  locustDecals=[];
+}
+
+/* ---- cleanup ---- */
+/* the full wipe: leaving the mode, or dropping back to the lobby */
+function locustReset(){
+  if(locustCine){
+    locustCine=false;
+    document.body.classList.remove('cutscene');
+  }
+  if(locustAvatar){ scene.remove(locustAvatar); locustDispose(locustAvatar); locustAvatar=null; }
+  if(locustScream){ try{ locustScream.pause(); }catch(e){} locustScream=null; }
+  if(locustCue){ try{ locustCue.pause(); }catch(e){} locustCue=null; }
+  locustBloodClear();
+  locustDecalsClear();
+  locustDespawn();
+  locustNextAt=0;
+  locustCineT=0; locustStabbed=false;
+}
+/* you died — to the Locust or to something else. Either way the cutscene ends
+   clean, it lets go of you, and it comes back later. */
+function locustOnDeath(){
+  if(locustCine){
+    locustCine=false;
+    document.body.classList.remove('cutscene');
+    if(locustAvatar){ scene.remove(locustAvatar); locustDispose(locustAvatar); locustAvatar=null; }
+    if(locustScream){ try{ locustScream.pause(); }catch(e){} locustScream=null; }
+    locustBloodClear();
+    locustDecalsClear();
+  }
+  locustDespawn();
+  if(ltmOn && ltmPhase==='match') locustScheduleNext(25,70);
+  else locustNextAt=0;
+}
+
+/* ---- test hooks (harmless, always on) ---- */
+window.__locust={
+  spawnNow(){
+    if(!ltmOn || ltmPhase!=='match') return 'not in a match';
+    if(locustCine) return 'mid-cutscene';
+    if(locustOn) return 'already out there';
+    locustNextAt=performance.now();
+    return locustReady() ? 'coming' : 'model still loading — it will pop in a moment';
+  },
+  jumpscareNow(){
+    if(!ltmOn || ltmPhase!=='match') return 'not in a match';
+    if(locustCine) return 'already in it';
+    if(!locustReady()){ locustLoad(); return 'model still loading'; }
+    if(!locustOn) locustSpawn();
+    if(!locustOn) return 'could not spawn';
+    locustHold=0;
+    const a=Math.random()*Math.PI*2;
+    locustX=player.x+Math.sin(a)*1.2; locustZ=player.z+Math.cos(a)*1.2;
+    locustCineStart();
+    return 'ok';
+  },
+  skipLobby(){
+    if(!ltmOn) return 'not in the LTM';
+    if(ltmPhase!=='lobby') return 'not in the lobby';
+    ltmSetClock(0);
+    return 'ok';
+  },
+  state(){
+    return { phase: ltmOn?ltmPhase:'off', present: locustOn, cine: locustCine,
+             hp: ltmHp, nextIn: locustNextIn() };
+  }
+};
+window.__ltm={ enter: enterLTM, leave: leaveLTM };
 
 function updateLevel3(dt){
   localLight=0.35;   // dim but not pitch-black — flashlight does the actual seeing
@@ -4795,7 +5301,7 @@ function setupDesktop(){
   addEventListener('keyup',e=>{ keys[e.code]=false; if(e.code==='ShiftLeft'||e.code==='ShiftRight') input.sprint=false; });
   renderer.domElement.addEventListener('click',()=>{ if((running||creatorMode||megActive) && !locked) renderer.domElement.requestPointerLock(); });
   document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===renderer.domElement); });
-  document.addEventListener('mousemove',e=>{ if(!locked) return;
+  document.addEventListener('mousemove',e=>{ if(!locked || locustCine) return;   // locust
     player.yaw -= e.movementX*0.0022*lookSens; player.pitch -= e.movementY*0.0022*lookSens;
     player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
   });
@@ -4829,8 +5335,10 @@ function setupTouch(){
         stick.style.left=(50+dx/max*50)+'%'; stick.style.top=(50+dy/max*50)+'%';
         input.joyX=dx/max; input.joyZ=-dy/max;
       } else if(t.identifier===lookId){
-        player.yaw -= (t.clientX-lookX)*0.005*lookSens; player.pitch -= (t.clientY-lookY)*0.005*lookSens;
-        player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
+        if(!locustCine){                                        // locust: no looking mid-cutscene
+          player.yaw -= (t.clientX-lookX)*0.005*lookSens; player.pitch -= (t.clientY-lookY)*0.005*lookSens;
+          player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
+        }
         lookX=t.clientX; lookY=t.clientY;
       }
     }
@@ -4875,7 +5383,7 @@ function pollGamepad(dt){
   const DZ=0.18;
   const ax=n=>{ const v=gp.axes[n]||0; return Math.abs(v)<DZ ? 0 : (v-Math.sign(v)*DZ)/(1-DZ); };
   const down=n=>{ const b=gp.buttons[n]; return b ? (b.pressed || b.value>0.45) : false; };
-  const inPlay = !xrOn && ((running && !settingsOpen && !shutdownActive && !botChatOpen && !cineActive) || creatorMode || megActive);
+  const inPlay = !xrOn && !locustCine && ((running && !settingsOpen && !shutdownActive && !botChatOpen && !cineActive) || creatorMode || megActive);   // locust
   if(inPlay){
     input.joyX = ax(0);
     input.joyZ = -ax(1);
@@ -6249,6 +6757,9 @@ function tick(){
 
 function update(dt){
   if(caught){ updateCatch(dt); return; }
+  // locust: during the jumpscare the cutscene drives the camera and you drive nothing.
+  // The LTM clock keeps running, so updateLTM still ticks.
+  if(ltmOn && locustCine){ elapsed+=dt; localLight=0.55; updateLTM(dt); return; }
   elapsed+=dt;
   if(!isTouch) readKeys();
 
