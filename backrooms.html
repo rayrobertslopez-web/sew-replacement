@@ -3520,7 +3520,7 @@ document.getElementById('ltmExit').addEventListener('click', leaveLTM);
    the lunge alike. If the Locust ever moonwalks at you, this one number is the
    fix: try 0, Math.PI, -Math.PI/2. */
 const LOCUST_FACE_FIX = Math.PI/2;
-const LOCUST_H       = 2.3;    // stands taller than you on purpose
+const LOCUST_H       = 3.6;    // twice your height — it looms over you
 const LOCUST_SEE     = 12;     // closer than this and it stops walking, starts running
 const LOCUST_SEE_OUT = 13.5;   // ...and this far back out before it drops to a walk again
 const LOCUST_WALK    = 2.2, LOCUST_RUN = 4.4;
@@ -3756,8 +3756,8 @@ function locustCineStart(){
      (-1.0 back, ±3.0 across) is 3.16 units out — the "~3.2" the design asked for.
      Cabin walls and trunks love to sit exactly there, so walk the line of sight
      first: try both shoulders, then pull the shot in until nothing's in the way. */
-  const shot=(side,pull)=>({ x:(-Math.sin(a)*1.0 + Math.cos(a)*3.0*side)*pull,
-                             z:(-Math.cos(a)*1.0 - Math.sin(a)*3.0*side)*pull });
+  const shot=(side,pull)=>({ x:(-Math.sin(a)*1.0 + Math.cos(a)*3.9*side)*pull,
+                             z:(-Math.cos(a)*1.0 - Math.sin(a)*3.9*side)*pull });
   const clearShot=(o)=>{
     for(const t of [0.45,0.75,1.0]){
       const cx=player.x+o.x*t, cz=player.z+o.z*t;
@@ -3777,7 +3777,7 @@ function locustCineStart(){
   }
   if(!locustCamOff) locustCamOff=shot(first,0.5);
   /* halfway between your head and its chest */
-  locustLookAt=new THREE.Vector3((player.x+locustX)*0.5, (1.80+1.45)*0.5, (player.z+locustZ)*0.5);
+  locustLookAt=new THREE.Vector3((player.x+locustX)*0.5, (1.80+2.30)*0.5, (player.z+locustZ)*0.5);
 
   if(locustMixer) locustMixer.stopAllAction();       // no crossfade — cut straight into the strike
   locustCur=null;
