@@ -3520,11 +3520,13 @@ document.getElementById('ltmExit').addEventListener('click', leaveLTM);
    the lunge alike. If the Locust ever moonwalks at you, this one number is the
    fix: try 0, Math.PI, -Math.PI/2. */
 const LOCUST_FACE_FIX = Math.PI/2;
-const LOCUST_H       = 3.6;    // twice your height — it looms over you
+const LOCUST_H       = 4.2;    // way over twice your height — it looms over you
 const LOCUST_SEE     = 12;     // closer than this and it stops walking, starts running
 const LOCUST_SEE_OUT = 13.5;   // ...and this far back out before it drops to a walk again
 const LOCUST_WALK    = 2.2, LOCUST_RUN = 4.4;
 const LOCUST_GRAB    = 1.6;    // this close = cutscene
+const LOCUST_LIFT_T  = 1.4;    // it grabs you and hoists you up for this long first
+const LOCUST_LIFT_Y  = 1.9;    // how high off the ground you end up dangling
 const LOCUST_STAB_T  = 0.55;   // seconds into the @Jumpscare clip that the needle lands
 const LOCUST_CLIP_T  = 1.75;   // the clip's own length
 const LOCUST_BEAT    = 0.40;   // a breath after it finishes before the damage lands
@@ -3536,6 +3538,7 @@ let locustG=null, locustFix=null, locustMixer=null, locustClips={}, locustActs={
 let locustMats=[];
 let locustOn=false, locustX=0, locustZ=0, locustYaw=0, locustHold=0, locustSlide=1, locustRunning=false;
 let locustNextAt=0;                    // wall-clock deadline, same trick the LTM clock uses
+let locustStruck=false, locustHidTrees=[];
 let locustCine=false, locustCineT=0, locustStabbed=false, locustVanishing=false, locustVanishT=0;
 let locustAvatar=null, locustCamOff={x:0,z:0}, locustLookAt=null;
 let locustBlood=null, locustBloodV=null, locustBloodN=0, locustBloodT=0, locustDecals=[];
@@ -3738,6 +3741,13 @@ function locustCineStart(){
   player.yaw=a+Math.PI;                             // so first person comes back looking at it
   player.pitch=0; player.roll=0;
 
+  /* nearby trees get out of the shot — the camera sits up in the canopy now */
+  locustHidTrees=[];
+  if(ltmForestG) for(const c of ltmForestG.children){
+    if(c.userData && c.userData.r && c.visible && Math.hypot(c.position.x-player.x,c.position.z-player.z)<7.5){
+      c.visible=false; locustHidTrees.push(c);
+    }
+  }
   locustAvatar=locustMakeAvatar();
   locustAvatar.position.set(player.x, 0, player.z);
   locustAvatar.rotation.y=a;                        // the avatar looks up at it
@@ -3756,8 +3766,8 @@ function locustCineStart(){
      (-1.0 back, ±3.0 across) is 3.16 units out — the "~3.2" the design asked for.
      Cabin walls and trunks love to sit exactly there, so walk the line of sight
      first: try both shoulders, then pull the shot in until nothing's in the way. */
-  const shot=(side,pull)=>({ x:(-Math.sin(a)*1.0 + Math.cos(a)*3.9*side)*pull,
-                             z:(-Math.cos(a)*1.0 - Math.sin(a)*3.9*side)*pull });
+  const shot=(side,pull)=>({ x:(-Math.sin(a)*1.0 + Math.cos(a)*4.6*side)*pull,
+                             z:(-Math.cos(a)*1.0 - Math.sin(a)*4.6*side)*pull });
   const clearShot=(o)=>{
     for(const t of [0.45,0.75,1.0]){
       const cx=player.x+o.x*t, cz=player.z+o.z*t;
@@ -3777,33 +3787,52 @@ function locustCineStart(){
   }
   if(!locustCamOff) locustCamOff=shot(first,0.5);
   /* halfway between your head and its chest */
-  locustLookAt=new THREE.Vector3((player.x+locustX)*0.5, (1.80+2.30)*0.5, (player.z+locustZ)*0.5);
+  locustLookAt=new THREE.Vector3((player.x+locustX)*0.5, (1.80+LOCUST_LIFT_Y*0.7+2.6)*0.5, (player.z+locustZ)*0.5);
 
   if(locustMixer) locustMixer.stopAllAction();       // no crossfade — cut straight into the strike
   locustCur=null;
-  locustPlay('@Jumpscare', true);
+  locustPlay('@Idle');                              // it holds you up first; the strike comes after
   if(locustMixer) locustMixer.update(0);
-  try{
-    if(locustCue){ locustCue.pause(); locustCue=null; }
-    locustScream=new Audio('./stalker-scream.mp3');
-    locustScream.volume=0.9;
-    const p=locustScream.play(); if(p&&p.catch) p.catch(()=>{});
-  }catch(e){}
+  locustStruck=false;
+  try{ if(locustCue){ locustCue.pause(); locustCue=null; } }catch(e){}
+}
+/* the lift: you leave the ground fast, then hang there kicking a little */
+function locustLiftUpdate(){
+  if(!locustAvatar) return;
+  const u=Math.min(1, locustCineT/LOCUST_LIFT_T);
+  const e=1-Math.pow(1-u,3);                          // snappy grab, eases at the top
+  const dangle = u>=1 ? Math.sin(locustCineT*9)*0.04 : 0;
+  locustAvatar.position.y=LOCUST_LIFT_Y*e+dangle;
+  locustAvatar.rotation.x=-0.28*e + Math.sin(locustCineT*11)*0.05*e;   // tips back, legs swing
+  locustAvatar.rotation.z=Math.sin(locustCineT*7)*0.07*e;
 }
 function locustCineUpdate(dt){
   locustCineT+=dt;
   if(locustMixer) locustMixer.update(dt);
   locustBloodUpdate(dt);
+  if(!locustVanishing) locustLiftUpdate();
 
-  if(!locustStabbed && locustCineT>=LOCUST_STAB_T){
+  /* the strike only starts once you're up in the air */
+  if(!locustStruck && locustCineT>=LOCUST_LIFT_T){
+    locustStruck=true;
+    if(locustMixer) locustMixer.stopAllAction();     // no crossfade — cut straight into the strike
+    locustCur=null;
+    locustPlay('@Jumpscare', true);
+    try{
+      locustScream=new Audio('./stalker-scream.mp3');
+      locustScream.volume=0.9;
+      const p=locustScream.play(); if(p&&p.catch) p.catch(()=>{});
+    }catch(e){}
+  }
+  if(!locustStabbed && locustCineT>=LOCUST_LIFT_T+LOCUST_STAB_T){
     locustStabbed=true;
-    locustBloodBurst(player.x, 1.72, player.z);     // out of the avatar's head
+    locustBloodBurst(player.x, 1.72+LOCUST_LIFT_Y, player.z);   // out of the avatar's head, up where it's held
     locustDecalDrop(player.x, player.z);
     ltmHurtT=1.0;                                    // the red vignette the LTM already owns
     flashJumpscare();
     try{ audio.stab && audio.stab(); }catch(e){}
   }
-  if(!locustVanishing && locustCineT>=LOCUST_CLIP_T+LOCUST_BEAT){
+  if(!locustVanishing && locustCineT>=LOCUST_LIFT_T+LOCUST_CLIP_T+LOCUST_BEAT){
     locustVanishing=true; locustVanishT=0;
   }
   if(locustVanishing){
@@ -3811,6 +3840,11 @@ function locustCineUpdate(dt){
     const k=Math.max(0.02, 1-locustVanishT/LOCUST_FADE);
     if(locustG) locustG.scale.setScalar(k);
     locustFade(k);
+    if(locustAvatar){                                // it lets go — you drop
+      const f=Math.min(1, locustVanishT/LOCUST_FADE);
+      locustAvatar.position.y=LOCUST_LIFT_Y*(1-f*f);
+      locustAvatar.rotation.x*= (1-f); locustAvatar.rotation.z*=(1-f);
+    }
     if(locustVanishT>=LOCUST_FADE){ locustCineEnd(true); return; }
   }
   if(xrOn) return;                                   // VR drives its own camera; leave it alone
@@ -3820,7 +3854,7 @@ function locustCineUpdate(dt){
   const sh=0.016+kick;
   camera.position.set(
     player.x+locustCamOff.x*dolly + (Math.random()-0.5)*sh,
-    1.70 + Math.sin(locustCineT*7.3)*0.012 + (Math.random()-0.5)*sh,
+    1.70 + Math.min(0.9, locustCineT*0.8) + Math.sin(locustCineT*7.3)*0.012 + (Math.random()-0.5)*sh,
     player.z+locustCamOff.z*dolly + (Math.random()-0.5)*sh);
   camera.lookAt(locustLookAt);
 }
@@ -3829,6 +3863,8 @@ function locustCineEnd(applyDamage){
   locustCine=false;
   document.body.classList.remove('cutscene');
   if(locustAvatar){ scene.remove(locustAvatar); locustDispose(locustAvatar); locustAvatar=null; }
+  for(const c of locustHidTrees) c.visible=true;
+  locustHidTrees=[];
   locustDecalsClear();
   locustBloodClear();
   if(locustScream){ try{ locustScream.pause(); }catch(e){} locustScream=null; }
