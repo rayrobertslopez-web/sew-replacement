@@ -32,6 +32,11 @@
   #gempill .plus{ width:19px; height:19px; border-radius:50%; background:#3ddc84; color:#06240f; font-size:14px;
     display:flex; align-items:center; justify-content:center; font-weight:900; cursor:pointer; }
   .gem{ width:16px; height:16px; flex:none; }
+  #gemwrap{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:none; }
+  #season{ font-size:clamp(19px,5.2vw,30px); font-weight:900; letter-spacing:2px; line-height:1;
+    background:linear-gradient(180deg,#ffffff,#ffd84d 60%,#ff9b2f);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 2px 8px rgba(255,180,50,.45)); padding-right:2px; }
 
   .page{ flex:1; position:relative; overflow:hidden; }
   .page.off{ display:none; }
@@ -265,10 +270,13 @@
       <div class="navtab" data-page="compete">COMPETE</div>
       <div class="navtab" data-page="career">CAREER</div>
     </div>
+    <div id="gemwrap">
     <div id="gempill">
       <svg class="gem" viewBox="0 0 24 24"><path d="M12 2l8 6-8 14L4 8z" fill="#40e0ff"/><path d="M12 2l8 6-8 4-8-4z" fill="#9af0ff"/></svg>
       <span id="gemcount">0</span>
       <div class="plus" id="gemplus">+</div>
+    </div>
+    <div id="season" class="sk">SEASON 1</div>
     </div>
   </nav>
 
