@@ -1372,7 +1372,7 @@ const P={
   buildMode:false, buildPiece:'wall', buildMat:'wood', glide:false, char:null, heldModel:null,
   emote:null, emoteT:0, aim:false, camDist:3.2, hurtT:0
 };
-let bots=[], bus=null, storm=null, alive=24, matchT=0, stormPhase=0, stormTimer=0,
+let bots=[], crackedCount=0, bus=null, storm=null, alive=24, matchT=0, stormPhase=0, stormTimer=0,
     stormCenter=new THREE.Vector3(), stormR=260, stormTargetR=260, stormTargetC=new THREE.Vector3(),
     tracers=[], fx=[], dmgNums=[], killLog=[], camShake=0, matchGems=0, placed=24;
 
@@ -1648,15 +1648,25 @@ function startMatch(){
 
   spawnBots();
   centerMsg('DROPPING IN','Tap JUMP / press SPACE to dive');
+  if(crackedCount>0){
+    feed(`⚠ ${crackedCount} cracked player${crackedCount>1?'s':''} in this lobby`);
+    setTimeout(()=>{ if(mode==='match') toast(`⚠ ${crackedCount} cracked player${crackedCount>1?'s':''} dropped — they build`); },2600);
+  }
   syncHotbar(); syncBuildUI(); syncBars();
 }
 
 function spawnBots(){
   const used=new Set();
+  // SOME matches have cracked players in the lobby
+  const crackedN = Math.random()<0.45 ? ri(1,3) : 0;
+  const crackedIdx=new Set();
+  while(crackedIdx.size<crackedN) crackedIdx.add(ri(0,22));
+  const cnames=[...CRACKED_NAMES].sort(()=>Math.random()-.5); let cni=0;
+  crackedCount=crackedN;
   for(let i=0;i<23;i++){
     const poi=POIS[i%POIS.length];
     const x=poi.x+rnd(-30,30), z=poi.z+rnd(-30,30);
-    const ch=buildCharacter(pick(BOTSKINS));
+    const ch=buildCharacter(crackedIdx.has(i)?pick(CRACKED_SKINS):pick(BOTSKINS));
     const b={
       char:ch, pos:new THREE.Vector3(x,terrainH(x,z),z), vel:new THREE.Vector3(),
       hp:100, shield:ri(0,2)*25, alive:true, name:BOTNAMES[i%BOTNAMES.length]+(used.has(i)?i:''),
@@ -1664,6 +1674,16 @@ function spawnBots(){
       fireT:0, wanderT:0, tgt:new THREE.Vector3(x,0,z), yaw:rnd(0,TAU), state:'roam', drop:rnd(2,10),
       speed:rnd(4.2,5.6), acc:rnd(0.5,0.85), aggro:0, landed:false
     };
+    if(crackedIdx.has(i)){
+      b.cracked=true;
+      b.name=cnames[cni++ % cnames.length];
+      b.gun=pick(['ar','pump','smg']); b.rar='legendary';
+      b.shield=100; b.acc=rnd(0.82,0.95); b.speed=rnd(6.0,6.8);
+      b.mats=700; b.buildMat=pick(['wood','wood','brick','metal']);
+      b.buildT=rnd(0,1); b.wallT=0; b.boxCd=rnd(4,8); b.editT=0; b.editSeq=0; b.editN=0;
+      b.editWall=null; b.boxParts=[]; b.built=[]; b.healT=0;
+      ch.root.add(nameTag(b.name));
+    }
     ch.root.position.copy(b.pos);
     ch.root.traverse(o=>{ if(o.isMesh){ o.userData.bot=b; } });
     const gun=buildGun(b.gun,b.rar); gun.rotation.set(0,Math.PI/2,-Math.PI/2); gun.scale.setScalar(0.9);
@@ -1837,9 +1857,10 @@ function killBot(b,byPlayer){
   spawnLoot(b.pos.clone(),b.gun,b.rar);
   if(Math.random()<.5) spawnLoot(b.pos.clone().add(new THREE.Vector3(rnd(-1,1),0,rnd(-1,1))),pick(['mini','bandage']),'uncommon');
   if(byPlayer){
-    P.kills++; matchGems+=25;
+    const bonus=b.cracked?75:25;
+    P.kills++; matchGems+=bonus;
     feed(`YOU eliminated ${b.name}`);
-    centerMsg('ELIMINATED','+25 gems',1200);
+    centerMsg(b.cracked?'CRACKED PLAYER DOWN':'ELIMINATED','+'+bonus+' gems',1400);
     sfx('kill');
   } else {
     feed(`${pick(BOTNAMES)} eliminated ${b.name}`);
@@ -1951,15 +1972,17 @@ function cycleBuildMat(){
   const order=['wood','brick','metal'];
   P.buildMat=order[(order.indexOf(P.buildMat)+1)%3]; syncBuildUI();
 }
-function buildTarget(){
-  const f=new THREE.Vector3(-Math.sin(P.yaw),0,-Math.cos(P.yaw));
-  const base=P.pos.clone().add(f.clone().multiplyScalar(3.0));
+function targetCell(pos,yaw,gy,dist){
+  const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+  const base=pos.clone().add(f.clone().multiplyScalar(dist));
   const gx=Math.round(base.x/GRID)*GRID, gz=Math.round(base.z/GRID)*GRID;
-  const gy=P.grounded? P.pos.y : Math.round(P.pos.y/WALLH)*WALLH;
   let dir=0;
   const ax=Math.abs(f.x), az=Math.abs(f.z);
   if(ax>az) dir = f.x>0?1:3; else dir = f.z>0?2:0;
   return {gx,gy,gz,dir};
+}
+function buildTarget(){
+  return targetCell(P.pos, P.yaw, P.grounded? P.pos.y : Math.round(P.pos.y/WALLH)*WALLH, 3.0);
 }
 function makeGhost(){
   if(ghost){ scene.remove(ghost); }
@@ -1978,11 +2001,10 @@ function updateGhost(){
   if(!ghost||ghost.userData.kind!==P.buildPiece){ makeGhost(); ghost.userData.kind=P.buildPiece; }
   ghost.visible=true;
   const t=buildTarget();
-  placeTransform(ghost,t);
+  placeTransform(ghost,t,P.buildPiece);
 }
-function placeTransform(obj,t){
+function placeTransform(obj,t,piece){
   const {gx,gy,gz,dir}=t;
-  const piece=P.buildPiece;
   if(piece==='wall'){
     const off=GRID/2;
     const px=gx + (dir===1?off:dir===3?-off:0), pz=gz + (dir===2?off:dir===0?-off:0);
@@ -1997,40 +2019,160 @@ function placeTransform(obj,t){
     obj.rotation.set(-Math.PI/5.2,(dir===1?-Math.PI/2:dir===3?Math.PI/2:dir===2?Math.PI:0),0);
   }
 }
-function placeBuild(){
-  if(P.mats[P.buildMat]<10){ toast('Need materials'); return; }
-  const t=buildTarget();
-  const key=`${P.buildPiece}|${t.gx}|${t.gy}|${t.gz}|${P.buildPiece==='wall'||P.buildPiece==='ramp'?t.dir:0}`;
-  if(buildKeys.has(key)) return;
-  P.mats[P.buildMat]-=10;
-  const tex=MATTEX()[P.buildMat];
-  const m=texMat(tex);
+function structCollider(s){
+  s.mesh.updateMatrixWorld(true);
+  const bb=new THREE.Box3().setFromObject(s.mesh);
+  return colAdd({min:bb.min.clone(),max:bb.max.clone(),meta:s,cells:null,stamp:0});
+}
+function makeStructure(piece,t,matKey,owner){
+  const key=`${piece}|${t.gx}|${t.gy}|${t.gz}|${(piece==='wall'||piece==='ramp')?t.dir:0}`;
+  if(buildKeys.has(key)) return null;
   let geo;
-  const piece=P.buildPiece;
   if(piece==='wall') geo=new THREE.BoxGeometry(GRID-0.05,WALLH,0.3);
   else if(piece==='floor') geo=new THREE.BoxGeometry(GRID,0.35,GRID);
   else if(piece==='cone') geo=new THREE.ConeGeometry(GRID*0.7,WALLH,4);
   else geo=new THREE.BoxGeometry(GRID,0.35,GRID*1.42);
-  const mesh=new THREE.Mesh(geo,m); mesh.castShadow=true; mesh.receiveShadow=true;
-  placeTransform(mesh,t);
+  const mesh=new THREE.Mesh(geo, MATB[matKey]||MATB.wood);
+  mesh.castShadow=Q().shadows; mesh.receiveShadow=true;
+  placeTransform(mesh,t,piece);
   scene.add(mesh);
-  const s={mesh,hp:MATHP[P.buildMat],key,mat:P.buildMat,col:null};
-  mesh.userData.structure=s;
-  // collider box from bounding box
-  mesh.updateMatrixWorld(true);
-  const bb=new THREE.Box3().setFromObject(mesh);
-  const c=colAdd({min:bb.min.clone(),max:bb.max.clone(),meta:s,cells:null,stamp:0}); s.col=c;
-  structures.push(s); buildKeys.set(key,s);
-  hitables.push(mesh);
-  syncBars(); sfx('build');
+  const st={mesh,hp:MATHP[matKey]||150,key,mat:matKey,col:null,piece,owner:owner||'you',
+            baseY:mesh.position.y,open:false,life:owner==='bot'?38:undefined};
+  mesh.userData.structure=st;
+  st.col=structCollider(st);
+  structures.push(st); buildKeys.set(key,st); hitables.push(mesh);
+  sfx('build');
+  return st;
+}
+function removeStructure(s){
+  if(s.gone) return; s.gone=true;
+  if(s.mesh.parent) scene.remove(s.mesh);
+  s.mesh.geometry.dispose();
+  if(s.col) colRemove(s.col);
+  const j=structures.indexOf(s); if(j>=0) structures.splice(j,1);
+  buildKeys.delete(s.key);
+}
+function placeBuild(){
+  if(P.mats[P.buildMat]<10){ toast('Need materials'); return; }
+  const st=makeStructure(P.buildPiece, buildTarget(), P.buildMat, 'you');
+  if(!st) return;
+  P.mats[P.buildMat]-=10;
+  syncBars();
 }
 function damageStructure(s,dmg,pt){
   s.hp-=dmg; impact(pt||s.mesh.position,'#cfd6e2');
-  if(s.hp<=0){
-    scene.remove(s.mesh); s.mesh.geometry.dispose();
-    colRemove(s.col);
-    const j=structures.indexOf(s); if(j>=0) structures.splice(j,1);
-    buildKeys.delete(s.key);
+  if(s.hp<=0) removeStructure(s);
+}
+
+/* ============================================================
+   CRACKED PLAYERS — the sweats who build, box and edit
+   ============================================================ */
+const CRACKED_NAMES=['TTV_Kyro','xd_Flick','SweatLord','BoxKing','90sGod','EditDemon','TTV_Frazz','ZoneWars_Ace','PieceCtrl','Aim_Diff'];
+const CRACKED_SKINS=['drift','ninja','knight','gold','astro'];
+const EDITWORD=['','','DOUBLE','TRIPLE','QUAD'];
+
+function nameTag(text){
+  const [c,x]=cv(256,64);
+  x.font='bold 34px "Trebuchet MS",sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+  x.lineWidth=7; x.strokeStyle='rgba(0,0,0,.9)'; x.strokeText(text,128,34);
+  const g=x.createLinearGradient(0,10,0,56); g.addColorStop(0,'#fff'); g.addColorStop(1,'#ff5f7e');
+  x.fillStyle=g; x.fillText(text,128,34);
+  const t=new THREE.CanvasTexture(c);
+  if(THREE.SRGBColorSpace) t.colorSpace=THREE.SRGBColorSpace;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));
+  sp.scale.set(2.8,0.7,1); sp.position.y=2.35; sp.raycast=()=>{}; sp.userData.nohit=true;
+  return sp;
+}
+function botPlace(b,piece,t,matOverride){
+  if(b.mats<10) return null;
+  const st=makeStructure(piece,t,matOverride||b.buildMat,'bot');
+  if(st){ b.mats-=10; b.built.push(st); }
+  return st;
+}
+function editOpen(s){
+  if(s.open||s.gone) return;
+  s.open=true;
+  s.mesh.scale.y=0.34; s.mesh.position.y=s.baseY-WALLH*0.33;
+  if(s.col) colRemove(s.col);
+  s.col=structCollider(s);
+  impact(s.mesh.position.clone().add(new THREE.Vector3(0,1.4,0)),'#8fe8ff');
+}
+function editClose(s){
+  if(!s.open||s.gone) return;
+  s.open=false;
+  s.mesh.scale.y=1; s.mesh.position.y=s.baseY;
+  if(s.col) colRemove(s.col);
+  s.col=structCollider(s);
+}
+function boxAround(b,center,self){
+  const gx=Math.round(center.x/GRID)*GRID, gz=Math.round(center.z/GRID)*GRID, gy=center.y;
+  const mk=self? b.buildMat : 'wood';   // boxes on you are wood so you can pickaxe out
+  const parts=[];
+  for(let dir=0;dir<4;dir++){ const st=botPlace(b,'wall',{gx,gy,gz,dir},mk); if(st) parts.push(st); }
+  const cone=botPlace(b,'cone',{gx,gy:gy+WALLH,gz,dir:0},mk); if(cone) parts.push(cone);
+  if(!parts.length) return false;
+  if(self){ feed(`${b.name} boxed up`); }
+  else {
+    b.boxParts=parts.filter(o=>o.piece==='wall');
+    feed(`${b.name} boxed you`);
+    centerMsg('BOXED!','Swing your pickaxe to break out',1500);
+  }
+  return true;
+}
+function startEdits(b){
+  if(!b.boxParts||!b.boxParts.length) return;
+  let best=b.boxParts[0], bd=1e9;
+  for(const w of b.boxParts){ const d=w.mesh.position.distanceTo(b.pos); if(d<bd){ bd=d; best=w; } }
+  b.editWall=best; b.editSeq=ri(2,4); b.editN=0; b.editT=0.35;
+}
+function tickEdits(b,dt){
+  if(b.editT>0) return;
+  const w=b.editWall;
+  if(!w||w.gone){ b.editSeq=0; return; }
+  if(!w.open){
+    editOpen(w); b.editT=0.34;
+    const eye=b.pos.clone().add(new THREE.Vector3(0,1.5,0));
+    const tgt=P.pos.clone().add(new THREE.Vector3(0,1.3,0));
+    tracer(eye,tgt); sfx('pew');
+    if(P.alive && Math.random()<0.7){ hurtPlayer(ri(16,30),b.name); sfx('hurt'); }
+  } else {
+    editClose(w); b.editN++; b.editT=0.26;
+    if(b.editN>=b.editSeq){
+      const word=EDITWORD[Math.min(4,b.editSeq)];
+      feed(`${b.name} · ${word} EDIT`);
+      centerMsg(word+' EDIT', b.name, 1100);
+      b.editSeq=0; b.editWall=null;
+    }
+  }
+}
+function crackedAI(b,dt,dist){
+  b.buildT-=dt; b.wallT-=dt; b.boxCd-=dt; b.editT-=dt;
+  if(b.healT>0){ b.healT-=dt; if(b.healT<=0){ b.hp=Math.min(100,b.hp+25); b.shield=Math.min(100,b.shield+50); feed(`${b.name} healed up`); } }
+  if(b.editSeq>0){ tickEdits(b,dt); return; }
+  b.mats=Math.min(900,b.mats+dt*6);
+  const toP=P.pos.clone().sub(b.pos); toP.y=0;
+  const yawToP=Math.atan2(-toP.x,-toP.z);
+  // panic box when low
+  if(b.hp<45 && b.boxCd<=0){
+    if(boxAround(b,b.pos.clone(),true)){ b.boxCd=15; b.healT=1.8; }
+    return;
+  }
+  // box the player up close, then edit on them
+  if(dist<13 && b.boxCd<=0 && P.alive && P.phase==='ground'){
+    if(boxAround(b,P.pos.clone(),false)){ b.boxCd=17; startEdits(b); }
+    return;
+  }
+  // wall up when taking fire
+  if(b.aggro>0 && b.wallT<=0){
+    botPlace(b,'wall',targetCell(b.pos,yawToP,b.pos.y,2.2));
+    b.wallT=1.7; return;
+  }
+  // ramp rush
+  if(dist>9 && b.buildT<=0){
+    botPlace(b,'ramp',targetCell(b.pos,yawToP,b.pos.y,1.2));
+    if(Math.random()<0.55) botPlace(b,'wall',targetCell(b.pos,yawToP,b.pos.y,3.4));
+    b.vel.y=Math.max(b.vel.y,6.8);
+    b.buildT=0.8;
   }
 }
 
@@ -2295,12 +2437,14 @@ function updateBots(dt){
       }
     }
     let aimAt=null;
+    if(b.cracked && (b.state==='fight' || b.editSeq>0) && P.phase==='ground') crackedAI(b,dt,dToP);
     if(b.state==='fight'){
       aimAt=P.pos;
       // strafe & approach
       const to=P.pos.clone().sub(b.pos); to.y=0; const dist=to.length(); to.normalize();
       const side=new THREE.Vector3(-to.z,0,to.x).multiplyScalar(Math.sin(matchT*1.5+b.drop)*0.9);
-      const want=to.clone().multiplyScalar(dist>22?1:(dist<11?-0.8:0)).add(side).normalize().multiplyScalar(b.speed);
+      const push = b.cracked ? (dist>6.5?1:-0.5) : (dist>22?1:(dist<11?-0.8:0));
+      const want=to.clone().multiplyScalar(push).add(side).normalize().multiplyScalar(b.speed);
       b.vel.x=lerp(b.vel.x,want.x,dt*6); b.vel.z=lerp(b.vel.z,want.z,dt*6);
       b.yaw=Math.atan2(-to.x,-to.z);
       // shoot
@@ -2308,7 +2452,7 @@ function updateBots(dt){
       if(b.fireT<=0 && dist<(b.gun==='sniper'?95:(b.gun==='pump'?16:45))){
         const eye=b.pos.clone().add(new THREE.Vector3(0,1.45,0));
         if(losClear(eye,pEye)){
-          b.fireT=rnd(0.7,1.7);
+          b.fireT=b.cracked? rnd(0.35,0.85) : rnd(0.7,1.7);
           tracer(eye,pEye.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(-.5,.5),rnd(-.5,.5))));
           const w=WEAPONS[b.gun];
           const chance=b.acc*0.62*clamp(1-dist/70,0.10,1);
@@ -2859,6 +3003,11 @@ function tick(){
       L.t+=dt; L.g.rotation.y+=dt*1.4; L.g.children[0].position.y=Math.sin(L.t*2)*0.08;
     }
     if(recull) for(const c of chests) c.g.visible = c.pos.distanceToSquared(P.pos)<dmax2;
+    // bot builds fade away
+    for(let i=structures.length-1;i>=0;i--){
+      const st=structures[i];
+      if(st.life!==undefined){ st.life-=dt; if(st.life<=0) removeStructure(st); }
+    }
     // tracers
     for(let i=tracers.length-1;i>=0;i--){
       const t=tracers[i]; t.t+=dt; t.l.material.opacity=Math.max(0,.9-t.t*9);
@@ -2905,7 +3054,7 @@ function boot(){
   tick();
 }
 boot();
-window.__gr={P,get renderer(){return renderer;},get colliders(){return colliders;},get scene(){return scene;},hurtPlayer,endMatch,terrainH,get trees(){return trees;},get bots(){return bots;},get loots(){return loots;},get chests(){return chests;},get mode(){return mode;},startMatch,fireWeapon,interact,placeBuild,setPiece,addItem,WEAPONS,save};
+window.__gr={P,get renderer(){return renderer;},get colliders(){return colliders;},get scene(){return scene;},hurtPlayer,endMatch,terrainH,get trees(){return trees;},get bots(){return bots;},get loots(){return loots;},get chests(){return chests;},get structures(){return structures;},get crackedCount(){return crackedCount;},get mode(){return mode;},startMatch,fireWeapon,interact,placeBuild,setPiece,addItem,WEAPONS,save};
 </script>
 </body>
 </html>
