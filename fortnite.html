@@ -617,7 +617,7 @@ const SKINS=[
   {id:'cuddle', name:'Cuddle Bear', price:1500, rar:'legendary',
    b:{skin:'#ff9ec4',hair:'#ff7aae',hairStyle:'bald',top:'#ff9ec4',shirt:'#ffd0e2',bottom:'#ff7aae',boots:'#e0558f',accent:'#fff',head:'bear'}},
   {id:'headliner', name:'Headliner', price:2000, rar:'icon',
-   b:{skin:'#7a4f30',hair:'#17100a',hairStyle:'long',top:'#7a4f30',shirt:'#7a4f30',tie:'#f3c94a',
+   b:{skin:'#7a4f30',hair:'#17100a',hairStyle:'braids',top:'#7a4f30',shirt:'#7a4f30',chain:'#e8e2d0',
       bottom:'#a08a5e',boots:'#3b2a1b',accent:'#ff6a2e',glow:true}},
   {id:'gold', name:'Midas Touch', price:2000, rar:'icon',
    b:{skin:'#f3c94a',hair:'#3a2a10',hairStyle:'short',top:'#1b1b1f',shirt:'#f3c94a',bottom:'#23232a',boots:'#111',accent:'#f3c94a',glow:true}},
@@ -702,6 +702,11 @@ function buildCharacter(skinId,opts={}){
   const torso=boxMesh(0.52,0.62,0.30,mTop); torso.position.y=0.31; hips.add(torso);
   const chest=boxMesh(0.40,0.30,0.32,mShirt); chest.position.y=0.44; hips.add(chest);
   if(b.tie){ const tie=boxMesh(0.07,0.22,0.02,mat(b.tie)); tie.position.set(0,0.44,0.17); hips.add(tie); }
+  if(b.chain){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.175,0.024,6,18),mat(b.chain));
+    ring.rotation.x=1.40; ring.position.set(0,0.565,0.02); hips.add(ring);
+    const pend=boxMesh(0.07,0.10,0.035,mat(b.chain)); pend.position.set(0,0.44,0.172); hips.add(pend);
+  }
   if(b.cape){
     const cape=new THREE.Group(); cape.position.set(0,0.56,-0.16); hips.add(cape);
     const cm=limbMesh(0.5,0.9,0.04,mat(b.cape,{side:THREE.DoubleSide})); cape.add(cm); root.userData.cape=cape;
@@ -743,6 +748,17 @@ function buildCharacter(skinId,opts={}){
       const back=boxMesh(0.33,0.42,0.09,mHair); back.position.set(0,0.12,-0.18); headG.add(back);
       const f1=boxMesh(0.07,0.26,0.06,mHair); f1.position.set(-0.15,0.20,0.10); headG.add(f1);
       const f2=f1.clone(); f2.position.x=0.15; headG.add(f2);
+    }
+    if(hs==='braids'){
+      const cap=boxMesh(0.33,0.12,0.33,mHair); cap.position.y=0.33; headG.add(cap);
+      for(let i=0;i<9;i++){
+        // only around the back and sides — a full ring puts braids over the face
+        const ang=Math.PI*(0.55+0.90*(i/8)), long=(i%2)?0.40:0.32;
+        const st=limbMesh(0.04,long,0.04,mHair);
+        st.position.set(Math.sin(ang)*0.152,0.30,Math.cos(ang)*0.152);
+        st.rotation.set(-0.10,0,Math.sin(ang)*0.16);
+        headG.add(st);
+      }
     }
     if(hs==='pony'){
       const hh=boxMesh(0.32,0.11,0.32,mHair); hh.position.y=0.34; headG.add(hh);
@@ -889,30 +905,31 @@ function animChar(ch,dt,st){
       set(lL.hp,-1.5); set(lR.hp,-1.5); set(lL.kn,1.4); set(lR.kn,1.4);
       set(L.sh,-0.6,0,0.7); set(R.sh,-0.6,0,-0.7); set(L.el,-1.2); set(R.el,-1.2);
     } else if(e==='rage'){
-      /* Sustained two-handed overhead hold with a bounce, locked to the 109 BPM
-         track. The drive comes from the legs: body sinks ON the beat and floats
-         back up between, arms press up as it rises. */
+      /* Two-handed overhead hold. The legs drive a bounce on the 109 BPM beat,
+         the head shakes side to side once per beat on top of it. */
       const BPM=109, beat=a.eT*BPM/60, frac=beat-Math.floor(beat);
       const dip=0.5+0.5*Math.cos(beat*TAU);     // 1 at the beat (lowest), 0 between
-      const kick=Math.exp(-7*frac);             // extra snap right on the beat
+      const kick=Math.exp(-7*frac);             // snap right on the beat
       const push=Math.exp(-5*frac);             // arm press
-      const sway=Math.sin(beat*Math.PI*0.5);    // slow 4-beat weight shift
+      const sway=Math.sin(beat*Math.PI*0.5);    // slow 4-beat drift
+      const shake=Math.sin(beat*TAU);           // one full head shake per beat
+      const rock=Math.sin(beat*Math.PI);        // weight rocks between the legs
+      const wL=0.5+0.5*rock, wR=0.5-0.5*rock;
 
-      ch.hips.position.y=0.95-0.11*dip-0.035*kick;
+      ch.hips.position.y=0.96-0.15*dip-0.04*kick;
       ch.hips.position.x=sway*0.05;
-      ch.hips.rotation.set(0.04+0.05*dip, sway*0.13, -sway*0.07);
-      ch.headG.rotation.set(0.05-0.14*dip, 0, sway*0.07);
+      ch.hips.rotation.set(0.05+0.06*dip, sway*0.11-shake*0.06, -sway*0.08+rock*0.05);
+      ch.headG.rotation.set(0.10-0.16*dip, shake*0.38+sway*0.12, -shake*0.11+sway*0.05);
 
-      // arms locked overhead in a wide V; -z on the left limb is what splays it OUT
       const shX=-2.92-0.10*push+0.14*dip, splay=0.62*(1+0.10*dip);
       set(L.sh, shX,0,-splay); set(R.sh, shX,0, splay);
       const elX=-0.08-0.20*dip+0.10*push;
       set(L.el, elX); set(R.el, elX);
 
-      // wide planted stance, knees driving the bounce
-      lL.hp.rotation.set(0.05+0.24*dip,0,-0.26);
-      lR.hp.rotation.set(0.05+0.24*dip,0, 0.26);
-      set(lL.kn,-0.18-0.52*dip); set(lR.kn,-0.18-0.52*dip);
+      lL.hp.rotation.set(0.04+0.30*dip+0.07*wL,0,-0.13);
+      lR.hp.rotation.set(0.04+0.30*dip+0.07*wR,0, 0.13);
+      set(lL.kn,-0.14-0.60*dip-0.18*wL);
+      set(lR.kn,-0.14-0.60*dip-0.18*wR);
     }
     return;
   }
@@ -2985,6 +3002,8 @@ function drawSkin2D(x,w,h,def){
     if(hs==='short') rect(0,-132,32,10,b.hair);
     if(hs==='long'){ rect(0,-132,34,12,b.hair); rect(-17,-104,7,32,b.hair); rect(17,-104,7,32,b.hair); }
     if(hs==='pony'){ rect(0,-132,32,10,b.hair); rect(19,-118,8,26,b.hair); }
+    if(hs==='braids'){ rect(0,-133,34,12,b.hair);
+      for(const dx of [-16,-10,10,16]) rect(dx,-112,6,26,b.hair); }
     if(hs==='hood'){ rect(0,-104,38,36,b.top); rect(0,-108,24,20,'#0b0b12'); rect(0,-104,26,24,b.skin); }
     if(hs==='helm'){ rect(0,-104,36,34,b.shirt); rect(0,-112,30,6,'#0b0b12'); rect(0,-140,7,14,b.accent); }
   }
