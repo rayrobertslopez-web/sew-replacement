@@ -80,6 +80,24 @@
   #shoprail i.on{ background:#fff; }
   #shopmain{ flex:1; overflow-y:auto; padding:10px 8px 90px 0; }
   #shopmain::-webkit-scrollbar{ width:0; }
+  #shopbanner{ display:flex; align-items:stretch; gap:10px; margin:0 0 16px; padding:10px 12px;
+    border-radius:12px; overflow:hidden; cursor:pointer;
+    background:linear-gradient(105deg,#120a20 0%,#2a1330 42%,#7a2a18 78%,#ff6a2e 130%);
+    border:1px solid rgba(255,140,60,.45); box-shadow:0 8px 26px rgba(0,0,0,.5); }
+  #shopbanner .bl{ flex:1; display:flex; flex-direction:column; justify-content:center; min-width:0; }
+  #shopbanner .bname{ font-size:clamp(20px,6vw,42px); font-weight:900; line-height:.98; letter-spacing:1px;
+    font-style:italic; text-shadow:0 3px 0 rgba(0,0,0,.45); }
+  #shopbanner .bsub{ font-size:9.5px; font-weight:900; letter-spacing:2px; color:#ffd0a8; margin-top:2px; }
+  #shopbanner .bdate{ font-size:clamp(10px,2.6vw,15px); font-weight:900; letter-spacing:1.5px;
+    margin-top:7px; color:#fff; }
+  #shopbanner .br{ display:flex; gap:7px; flex:none; align-items:flex-end; }
+  #shopbanner .btile{ position:relative; border-radius:8px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.22); }
+  #shopbanner .btile canvas{ height:118px; width:auto; display:block; }
+  #shopbanner .btile span{ position:absolute; left:0; right:0; bottom:0; padding:3px 5px;
+    font-size:9px; font-weight:900; letter-spacing:.3px; text-align:center;
+    background:linear-gradient(180deg,transparent,rgba(6,5,14,.92) 55%); }
+  @media(max-width:460px){ #shopbanner .btile canvas{ height:88px; } }
   .shopsec{ margin-bottom:16px; }
   .shopsec h2{ font-size:clamp(17px,4.6vw,30px); font-weight:900; letter-spacing:1px; margin:2px 0 8px;
     transform:skewX(-8deg); }
@@ -309,7 +327,7 @@
   <div class="page off" id="page-shop">
     <div id="shopwrap">
       <div id="shoprail"></div>
-      <div id="shopmain"></div>
+      <div id="shopmain"><div id="shopbanner"></div></div>
     </div>
     <div id="shopfoot">
       <div class="barchip">Support-a-Creator: GMI</div>
@@ -598,6 +616,9 @@ const SKINS=[
    b:{skin:'#f0f0f5',hair:'#222',hairStyle:'helm',top:'#eef1f7',shirt:'#c6ccd8',bottom:'#dfe3ec',boots:'#8d93a1',accent:'#7b2ff7',visor:'#2a1a4a'}},
   {id:'cuddle', name:'Cuddle Bear', price:1500, rar:'legendary',
    b:{skin:'#ff9ec4',hair:'#ff7aae',hairStyle:'bald',top:'#ff9ec4',shirt:'#ffd0e2',bottom:'#ff7aae',boots:'#e0558f',accent:'#fff',head:'bear'}},
+  {id:'headliner', name:'Headliner', price:2000, rar:'icon',
+   b:{skin:'#7a4f30',hair:'#17100a',hairStyle:'long',top:'#7a4f30',shirt:'#7a4f30',tie:'#f3c94a',
+      bottom:'#a08a5e',boots:'#3b2a1b',accent:'#ff6a2e',glow:true}},
   {id:'gold', name:'Midas Touch', price:2000, rar:'icon',
    b:{skin:'#f3c94a',hair:'#3a2a10',hairStyle:'short',top:'#1b1b1f',shirt:'#f3c94a',bottom:'#23232a',boots:'#111',accent:'#f3c94a',glow:true}},
 ];
@@ -3034,9 +3055,33 @@ function gemSvg(size){
 }
 let pendingBuy=null;
 function owns(kind,id){ return (save.owned[kind]||[]).includes(id); }
+/* headline banner across the top of the shop: name on the left, the skin and
+   its emote on the right */
+function buildShopBanner(){
+  const skin=byId('skin','headliner'), emote=byId('emote','rage');
+  const el=document.createElement('div'); el.id='shopbanner';
+  el.innerHTML=`<div class="bl">
+      <div class="bname sk">HEAD<br>LINER</div>
+      <div class="bsub">ICON SET</div>
+      <div class="bdate">SEP 19 &ndash; NOV 20</div>
+    </div><div class="br"></div>`;
+  const br=el.querySelector('.br');
+  for(const it of [{...skin,kind:'skin'},{...emote,kind:'emote'}]){
+    const tile=document.createElement('div'); tile.className='btile';
+    const c=document.createElement('canvas');
+    tile.appendChild(c);
+    tile.insertAdjacentHTML('beforeend',`<span>${it.name}</span>`);
+    br.appendChild(tile); drawArt(c,it,260,347);
+    tile.addEventListener('click',ev=>{ ev.stopPropagation(); buyItem(it,tile); });
+  }
+  el.addEventListener('click',()=>buyItem({...skin,kind:'skin'},el));
+  return el;
+}
+
 function renderShop(){
   const secs=shopToday(), main=$('#shopmain'), rail=$('#shoprail');
   main.innerHTML=''; rail.innerHTML='';
+  main.appendChild(buildShopBanner());
   secs.forEach((sec,si)=>{
     rail.innerHTML+=`<i class="${si===0?'on':''}"></i>`;
     const d=document.createElement('div'); d.className='shopsec';
