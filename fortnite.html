@@ -544,7 +544,7 @@ function buildTextures(){
 
 /* shared material cache */
 const MATS={};
-let GLOWMAT=null, FLASHMAT=null;
+let GLOWMAT=null, FLASHMAT=null, FIREMAT=null;
 function buildSpriteMats(){
   const glow=mkTex((x,w,h)=>{
     const g=x.createRadialGradient(w/2,h/2,2,w/2,h/2,w/2);
@@ -553,6 +553,13 @@ function buildSpriteMats(){
   },64,64,1);
   GLOWMAT=new THREE.SpriteMaterial({map:glow,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending});
   FLASHMAT=new THREE.SpriteMaterial({map:glow,color:0xfff0c0,transparent:true,opacity:1,depthWrite:false,blending:THREE.AdditiveBlending});
+  const fire=mkTex((x,w,h)=>{
+    const g=x.createRadialGradient(w/2,h*0.70,2,w/2,h*0.58,w*0.5);
+    g.addColorStop(0,'rgba(255,255,225,.95)'); g.addColorStop(.32,'rgba(255,205,70,.82)');
+    g.addColorStop(.66,'rgba(255,95,45,.36)'); g.addColorStop(1,'rgba(255,45,90,0)');
+    x.fillStyle=g; x.fillRect(0,0,w,h);
+  },64,64,1);
+  FIREMAT=new THREE.SpriteMaterial({map:fire,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
 }
 function mat(color,opts={}){
   const key=color+JSON.stringify(opts);
@@ -762,6 +769,42 @@ function buildCharacter(skinId,opts={}){
   return ch;
 }
 
+/* the Rage Quake prop: a mic stand, on fire, held across both hands */
+function buildMicStand(){
+  const g=new THREE.Group(), metal=mat('#3a3d45'), pole=mat('#7a5230');
+  const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.034,2.20,8),pole);
+  bar.rotation.z=Math.PI/2; g.add(bar);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.23,0.23,0.05,14),metal);
+  base.rotation.z=Math.PI/2; base.position.x=-1.09; g.add(base);
+  for(const x of [-0.46,0.34]){
+    const c=new THREE.Mesh(new THREE.CylinderGeometry(0.054,0.054,0.11,8),metal);
+    c.rotation.z=Math.PI/2; c.position.x=x; g.add(c);
+  }
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.25,10),metal);
+  body.rotation.z=Math.PI/2; body.position.x=1.14; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.082,10,8),mat('#9aa3b0'));
+  head.position.x=1.31; g.add(head);
+  const flames=[];
+  for(let i=0;i<15;i++){
+    const sp=new THREE.Sprite(FIREMAT.clone());
+    sp.position.set(-0.98+i*0.145,0.20,0);
+    g.add(sp); flames.push(sp);
+  }
+  g.userData.flames=flames;
+  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  return g;
+}
+function animMicFlames(mic,t){
+  const f=mic.userData.flames;
+  for(let i=0;i<f.length;i++){
+    const ph=t*9+i*1.7, k=0.78+Math.sin(ph)*0.22+Math.sin(ph*2.3)*0.11;
+    f[i].scale.set(0.30*k,0.52*k,1);
+    f[i].position.y=0.20+Math.sin(ph*1.4)*0.035;
+    f[i].material.opacity=0.62+0.30*Math.sin(ph*1.9);
+  }
+}
+
+const _hl=new THREE.Vector3(), _hr=new THREE.Vector3();
 /* animation driver — everything is hand-authored math, no clips needed */
 function animChar(ch,dt,st){
   const a=ch.anim; a.t+=dt;
@@ -769,6 +812,20 @@ function animChar(ch,dt,st){
   // choreographed emotes need their own clock so they always start on beat 1
   if(emote!==a.playing){ a.playing=emote; a.eT=0; }
   if(emote) a.eT+=dt;
+  const rage=emote==='rage';
+  if(rage!==!!a.prop){                       // only on the transition, don't fight other code
+    a.prop=rage;
+    if(rage && !ch.mic){ ch.mic=buildMicStand(); ch.hips.add(ch.mic); }
+    if(ch.mic) ch.mic.visible=rage;
+    ch.armR.hand.children.forEach(c=>{ c.visible=!rage; });
+  }
+  if(rage && ch.mic){
+    // sit the bar exactly between the hands rather than at a guessed height,
+    // so it stays put if the arm pose is ever retuned
+    ch.armL.hand.getWorldPosition(_hl); ch.armR.hand.getWorldPosition(_hr);
+    ch.mic.position.copy(ch.hips.worldToLocal(_hl.add(_hr).multiplyScalar(0.5)));
+    animMicFlames(ch.mic,a.eT);
+  }
   const L=ch.armL,R=ch.armR,lL=ch.legL,lR=ch.legR;
   const set=(o,x,y,z)=>{ o.rotation.set(x,y||0,z||0); };
   a.recoil=lerp(a.recoil,0,dt*8);
