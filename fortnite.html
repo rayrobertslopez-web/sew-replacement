@@ -608,6 +608,9 @@ const EMOTES=[
   {id:'rage',   name:'Rage Quake',      price:1500,rar:'icon',   icon:'🤘'},
 ];
 const CAT={ skin:SKINS, pickaxe:PICKAXES, glider:GLIDERS, emote:EMOTES };
+/* every emote is unlocked for free, including any added later, and this
+   backfills saves made before that was true */
+save.owned.emote=EMOTES.map(e=>e.id); persist();
 const byId=(k,id)=> CAT[k].find(o=>o.id===id) || CAT[k][0];
 
 /* shop rotation: deterministic per day so it feels like a real daily shop */
