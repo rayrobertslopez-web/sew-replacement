@@ -100,6 +100,7 @@
     padding:2px 5px; border-radius:4px; letter-spacing:.4px; }
   .badge.off{ background:#3ddc84; color:#06240f; top:5px; left:5px; }
   .badge.owned{ background:#40e0ff; color:#042430; }
+  .badge.icon{ background:#5fe0d6; color:#04302c; }
   #shopfoot{ position:absolute; left:0; right:0; bottom:0; display:flex; gap:8px; justify-content:center;
     padding:8px 10px calc(env(safe-area-inset-bottom) + 8px); background:linear-gradient(180deg,transparent,rgba(6,5,14,.95) 40%); }
 
@@ -245,6 +246,7 @@
     background:rgba(14,12,30,.9); border:2px solid rgba(255,255,255,.25); display:flex; flex-direction:column;
     align-items:center; justify-content:center; font-size:9px; font-weight:800; cursor:pointer; text-align:center; padding:4px; }
   .ew b{ font-size:20px; }
+  .ew.locked{ opacity:.45; }
 
   #toast{ position:fixed; left:50%; top:16%; transform:translateX(-50%); z-index:20; background:rgba(10,8,24,.94);
     border:1px solid rgba(255,255,255,.2); border-radius:9px; padding:9px 16px; font-size:13px; font-weight:800;
@@ -603,6 +605,7 @@ const EMOTES=[
   {id:'karate', name:'Training Forms',  price:500, rar:'rare',   icon:'🥋'},
   {id:'orange', name:'Orange Justice',  price:800, rar:'epic',   icon:'🍊'},
   {id:'sit',    name:'Take The L',      price:800, rar:'epic',   icon:'🇱'},
+  {id:'rage',   name:'Rage Quake',      price:1500,rar:'icon',   icon:'🤘'},
 ];
 const CAT={ skin:SKINS, pickaxe:PICKAXES, glider:GLIDERS, emote:EMOTES };
 const byId=(k,id)=> CAT[k].find(o=>o.id===id) || CAT[k][0];
@@ -614,17 +617,20 @@ function shopToday(){
   const r=seeded(7);
   const shuffle=a=>{ const b=[...a]; for(let i=b.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
   const skins=shuffle(SKINS.filter(s=>s.price>0));
-  const rest=shuffle([...PICKAXES.filter(p=>p.price>0).map(o=>({...o,kind:'pickaxe'})),
-                      ...GLIDERS.filter(g=>g.price>0).map(o=>({...o,kind:'glider'})),
-                      ...EMOTES.filter(e=>e.price>0).map(o=>({...o,kind:'emote'}))]);
+  const pool=[...PICKAXES.filter(p=>p.price>0).map(o=>({...o,kind:'pickaxe'})),
+              ...GLIDERS.filter(g=>g.price>0).map(o=>({...o,kind:'glider'})),
+              ...EMOTES.filter(e=>e.price>0).map(o=>({...o,kind:'emote'}))];
+  // icon-tier items never rotate out — they headline the shop every day
+  const icons=pool.filter(o=>o.rar==='icon');
+  const rest=shuffle(pool.filter(o=>o.rar!=='icon'));
   return [
     { title:'PACIFIC BREAK', items:[
         {bundle:true, name:(skins[0].name.split(' ')[0]+' Bundle'), price:1500, was:2000, rar:skins[0].rar, kind:'bundle',
          parts:[{kind:'skin',id:skins[0].id},{kind:'pickaxe',id:rest.find(o=>o.kind==='pickaxe').id},{kind:'emote',id:rest.find(o=>o.kind==='emote').id}], art:skins[0]},
+        ...icons.map(o=>({kind:o.kind, ...o})),
         {kind:'skin', ...skins[0], isNew:true},
         {kind:rest[0].kind, ...rest[0], isNew:true},
         {kind:rest[1].kind, ...rest[1], isNew:true},
-        {kind:rest[2].kind, ...rest[2], isNew:true},
       ]},
     { title:'FEATURED', items:[
         {kind:'skin', ...skins[1]},{kind:'skin', ...skins[2]},{kind:'skin', ...skins[3]},
@@ -747,6 +753,9 @@ function buildCharacter(skinId,opts={}){
 function animChar(ch,dt,st){
   const a=ch.anim; a.t+=dt;
   const t=a.t, sp=st.speed||0, air=st.air, aim=st.aim, emote=st.emote;
+  // choreographed emotes need their own clock so they always start on beat 1
+  if(emote!==a.playing){ a.playing=emote; a.eT=0; a.rb=null; }
+  if(emote) a.eT+=dt;
   const L=ch.armL,R=ch.armR,lL=ch.legL,lR=ch.legR;
   const set=(o,x,y,z)=>{ o.rotation.set(x,y||0,z||0); };
   a.recoil=lerp(a.recoil,0,dt*8);
@@ -788,13 +797,76 @@ function animChar(ch,dt,st){
       ch.hips.position.y=0.55; ch.hips.rotation.y=Math.sin(p*.6)*.15;
       set(lL.hp,-1.5); set(lR.hp,-1.5); set(lL.kn,1.4); set(lR.kn,1.4);
       set(L.sh,-0.6,0,0.7); set(R.sh,-0.6,0,-0.7); set(L.el,-1.2); set(R.el,-1.2);
+    } else if(e==='rage'){
+      /* 8-beat routine on the emote's own clock: 4 beats of headbang + fist pumps,
+         2 of arms overhead, 2 of forward slams. Every joint is a blended BASE pose
+         plus a raw ACCENT, so segment changes stay smooth while the hits stay sharp. */
+      const BPM=152, beat=a.eT*BPM/60;
+      const frac=beat-Math.floor(beat), RISE=0.12, pre=1-frac;
+      const hit = pre<RISE ? 1-pre/RISE : Math.exp(-6.0*frac);  // winds up, peaks ON the beat, decays
+      const seg=Math.floor(beat+RISE)%8;          // pose swaps during the windup, never mid-strike
+      const lead=(Math.floor(beat+RISE)%2)===0;
+      const sway=Math.sin(beat*Math.PI*0.5);
+      const kb=clamp(dt*16,0,1);
+      const stL=lead?hit:0, stR=lead?0:hit;
+
+      const b={hipX:0,hipYaw:sway*0.34,hipZ:-sway*0.12,head:0.30,headZ:sway*0.20,
+               shL:-1.10,shR:-1.10,shZ:0.52,elL:-1.85,elR:-1.85,
+               hpL:0.06+sway*0.10,hpR:0.06-sway*0.10,knL:-0.30,knR:-0.30};
+      const ac={hipX:0,head:0,shL:0,shR:0,elL:0,elR:0,hpL:0,hpR:0,knL:0,knR:0};
+      let hipY=0.92-0.19*hit;
+
+      if(seg<4){                                  // headbang + alternating fist pumps
+        ac.head=-1.30*hit;
+        ac.shL= 1.45*stL; ac.shR= 1.45*stR;
+        ac.elL= 1.30*stL; ac.elR= 1.30*stR;
+        ac.hpL= 0.62*stL; ac.hpR= 0.62*stR;
+        ac.knL=-0.95*stL; ac.knR=-0.95*stR;
+      } else if(seg<6){                           // arms overhead, punching up on the beat
+        b.head=0.42; b.headZ=0; b.hipX=0.18; b.shZ=0.72;
+        b.shL=-2.42; b.shR=-2.42; b.elL=-0.70; b.elR=-0.70;
+        b.hpL=0.06; b.hpR=0.06;
+        ac.head=-0.55*hit; ac.hipX=-0.10*hit;
+        ac.shL=-0.62*hit; ac.shR=-0.62*hit;
+        ac.elL= 0.42*hit; ac.elR= 0.42*hit;
+        ac.hpL= 0.30*hit; ac.hpR= 0.30*hit;
+        ac.knL=-0.60*hit; ac.knR=-0.60*hit;
+        hipY=0.98-0.19*hit;
+      } else {                                    // two hard forward slams
+        b.head=0.10; b.headZ=0; b.hipX=-0.10; b.hipYaw=0; b.hipZ=0; b.shZ=0.28;
+        b.shL=-0.30; b.shR=-0.30; b.elL=-0.50; b.elR=-0.50;
+        b.hpL=0.14; b.hpR=0.14; b.knL=-0.34; b.knR=-0.34;
+        ac.head=-1.05*hit; ac.hipX=-0.32*hit;
+        ac.shL= 2.00*hit; ac.shR= 2.00*hit;
+        ac.elL=-0.55*hit; ac.elR=-0.55*hit;
+        ac.hpL= 0.34*hit; ac.hpR= 0.34*hit;
+        ac.knL=-0.70*hit; ac.knR=-0.70*hit;
+      }
+
+      if(!a.rb) a.rb={};
+      const bl=(n,v)=>{ a.rb[n] = a.rb[n]===undefined? v : lerp(a.rb[n],v,kb); return a.rb[n]; };
+      ch.hips.position.y=hipY;
+      ch.hips.position.x=sway*0.06;
+      ch.hips.rotation.set(bl('hipX',b.hipX)+ac.hipX, bl('hipYaw',b.hipYaw), bl('hipZ',b.hipZ));
+      ch.headG.rotation.set(bl('head',b.head)+ac.head, 0, bl('headZ',b.headZ));
+      L.sh.rotation.set(bl('shL',b.shL)+ac.shL, 0,  bl('shZ',b.shZ));
+      R.sh.rotation.set(bl('shR',b.shR)+ac.shR, 0, -a.rb.shZ);
+      L.el.rotation.set(bl('elL',b.elL)+ac.elL,0,0);
+      R.el.rotation.set(bl('elR',b.elR)+ac.elR,0,0);
+      lL.hp.rotation.set(bl('hpL',b.hpL)+ac.hpL,0,0);
+      lR.hp.rotation.set(bl('hpR',b.hpR)+ac.hpR,0,0);
+      lL.kn.rotation.set(bl('knL',b.knL)+ac.knL,0,0);
+      lR.kn.rotation.set(bl('knR',b.knR)+ac.knR,0,0);
     }
     return;
   }
 
   ch.hips.rotation.y=lerp(ch.hips.rotation.y,0,dt*10);
+  ch.hips.rotation.x=lerp(ch.hips.rotation.x,0,dt*10);
+  ch.hips.rotation.z=lerp(ch.hips.rotation.z,0,dt*10);
   ch.hips.position.x=lerp(ch.hips.position.x,0,dt*10);
   ch.headG.rotation.z=lerp(ch.headG.rotation.z,0,dt*8);
+  ch.headG.rotation.x=lerp(ch.headG.rotation.x,0,dt*8);
 
   if(air){
     ch.hips.position.y=0.92;
@@ -1529,6 +1601,7 @@ const keys={};
 let mouseLook=false, touchMode=('ontouchstart' in window)||navigator.maxTouchPoints>0;
 addEventListener('keydown',e=>{
   keys[e.code]=true;
+  if(e.code==='ArrowLeft'){ e.preventDefault(); toggleEmoteWheel(); return; }
   if(mode!=='match') return;
   if(e.code==='KeyR') startReload();
   if(e.code==='KeyE') interact();
@@ -1536,7 +1609,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyB'){ cycleBuildMat(); }
   if(e.code==='KeyC'){ P.crouch=!P.crouch; }
   if(/^Digit[1-5]$/.test(e.code)){ selectSlot(+e.code.slice(5)-1); }
-  if(e.code==='KeyZ'){ $('#emotewheel').classList.toggle('on'); }
+  if(e.code==='KeyZ'){ toggleEmoteWheel(); }
   if(P.buildMode){
     if(e.code==='KeyF') setPiece('wall');
     if(e.code==='KeyG') setPiece('ramp');
@@ -1609,7 +1682,7 @@ function bindTouch(){
   hold($('#bAim'),()=>{ P.aim=!P.aim; });
   hold($('#bReload'),()=>{ startReload(); });
   hold($('#bBuild'),()=>{ P.buildMode=!P.buildMode; syncBuildUI(); });
-  hold($('#bEmote'),()=>{ $('#emotewheel').classList.toggle('on'); });
+  hold($('#bEmote'),()=>{ toggleEmoteWheel(); });
 }
 
 /* ============================================================
@@ -2237,7 +2310,7 @@ function inputVec(){
   let x=0,z=0;
   if(keys.KeyW||keys.ArrowUp) z-=1;
   if(keys.KeyS||keys.ArrowDown) z+=1;
-  if(keys.KeyA||keys.ArrowLeft) x-=1;
+  if(keys.KeyA) x-=1;                 // ArrowLeft is the emote wheel
   if(keys.KeyD||keys.ArrowRight) x+=1;
   x+=stickV.x; z+=stickV.y;
   const l=Math.hypot(x,z);
@@ -2818,6 +2891,7 @@ function renderShop(){
       card.appendChild(meta);
       if(owned) card.insertAdjacentHTML('beforeend','<div class="badge owned">OWNED</div>');
       else if(it.was) card.insertAdjacentHTML('beforeend',`<div class="badge off">${it.was-it.price} GEMS OFF</div>`);
+      else if(it.rar==='icon') card.insertAdjacentHTML('beforeend','<div class="badge icon">ICON</div>');
       else if(it.isNew) card.insertAdjacentHTML('beforeend','<div class="badge">NEW!</div>');
       card.style.borderColor=rarCol(it.rar);
       card.addEventListener('click',()=>buyItem(it,card));
@@ -2905,21 +2979,32 @@ function bindMenu(){
     setPiece(b.dataset.b);
   }));
   // emote wheel
+  buildEmoteWheel();
+  $('#emotewheel').addEventListener('click',e=>{ if(e.target.id==='emotewheel') e.currentTarget.classList.remove('on'); });
+}
+/* rebuilt every time the wheel opens so newly-bought emotes unlock straight away */
+function buildEmoteWheel(){
   const ring=$('#ewring');
   ring.innerHTML='';
   EMOTES.forEach((e,i)=>{
     const a=i/EMOTES.length*TAU-Math.PI/2;
-    const d=document.createElement('div'); d.className='ew';
+    const have=owns('emote',e.id);
+    const d=document.createElement('div'); d.className='ew'+(have?'':' locked');
     d.style.left=(50+Math.cos(a)*38)+'%'; d.style.top=(50+Math.sin(a)*38)+'%';
-    d.innerHTML=`<b>${e.icon}</b>${e.name}`;
+    d.style.borderColor=rarCol(e.rar);
+    d.innerHTML=`<b>${have?e.icon:'🔒'}</b>${e.name}`;
     d.addEventListener('click',()=>{
       $('#emotewheel').classList.remove('on');
-      if(!owns('emote',e.id)){ toast('Locked — buy it in the shop'); return; }
+      if(!have){ toast('Locked — buy it in the shop'); return; }
       if(mode==='match'){ P.emote=e.id; P.emoteT=4; } else lobbyEmote(e.id);
     });
     ring.appendChild(d);
   });
-  $('#emotewheel').addEventListener('click',e=>{ if(e.target.id==='emotewheel') e.currentTarget.classList.remove('on'); });
+}
+function toggleEmoteWheel(){
+  const w=$('#emotewheel');
+  if(!w.classList.contains('on')) buildEmoteWheel();
+  w.classList.toggle('on');
 }
 const MODES=[
   {name:'BATTLE ROYALE', sub:'ZERO BUILD', c1:'#ff9b2f',c2:'#ff3d7f', build:false},
