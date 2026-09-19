@@ -757,7 +757,7 @@ function animChar(ch,dt,st){
   const a=ch.anim; a.t+=dt;
   const t=a.t, sp=st.speed||0, air=st.air, aim=st.aim, emote=st.emote;
   // choreographed emotes need their own clock so they always start on beat 1
-  if(emote!==a.playing){ a.playing=emote; a.eT=0; a.rb=null; }
+  if(emote!==a.playing){ a.playing=emote; a.eT=0; }
   if(emote) a.eT+=dt;
   const L=ch.armL,R=ch.armR,lL=ch.legL,lR=ch.legR;
   const set=(o,x,y,z)=>{ o.rotation.set(x,y||0,z||0); };
@@ -801,65 +801,30 @@ function animChar(ch,dt,st){
       set(lL.hp,-1.5); set(lR.hp,-1.5); set(lL.kn,1.4); set(lR.kn,1.4);
       set(L.sh,-0.6,0,0.7); set(R.sh,-0.6,0,-0.7); set(L.el,-1.2); set(R.el,-1.2);
     } else if(e==='rage'){
-      /* 8-beat routine on the emote's own clock: 4 beats of headbang + fist pumps,
-         2 of arms overhead, 2 of forward slams. Every joint is a blended BASE pose
-         plus a raw ACCENT, so segment changes stay smooth while the hits stay sharp. */
-      const BPM=152, beat=a.eT*BPM/60;
-      const frac=beat-Math.floor(beat), RISE=0.12, pre=1-frac;
-      const hit = pre<RISE ? 1-pre/RISE : Math.exp(-6.0*frac);  // winds up, peaks ON the beat, decays
-      const seg=Math.floor(beat+RISE)%8;          // pose swaps during the windup, never mid-strike
-      const lead=(Math.floor(beat+RISE)%2)===0;
-      const sway=Math.sin(beat*Math.PI*0.5);
-      const kb=clamp(dt*16,0,1);
-      const stL=lead?hit:0, stR=lead?0:hit;
+      /* Sustained two-handed overhead hold with a bounce, locked to the 109 BPM
+         track. The drive comes from the legs: body sinks ON the beat and floats
+         back up between, arms press up as it rises. */
+      const BPM=109, beat=a.eT*BPM/60, frac=beat-Math.floor(beat);
+      const dip=0.5+0.5*Math.cos(beat*TAU);     // 1 at the beat (lowest), 0 between
+      const kick=Math.exp(-7*frac);             // extra snap right on the beat
+      const push=Math.exp(-5*frac);             // arm press
+      const sway=Math.sin(beat*Math.PI*0.5);    // slow 4-beat weight shift
 
-      const b={hipX:0,hipYaw:sway*0.34,hipZ:-sway*0.12,head:0.30,headZ:sway*0.20,
-               shL:-1.10,shR:-1.10,shZ:0.52,elL:-1.85,elR:-1.85,
-               hpL:0.06+sway*0.10,hpR:0.06-sway*0.10,knL:-0.30,knR:-0.30};
-      const ac={hipX:0,head:0,shL:0,shR:0,elL:0,elR:0,hpL:0,hpR:0,knL:0,knR:0};
-      let hipY=0.92-0.19*hit;
+      ch.hips.position.y=0.95-0.11*dip-0.035*kick;
+      ch.hips.position.x=sway*0.05;
+      ch.hips.rotation.set(0.04+0.05*dip, sway*0.13, -sway*0.07);
+      ch.headG.rotation.set(0.05-0.14*dip, 0, sway*0.07);
 
-      if(seg<4){                                  // headbang + alternating fist pumps
-        ac.head=-1.30*hit;
-        ac.shL= 1.45*stL; ac.shR= 1.45*stR;
-        ac.elL= 1.30*stL; ac.elR= 1.30*stR;
-        ac.hpL= 0.62*stL; ac.hpR= 0.62*stR;
-        ac.knL=-0.95*stL; ac.knR=-0.95*stR;
-      } else if(seg<6){                           // arms overhead, punching up on the beat
-        b.head=0.42; b.headZ=0; b.hipX=0.18; b.shZ=0.72;
-        b.shL=-2.42; b.shR=-2.42; b.elL=-0.70; b.elR=-0.70;
-        b.hpL=0.06; b.hpR=0.06;
-        ac.head=-0.55*hit; ac.hipX=-0.10*hit;
-        ac.shL=-0.62*hit; ac.shR=-0.62*hit;
-        ac.elL= 0.42*hit; ac.elR= 0.42*hit;
-        ac.hpL= 0.30*hit; ac.hpR= 0.30*hit;
-        ac.knL=-0.60*hit; ac.knR=-0.60*hit;
-        hipY=0.98-0.19*hit;
-      } else {                                    // two hard forward slams
-        b.head=0.10; b.headZ=0; b.hipX=-0.10; b.hipYaw=0; b.hipZ=0; b.shZ=0.28;
-        b.shL=-0.30; b.shR=-0.30; b.elL=-0.50; b.elR=-0.50;
-        b.hpL=0.14; b.hpR=0.14; b.knL=-0.34; b.knR=-0.34;
-        ac.head=-1.05*hit; ac.hipX=-0.32*hit;
-        ac.shL= 2.00*hit; ac.shR= 2.00*hit;
-        ac.elL=-0.55*hit; ac.elR=-0.55*hit;
-        ac.hpL= 0.34*hit; ac.hpR= 0.34*hit;
-        ac.knL=-0.70*hit; ac.knR=-0.70*hit;
-      }
+      // arms locked overhead in a wide V; -z on the left limb is what splays it OUT
+      const shX=-2.92-0.10*push+0.14*dip, splay=0.62*(1+0.10*dip);
+      set(L.sh, shX,0,-splay); set(R.sh, shX,0, splay);
+      const elX=-0.08-0.20*dip+0.10*push;
+      set(L.el, elX); set(R.el, elX);
 
-      if(!a.rb) a.rb={};
-      const bl=(n,v)=>{ a.rb[n] = a.rb[n]===undefined? v : lerp(a.rb[n],v,kb); return a.rb[n]; };
-      ch.hips.position.y=hipY;
-      ch.hips.position.x=sway*0.06;
-      ch.hips.rotation.set(bl('hipX',b.hipX)+ac.hipX, bl('hipYaw',b.hipYaw), bl('hipZ',b.hipZ));
-      ch.headG.rotation.set(bl('head',b.head)+ac.head, 0, bl('headZ',b.headZ));
-      L.sh.rotation.set(bl('shL',b.shL)+ac.shL, 0,  bl('shZ',b.shZ));
-      R.sh.rotation.set(bl('shR',b.shR)+ac.shR, 0, -a.rb.shZ);
-      L.el.rotation.set(bl('elL',b.elL)+ac.elL,0,0);
-      R.el.rotation.set(bl('elR',b.elR)+ac.elR,0,0);
-      lL.hp.rotation.set(bl('hpL',b.hpL)+ac.hpL,0,0);
-      lR.hp.rotation.set(bl('hpR',b.hpR)+ac.hpR,0,0);
-      lL.kn.rotation.set(bl('knL',b.knL)+ac.knL,0,0);
-      lR.kn.rotation.set(bl('knR',b.knR)+ac.knR,0,0);
+      // wide planted stance, knees driving the bounce
+      lL.hp.rotation.set(0.05+0.24*dip,0,-0.26);
+      lR.hp.rotation.set(0.05+0.24*dip,0, 0.26);
+      set(lL.kn,-0.18-0.52*dip); set(lR.kn,-0.18-0.52*dip);
     }
     return;
   }
@@ -1703,7 +1668,7 @@ function startMatch(){
   P.pos.set(0,200,0); P.vel.set(0,0,0); P.hp=100; P.shield=0; P.kills=0; P.alive=true;
   P.mats={wood:100,brick:0,metal:0}; P.inv=[null,null,null,null,null]; P.slot=0;
   P.ammoRes={light:120,medium:120,heavy:20,shell:30};
-  P.reloading=0; P.healing=0; P.buildMode=false; P.aim=false; P.glide=false; P.emote=null;
+  P.reloading=0; P.healing=0; P.buildMode=false; P.aim=false; P.glide=false; P.emote=null; stopEmoteMusic();
   P.yaw=rnd(0,TAU); P.pitch=-0.15; P.phase='bus'; P.camDist=3.2;
   matchT=0; stormPhase=0; stormTimer=14; alive=24; placed=24; matchGems=0; camShake=0;
 
@@ -2306,6 +2271,75 @@ function sfx(kind){
   }catch(e){}
 }
 
+/* ---------- procedural emote music ----------
+   Same rule as the art in this game: nothing is imported, it is all built in
+   code. This is an original 109 BPM loop written to land on the Rage Quake
+   bounce — kick on every beat, 808 on every other, hats on the 8ths. */
+let emoteMusic=null, noiseBuf=null;
+function noiseBuffer(){
+  if(noiseBuf) return noiseBuf;
+  const n=Math.floor(actx.sampleRate*0.4), b=actx.createBuffer(1,n,actx.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
+  return noiseBuf=b;
+}
+const EMOTE_BPM={rage:109};
+function startEmoteMusic(id,dur){
+  stopEmoteMusic();
+  const bpm=EMOTE_BPM[id]; if(!bpm) return;
+  try{
+    if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') actx.resume();
+    const t0=actx.currentTime+0.05, spb=60/bpm, beats=Math.ceil(dur/spb);
+    const bus=actx.createGain(); bus.gain.value=0.8; bus.connect(actx.destination);
+    const STEPS=[0,0,3,-2];                       // minor-ish movement, one step per bar
+    const hz=st=>55*Math.pow(2,st/12);
+    for(let i=0;i<beats;i++){
+      const t=t0+i*spb, st=STEPS[Math.floor(i/4)%STEPS.length];
+      { const o=actx.createOscillator(), g=actx.createGain();      // kick
+        o.type='sine'; o.frequency.setValueAtTime(140,t);
+        o.frequency.exponentialRampToValueAtTime(42,t+0.13);
+        g.gain.setValueAtTime(0.9,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.20);
+        o.connect(g); g.connect(bus); o.start(t); o.stop(t+0.22); }
+      if(i%2===0){                                                 // sliding 808
+        const o=actx.createOscillator(), g=actx.createGain(), f=actx.createBiquadFilter();
+        o.type='sawtooth'; f.type='lowpass';
+        f.frequency.setValueAtTime(420,t); f.frequency.exponentialRampToValueAtTime(140,t+spb*1.6);
+        o.frequency.setValueAtTime(hz(st-12),t); o.frequency.exponentialRampToValueAtTime(hz(st),t+0.10);
+        g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.42,t+0.03);
+        g.gain.exponentialRampToValueAtTime(0.001,t+spb*1.7);
+        o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t+spb*1.8); }
+      for(let h=0;h<2;h++){                                        // hats, accent off the beat
+        const th=t+h*spb/2, sN=actx.createBufferSource(), g=actx.createGain(), f=actx.createBiquadFilter();
+        sN.buffer=noiseBuffer(); f.type='highpass'; f.frequency.value=7000;
+        g.gain.setValueAtTime(h?0.17:0.07,th);
+        g.gain.exponentialRampToValueAtTime(0.001,th+(h?0.055:0.035));
+        sN.connect(f); f.connect(g); g.connect(bus); sN.start(th); sN.stop(th+0.09); }
+      if(i%4===0) for(const det of [-7,7]){                        // dark stab on the bar
+        const o=actx.createOscillator(), g=actx.createGain(), f=actx.createBiquadFilter();
+        o.type='sawtooth'; o.detune.value=det; o.frequency.value=hz(st+12);
+        f.type='lowpass'; f.frequency.setValueAtTime(2600,t); f.frequency.exponentialRampToValueAtTime(500,t+0.5);
+        g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.13,t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.55);
+        o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t+0.6); }
+    }
+    const endAt=t0+dur;
+    bus.gain.setValueAtTime(0.8,Math.max(t0,endAt-0.25));
+    bus.gain.exponentialRampToValueAtTime(0.0001,endAt);
+    emoteMusic={bus, timer:setTimeout(stopEmoteMusic,(dur+0.35)*1000)};
+  }catch(e){}
+}
+function stopEmoteMusic(){
+  const m=emoteMusic; emoteMusic=null;
+  if(!m) return;
+  try{
+    clearTimeout(m.timer);
+    const g=m.bus.gain, t=actx.currentTime;
+    g.cancelScheduledValues(t); g.setValueAtTime(Math.max(0.0001,g.value||0.0001),t);
+    g.exponentialRampToValueAtTime(0.0001,t+0.12);
+    setTimeout(()=>{ try{ m.bus.disconnect(); }catch(e){} },250);
+  }catch(e){}
+}
+
 /* ============================================================
    UPDATE: PLAYER
    ============================================================ */
@@ -2390,7 +2424,7 @@ function updatePlayer(dt){
   if(P.reloading>0){ P.reloading-=dt; if(P.reloading<=0){ P.reloading=0; finishReload(); } }
   if(P.healing>0){ P.healing-=dt; if(P.healing<=0){ P.healing=0; finishHeal(); } }
   if(P.hurtT>0){ P.hurtT-=dt; $('#hurt').style.opacity=clamp(P.hurtT*2.2,0,.85); } else $('#hurt').style.opacity=0;
-  if(P.emote){ P.emoteT-=dt; if(P.emoteT<=0||inp.l>0.1) P.emote=null; }
+  if(P.emote){ P.emoteT-=dt; if(P.emoteT<=0||inp.l>0.1){ P.emote=null; stopEmoteMusic(); } }
 
   // auto pickup prompt
   const L=pickupNearby();
@@ -2950,7 +2984,8 @@ function renderCareer(){
   q.innerHTML=quests.map(([t,r])=>`<div class="statbox" style="text-align:left"><b style="font-size:12px">${t}</b><span>${r} GEMS</span></div>`).join('');
 }
 let lobbyEmoteT=0;
-function lobbyEmote(id){ if(!lobbyChar) return; lobbyChar.anim.emote=id||save.equip.emote; lobbyEmoteT=4.5; }
+function lobbyEmote(id){ if(!lobbyChar) return; const e=id||save.equip.emote;
+  lobbyChar.anim.emote=e; lobbyEmoteT=4.5; startEmoteMusic(e,4.5); }
 
 function bindMenu(){
   $$('.navtab').forEach(t=>t.addEventListener('click',()=>{
@@ -2999,7 +3034,7 @@ function buildEmoteWheel(){
     d.addEventListener('click',()=>{
       $('#emotewheel').classList.remove('on');
       if(!have){ toast('Locked — buy it in the shop'); return; }
-      if(mode==='match'){ P.emote=e.id; P.emoteT=4; } else lobbyEmote(e.id);
+      if(mode==='match'){ P.emote=e.id; P.emoteT=4; startEmoteMusic(e.id,4); } else lobbyEmote(e.id);
     });
     ring.appendChild(d);
   });
@@ -3044,7 +3079,7 @@ function tick(){
 
   if(mode==='lobby'){
     if(lobbyChar){
-      if(lobbyEmoteT>0){ lobbyEmoteT-=dt; if(lobbyEmoteT<=0) lobbyChar.anim.emote=null; }
+      if(lobbyEmoteT>0){ lobbyEmoteT-=dt; if(lobbyEmoteT<=0){ lobbyChar.anim.emote=null; stopEmoteMusic(); } }
       animChar(lobbyChar,dt,{speed:0,air:false,aim:false,emote:lobbyChar.anim.emote});
       lobbyChar.root.rotation.y=Math.sin(performance.now()/3600)*0.5+0.1;
     }
