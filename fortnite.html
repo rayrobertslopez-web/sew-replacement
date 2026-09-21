@@ -194,6 +194,12 @@
     text-align:right; font-weight:900; text-shadow:0 2px 4px #000; }
   #ammo b{ font-size:26px; } #ammo span{ font-size:13px; color:#c8d2e6; }
 
+  /* one AIM toggle that works for mouse, trackpad AND touch — right-click still works too */
+  #aimBtn{ position:absolute; right:calc(env(safe-area-inset-right) + 10px); bottom:calc(env(safe-area-inset-bottom) + 168px);
+    pointer-events:auto; cursor:pointer; background:rgba(8,8,16,.72); border:2px solid rgba(255,255,255,.22);
+    border-radius:8px; padding:7px 14px; font-weight:900; font-size:11.5px; letter-spacing:1px; color:#dfe4f0; }
+  #aimBtn.on{ border-color:#ffe066; background:rgba(60,48,10,.8); color:#ffe066; }
+
   #topright{ position:absolute; right:calc(env(safe-area-inset-right) + 10px); top:calc(env(safe-area-inset-top) + 8px);
     text-align:right; }
   #minimap{ width:min(26vw,124px); height:min(26vw,124px); border-radius:8px; border:2px solid rgba(255,255,255,.25);
@@ -210,6 +216,7 @@
   #killfeed div{ margin-top:3px; opacity:.95; }
   #dmglayer{ position:absolute; inset:0; overflow:hidden; }
   .dmg{ position:absolute; font-weight:900; font-size:17px; text-shadow:0 2px 3px #000; }
+  .dmg.pumphs{ font-size:30px; text-shadow:0 2px 4px #000,0 0 14px rgba(255,216,77,.8); }
   #hurt{ position:absolute; inset:0; box-shadow:inset 0 0 90px rgba(200,0,0,.8); opacity:0; }
 
   /* build + action buttons */
@@ -231,7 +238,6 @@
   #bFire{ right:calc(env(safe-area-inset-right) + 16px); bottom:calc(env(safe-area-inset-bottom) + 108px); width:84px; height:84px; font-size:13px; }
   #bJump{ right:calc(env(safe-area-inset-right) + 112px); bottom:calc(env(safe-area-inset-bottom) + 30px); width:60px; height:60px; }
   #bBuild{ right:calc(env(safe-area-inset-right) + 20px); bottom:calc(env(safe-area-inset-bottom) + 30px); width:60px; height:60px; }
-  #bAim{ right:calc(env(safe-area-inset-right) + 112px); bottom:calc(env(safe-area-inset-bottom) + 108px); width:56px; height:56px; }
   #bReload{ right:calc(env(safe-area-inset-right) + 16px); bottom:calc(env(safe-area-inset-bottom) + 204px); width:52px; height:52px; font-size:10px; }
   #bEmote{ left:calc(env(safe-area-inset-left) + 150px); bottom:calc(env(safe-area-inset-bottom) + 24px); width:46px; height:46px; font-size:16px; }
 
@@ -241,6 +247,7 @@
     #bars{ bottom:calc(env(safe-area-inset-bottom) + 330px); width:44vw; }
     #mats{ bottom:calc(env(safe-area-inset-bottom) + 332px); }
     #ammo{ bottom:calc(env(safe-area-inset-bottom) + 362px); }
+    #aimBtn{ bottom:calc(env(safe-area-inset-bottom) + 400px); }
     #buildbar{ bottom:calc(env(safe-area-inset-bottom) + 286px); }
     #bEmote{ left:calc(env(safe-area-inset-left) + 16px); bottom:calc(env(safe-area-inset-bottom) + 158px); }
     #pickup{ top:52%; }
@@ -396,12 +403,12 @@
     <div class="bb" data-b="exit">EXIT</div>
   </div>
   <div id="center"></div>
+  <div id="aimBtn">AIM</div>
   <div id="touch">
     <div id="stick"><u></u></div>
     <div class="abtn" id="bFire">FIRE</div>
     <div class="abtn" id="bJump">JUMP</div>
     <div class="abtn" id="bBuild">BUILD</div>
-    <div class="abtn" id="bAim">AIM</div>
     <div class="abtn" id="bReload">RELOAD</div>
     <div class="abtn" id="bEmote">🕺</div>
   </div>
@@ -953,7 +960,12 @@ function animChar(ch,dt,st){
     }
   } else if(sp>0.12){
     const f=t*(9+sp*5), amp=clamp(sp,0,1);
+    // lean into the actual direction you're moving, not just "some walk cycle"
+    const moveF=clamp(st.moveF||0,-1,1), moveR=clamp(st.moveR||0,-1,1);
     ch.hips.position.y=0.92-Math.abs(Math.sin(f))*0.05*amp;
+    ch.hips.rotation.x=lerp(ch.hips.rotation.x,-moveF*0.11*amp,dt*9);
+    ch.hips.rotation.z=lerp(ch.hips.rotation.z,-moveR*0.07*amp,dt*9);
+    ch.headG.rotation.x=lerp(ch.headG.rotation.x,moveF*0.05*amp,dt*8);
     set(lL.hp,Math.sin(f)*0.95*amp); set(lR.hp,-Math.sin(f)*0.95*amp);
     set(lL.kn,-Math.max(0,Math.cos(f))*0.9*amp); set(lR.kn,-Math.max(0,-Math.cos(f))*0.9*amp);
     if(aim){ aimPose(ch,a); }
@@ -1414,6 +1426,10 @@ function initGL(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,Q().dpr));
   renderer.setSize(innerWidth,innerHeight);
   renderer.shadowMap.enabled=Q().shadows; renderer.shadowMap.type=THREE.PCFShadowMap;
+  // vibrant visuals: filmic tone mapping instead of the flat default, with a touch of extra pop
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.18;
+  if(THREE.SRGBColorSpace) renderer.outputColorSpace=THREE.SRGBColorSpace;
   clock=new THREE.Clock();
 
   /* ---- lobby scene (the podium shot) ---- */
@@ -1515,7 +1531,7 @@ const P={
   inv:[null,null,null,null,null], slot:0, ammoRes:{light:0,medium:0,heavy:0,shell:0},
   fireT:0, reloading:0, healing:0, swing:0, alive:true, kills:0, phase:'bus',
   buildMode:false, buildPiece:'wall', buildMat:'wood', glide:false, char:null, heldModel:null,
-  emote:null, emoteT:0, aim:false, camDist:3.2, hurtT:0
+  emote:null, emoteT:0, aim:false, camDist:3.2, hurtT:0, recoilPitch:0, equipT:0
 };
 let bots=[], crackedCount=0, bus=null, storm=null, alive=24, matchT=0, stormPhase=0, stormTimer=0,
     stormCenter=new THREE.Vector3(), stormR=260, stormTargetR=260, stormTargetC=new THREE.Vector3(),
@@ -1535,14 +1551,15 @@ function clearScene(){
 function buildMatchWorld(){
   clearScene();
   const q=Q();
-  scene.background=new THREE.Color(0x87c6ef);
-  scene.fog=new THREE.Fog(0x9ccbe8,q.fogNear,q.fogFar);
+  scene.background=new THREE.Color(0x74c2f2);
+  scene.fog=new THREE.Fog(0x8fd0f5,q.fogNear,q.fogFar);
   camera.far=q.far; camera.updateProjectionMatrix();
   world=new THREE.Group(); scene.add(world);
   dyn=new THREE.Group(); scene.add(dyn);
 
-  scene.add(new THREE.HemisphereLight(0xbcd9ff,0x5a6b3a,0.95));
-  sun=new THREE.DirectionalLight(0xfff3d6,1.45);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff,0x6f8a45,1.15));
+  const rim=new THREE.DirectionalLight(0xbfe0ff,0.35); rim.position.set(-60,50,-80); scene.add(rim);
+  sun=new THREE.DirectionalLight(0xfff2cf,1.75);
   sun.position.set(80,140,40); sun.castShadow=q.shadows;
   sun.shadow.mapSize.set(q.shMap,q.shMap);
   sun.shadow.camera.near=10; sun.shadow.camera.far=300;
@@ -1752,7 +1769,6 @@ function bindTouch(){
   };
   hold($('#bFire'),()=>{ firing=true; },()=>{ firing=false; });
   hold($('#bJump'),()=>{ keys.Space=true; setTimeout(()=>keys.Space=false,120); });
-  hold($('#bAim'),()=>{ P.aim=!P.aim; });
   hold($('#bReload'),()=>{ startReload(); });
   hold($('#bBuild'),()=>{ P.buildMode=!P.buildMode; syncBuildUI(); });
   hold($('#bEmote'),()=>{ toggleEmoteWheel(); });
@@ -1858,6 +1874,7 @@ function selectSlot(i){
   P.slot=i; P.reloading=0; P.healing=0; P.aim=false; equipHeld(); syncHotbar();
 }
 function heldItem(){ return P.inv[P.slot]; }
+const EQUIP_DUR=0.32;
 function equipHeld(){
   if(P.heldModel){ P.heldModel.parent&&P.heldModel.parent.remove(P.heldModel); P.heldModel=null; }
   const it=heldItem();
@@ -1866,7 +1883,21 @@ function equipHeld(){
   else if(it.cat==='gun'){ m=buildGun(it.id,it.rar); m.rotation.set(0,Math.PI/2,-Math.PI/2); }
   else { m=buildHealItem(it.id); m.rotation.set(0,0,-Math.PI/2); }
   m.traverse(o=>{ o.userData.nohit=true; });
+  // remember the resting pose so the pull-out animation has something to ease FROM
+  m.userData.restPos=m.position.clone(); m.userData.restRot=m.rotation.clone();
   P.char.armR.hand.add(m); P.heldModel=m;
+  P.equipT=EQUIP_DUR;
+}
+/* swings the just-equipped gun/pickaxe up from a lowered, rotated-away pose into its
+   resting grip over EQUIP_DUR seconds — runs every frame a switch is still settling */
+function updateEquipAnim(dt){
+  if(P.equipT<=0 || !P.heldModel) return;
+  P.equipT=Math.max(0,P.equipT-dt);
+  const k=P.equipT/EQUIP_DUR; // 1 -> 0
+  const ease=k*k*(3-2*k);     // smoothstep, so it snaps in rather than crawling to a stop
+  const u=P.heldModel.userData, r=u.restRot, p=u.restPos;
+  P.heldModel.rotation.set(r.x - ease*1.1, r.y, r.z - ease*0.5);
+  P.heldModel.position.set(p.x, p.y - ease*0.30, p.z - ease*0.16);
 }
 function addItem(item){
   if(item.cat==='gun'){
@@ -1940,7 +1971,9 @@ function fireWeapon(){
   it.ammo--;
   P.char.anim.recoil=0.35;
   camShake=Math.max(camShake, w.dmg>60?0.5:0.22);
-  P.pitch=clamp(P.pitch+ (w.dmg>60?0.055:0.018),-1.25,1.2);
+  // a recoil KICK, separate from the true mouse-aim pitch, so it settles back down
+  // instead of permanently dragging your aim upward on automatic weapons
+  P.recoilPitch=clamp(P.recoilPitch+(w.dmg>60?0.055:0.018),0,0.62);
 
   const pellets=w.pellets||1;
   const spread=(P.aim?w.ads:w.spread)*(P.vel.length()>4?1.7:1);
@@ -1974,8 +2007,10 @@ function shootRay(origin,dir,w,rar,muzzle){
   const prop=propAt(hit);
   if(o.userData.bot){
     const head=!!o.userData.head;
-    const dmg=Math.round(w.dmg*RARMULT[rar]*(head?w.hs:1)*falloff);
-    hitBot(o.userData.bot,dmg,head);
+    // the pump shotgun headshot: one pellet on the head is a guaranteed 200 and a kill
+    const pumpHS = head && w===WEAPONS.pump;
+    const dmg = pumpHS ? 200 : Math.round(w.dmg*RARMULT[rar]*(head?w.hs:1)*falloff);
+    hitBot(o.userData.bot,dmg,head,pumpHS);
   } else if(prop){
     damageProp(prop, Math.round(w.dmg*0.35), hit.point);
   } else if(o.userData.structure){
@@ -1986,8 +2021,17 @@ function shootRay(origin,dir,w,rar,muzzle){
 }
 function isDescendant(o,root){ let p=o; while(p){ if(p===root) return true; p=p.parent; } return false; }
 
-function hitBot(b,dmg,head){
+function hitBot(b,dmg,head,pumpHS){
   if(!b.alive) return;
+  if(pumpHS){
+    // 200 always kills outright (max shield+hp pool is 100+100), shield included
+    b.shield=0; b.hp=0;
+    showDamage(b.pos.clone().add(new THREE.Vector3(0,1.9,0)), dmg, head, true);
+    hitmarker(head,true);
+    centerMsg('PUMP HEADSHOT','200 — one shot',1400);
+    killBot(b,true);
+    return;
+  }
   let d=dmg;
   if(b.shield>0){ const s=Math.min(b.shield,d); b.shield-=s; d-=s; }
   b.hp-=d;
@@ -2341,14 +2385,16 @@ function impact(p,color){
   g.position.copy(p); g.userData.nohit=true; scene.add(g);
   fx.push({o:g,t:0,life:.25,kind:'pop'});
 }
-function hitmarker(head){
-  const h=$('#hitmark'); h.style.opacity=1; h.style.filter=head?'drop-shadow(0 0 3px #ff4d4d)':'none';
-  clearTimeout(hitmarker._t); hitmarker._t=setTimeout(()=>h.style.opacity=0,140);
+function hitmarker(head,pumpHS){
+  const h=$('#hitmark'); h.style.opacity=1;
+  h.style.filter = pumpHS?'drop-shadow(0 0 6px #ffd84d) drop-shadow(0 0 2px #fff)'
+    : head?'drop-shadow(0 0 3px #ff4d4d)':'none';
+  clearTimeout(hitmarker._t); hitmarker._t=setTimeout(()=>h.style.opacity=0,pumpHS?260:140);
 }
-function showDamage(worldPos,amount,head){
+function showDamage(worldPos,amount,head,pumpHS){
   const el=document.createElement('div');
-  el.className='dmg'; el.textContent=amount;
-  el.style.color= head?'#ff4d4d':(amount>60?'#ffd84d':'#ffffff');
+  el.className='dmg'+(pumpHS?' pumphs':''); el.textContent=amount;
+  el.style.color= pumpHS?'#ffd84d':head?'#ff4d4d':(amount>60?'#ffd84d':'#ffffff');
   $('#dmglayer').appendChild(el);
   dmgNums.push({el,p:worldPos.clone(),t:0});
 }
@@ -2560,7 +2606,7 @@ function updatePlayer(dt){
       P.pos.y=gy; P.vel.set(0,0,0); P.phase='ground'; P.glide=false; P.glider.visible=false;
       centerMsg('LANDED','Open chests · loot up',1500);
     }
-    P.char.root.position.copy(P.pos); P.char.root.rotation.y=P.yaw;
+    P.char.root.position.copy(P.pos); P.char.root.rotation.y=P.yaw+Math.PI;
     animChar(P.char,dt,{speed:0,air:true,glide:P.glide,aim:false});
     return;
   }
@@ -2579,16 +2625,19 @@ function updatePlayer(dt){
 
   P.char.root.visible=true;
   P.char.root.position.copy(P.pos);
-  P.char.root.rotation.y=lerp(P.char.root.rotation.y, P.yaw, clamp(dt*14,0,1));
+  P.char.root.rotation.y=lerp(P.char.root.rotation.y, P.yaw+Math.PI, clamp(dt*14,0,1));
   const spd=Math.hypot(P.vel.x,P.vel.z)/8.2;
   if(P.swing>0) P.swing=Math.max(0,P.swing-dt*3.2);
   animChar(P.char,dt,{speed:spd,air:!P.grounded,aim:P.aim||(heldItem()&&heldItem().cat==='gun'&&!P.buildMode),
-    crouch:P.crouch,emote:P.emote,swing:P.swing});
+    crouch:P.crouch,emote:P.emote,swing:P.swing,moveF:-inp.z,moveR:inp.x});
+  updateEquipAnim(dt);
 
   // timers
+  P.recoilPitch=lerp(P.recoilPitch,0,clamp(dt*6.5,0,1));
   if(P.reloading>0){ P.reloading-=dt; if(P.reloading<=0){ P.reloading=0; finishReload(); } }
   if(P.healing>0){ P.healing-=dt; if(P.healing<=0){ P.healing=0; finishHeal(); } }
   if(P.hurtT>0){ P.hurtT-=dt; $('#hurt').style.opacity=clamp(P.hurtT*2.2,0,.85); } else $('#hurt').style.opacity=0;
+  $('#aimBtn').classList.toggle('on',P.aim);
   if(P.emote){ P.emoteT-=dt; if(P.emoteT<=0||inp.l>0.1){ P.emote=null; stopEmoteMusic(); } }
 
   // auto pickup prompt
@@ -2629,10 +2678,11 @@ function updateCamera(dt){
   const dist = scope?0.01 : (P.aim?(portrait?2.0:1.7):(portrait?3.9:3.3));
   P.camDist=lerp(P.camDist,dist,clamp(dt*10,0,1));
   const side = scope?0 : (P.aim?0.45:0.5);
+  const viewPitch=clamp(P.pitch+P.recoilPitch,-1.25,1.2);
   const dir=new THREE.Vector3(
-    Math.sin(P.yaw)*Math.cos(P.pitch),
-    -Math.sin(P.pitch),
-    Math.cos(P.yaw)*Math.cos(P.pitch));
+    Math.sin(P.yaw)*Math.cos(viewPitch),
+    -Math.sin(viewPitch),
+    Math.cos(P.yaw)*Math.cos(viewPitch));
   const rgt=new THREE.Vector3(Math.cos(P.yaw),0,-Math.sin(P.yaw));
   let want=camTgt.clone().addScaledVector(dir,P.camDist).addScaledVector(rgt,side).add(new THREE.Vector3(0,0.1,0));
   // pull in through walls (cheap ray vs nearby boxes, no scene raycast)
@@ -2756,7 +2806,7 @@ function updateBots(dt){
       if(b.hp<=0) killBot(b,false);
     }
     b.char.root.position.copy(b.pos);
-    b.char.root.rotation.y=lerp(b.char.root.rotation.y,b.yaw,clamp(dt*8,0,1));
+    b.char.root.rotation.y=lerp(b.char.root.rotation.y,b.yaw+Math.PI,clamp(dt*8,0,1));
     const q=Q();
     b.char.root.visible = dToP<q.botDraw;
     if(b.char.root.visible && dToP<q.botAnim){
@@ -3222,6 +3272,7 @@ function bindMenu(){
   $('#aboutshop').addEventListener('click',()=>toast('Shop rotates every day'));
   $('#chipEmote').addEventListener('click',()=>lobbyEmote());
   $('#pickup').addEventListener('click',()=>{ if(mode==='match') interact(); });
+  $('#aimBtn').addEventListener('click',()=>{ if(mode==='match') P.aim=!P.aim; });
   $('#featured').addEventListener('click',()=>{ MODES.forEach(m=>m.on=false); setMode(0); });
   $$('#buildbar .bb').forEach(b=>b.addEventListener('click',()=>{
     if(b.dataset.b==='exit'){ P.buildMode=false; syncBuildUI(); return; }
